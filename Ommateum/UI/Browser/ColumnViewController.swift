@@ -48,11 +48,11 @@ final class ColumnViewController: NSViewController, BrowserContent {
     private var sort = SortSpec()
     private var monitors: [URL: DirectoryMonitor] = [:]
     private var mouseMonitor: Any?
-    /// The node being edited; NSBrowser only starts an edit for it, so plain clicks never begin one.
+    /// The node being edited. Refreshes are held back meanwhile, because reloading a column would discard the edit.
     private var renamingNode: ColumnNode?
     /// A new item waiting for its column to load before its rename can start.
     private var pendingRename: URL?
-    private var renameObserver: NSObjectProtocol?
+    private let renameField = NSTextField()
 
     override func viewDidAppear() {
         super.viewDidAppear()
@@ -167,23 +167,7 @@ final class ColumnViewController: NSViewController, BrowserContent {
                   let row = children.firstIndex(where: { $0.url.path == url.path }) else { continue }
             pendingRename = nil
             browser.selectRow(row, inColumn: column)
-            renamingNode = children[row]
-            browser.editItem(at: browser.indexPath(forColumn: column).appending(row), with: nil, select: true)
-            let name = children[row].item?.name ?? url.lastPathComponent
-            guard let editor = view.window?.firstResponder as? NSText else {
-                renamingNode = nil
-                return
-            }
-            editor.selectedRange = Formatters.baseNameRange(of: name, isDirectory: children[row].item?.isNavigable ?? false)
-            // Escape never reaches setObjectValue, and refreshes stay held back until renamingNode is cleared.
-            renameObserver = NotificationCenter.default.addObserver(forName: NSText.didEndEditingNotification, object: editor, queue: .main) { [weak self] _ in
-                MainActor.assumeIsolated {
-                    guard let self else { return }
-                    self.renamingNode = nil
-                    if let observer = self.renameObserver { NotificationCenter.default.removeObserver(observer) }
-                    self.renameObserver = nil
-                }
-            }
+            startEditing(children[row], frame: browser.frame(ofRow: row, inColumn: column))
             return
         }
         pendingRename = url // not listed yet; load(_:) retries
@@ -230,6 +214,22 @@ final class ColumnViewController: NSViewController, BrowserContent {
             return contentDelegate?.contentMenu(for: selectedItems)
         }
         return contentDelegate?.contentMenu(for: [])
+    }
+
+    /// `NSBrowser.editItem` does not start an edit for these item-based columns, so a field is laid over the row.
+    private func startEditing(_ node: ColumnNode, frame: NSRect) {
+        renamingNode = node
+        let name = node.item?.name ?? node.url.lastPathComponent
+        renameField.stringValue = name
+        renameField.delegate = self
+        renameField.font = .systemFont(ofSize: NSFont.systemFontSize)
+        renameField.lineBreakMode = .byClipping
+        renameField.cell?.isScrollable = true
+        // Keeps the icon visible, as the other views do while renaming.
+        renameField.frame = NSRect(x: frame.minX + 24, y: frame.midY - 11, width: max(frame.width - 40, 80), height: 22)
+        browser.addSubview(renameField)
+        view.window?.makeFirstResponder(renameField)
+        renameField.currentEditor()?.selectedRange = Formatters.baseNameRange(of: name, isDirectory: node.item?.isNavigable ?? false)
     }
 
     private func renameSelection() {
@@ -294,15 +294,7 @@ extension ColumnViewController: NSBrowserDelegate {
         cell.isLeaf = !item.isNavigable
     }
 
-    func browser(_ browser: NSBrowser, shouldEditItem item: Any?) -> Bool {
-        (item as? ColumnNode) === renamingNode && renamingNode != nil
-    }
-
-    func browser(_ browser: NSBrowser, setObjectValue object: Any?, forItem item: Any?) {
-        renamingNode = nil
-        guard let fileItem = (item as? ColumnNode)?.item, let name = object as? String, name != fileItem.name else { return }
-        _ = contentDelegate?.contentRename(fileItem, to: name)
-    }
+    func browser(_ browser: NSBrowser, shouldEditItem item: Any?) -> Bool { false }
 
     func browser(_ browser: NSBrowser, typeSelectStringForRow row: Int, inColumn column: Int) -> String? {
         parentNode(inColumn: column)?.children?[row].item?.name
@@ -343,6 +335,30 @@ extension ColumnViewController: NSBrowserDelegate {
         row = -1
         operation = .above
         return parent.url
+    }
+}
+
+extension ColumnViewController: NSTextFieldDelegate {
+    func controlTextDidEndEditing(_ obj: Notification) {
+        guard let node = renamingNode, let item = node.item else { return }
+        let movement = (obj.userInfo?["NSTextMovement"] as? Int).flatMap(NSTextMovement.init(rawValue:))
+        finishEditing()
+        if movement != .cancel, renameField.stringValue != item.name {
+            _ = contentDelegate?.contentRename(item, to: renameField.stringValue)
+        }
+    }
+
+    func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
+        guard commandSelector == #selector(NSResponder.cancelOperation(_:)) else { return false }
+        finishEditing()
+        return true
+    }
+
+    private func finishEditing() {
+        renamingNode = nil
+        renameField.abortEditing()
+        renameField.removeFromSuperview()
+        view.window?.makeFirstResponder(browser)
     }
 }
 

@@ -69,7 +69,7 @@ Dropbox「コピーを転送」のような外部連携は、ブラウザやメ�
 - `FileActionProvider`（`Ommateum/Actions/FileAction.swift`）: 選択項目（`FileActionContext`）を受け取り、
   使える `FileAction`（タイトル＋実行処理）を返す。`FileActionRegistry` に登録されたプロバイダの結果が、
   コンテキストメニューの「共有」の下と「ファイル ▸ アクション」に並ぶ。
-- 組み込み: `DropboxTransferActionProvider`（Dropbox の共有拡張を直接実行。未インストールなら何も返さない）。
+- 組み込み: `OpenInTerminalActionProvider`、`DropboxTransferActionProvider`（Dropbox の共有拡張を直接実行。未インストールなら何も返さない）。
   新しい連携は `FileActionProvider` を実装した型を1ファイル追加し、`FileActionRegistry.shared` に加えるだけでよい。
 - ユーザー定義: `CustomActionsProvider` が `~/Library/Application Support/Ommateum/actions.json` を読み、
   アプリを再ビルドせずにアクションを追加できる（スクリプト / ショートカット / 共有サービス）。書式は [actions.md](actions.md)。
@@ -78,3 +78,9 @@ Dropbox「コピーを転送」のような外部連携は、ブラウザやメ�
   同じ Team ID で署名されていないコードは読み込めない。読み込むには `disable-library-validation` で検証を外す必要があり、
   任意のコードがアプリ内で動くことになるため採用しない。外部の処理は別プロセス（スクリプト・ショートカット）か、
   macOS の公開拡張（共有拡張・サービス）経由で呼ぶ。
+
+## コピーの実行
+
+`FileManager.copyItem` は進捗も中止もできないため、`FileCopier` が `copyfile(3)` を使う（属性・拡張属性・シンボリックリンクを保持し、APFS では複製）。
+進捗は `TransferProgress`（ロック付き）に書き、`TransferProgressPanel` が 0.1 秒ごとに読む。0.4 秒以内に終わる操作ではパネルを出さない。
+別ボリュームへの移動はコピー完了後に元を削除する。

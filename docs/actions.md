@@ -53,6 +53,8 @@
 | `name` | shortcut / shareService | ショートカット名 / 共有サービス名（「共有」メニューに出る名前。例: `AirDrop`, `Dropbox Transfer`） |
 | `appliesTo` | | `any`（既定）/ `files` / `folders` |
 | `extensions` | | 対象の拡張子（大文字小文字を区別しない）。指定するとフォルダには出ない |
+| `whenNoSelection` | | `true` なら何も選択していないときも表示し、表示中のフォルダを対象にする |
+| `shortcut` | | キーボードショートカット。例: `"cmd+shift+k"`。`cmd` か `ctrl` が必須 |
 
 `arguments` の置き換え:
 

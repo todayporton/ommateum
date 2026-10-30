@@ -94,6 +94,8 @@ private final class TransferRow: NSView {
         text.orientation = .vertical
         text.alignment = .leading
         text.spacing = 4
+        text.setContentHuggingPriority(.init(1), for: .horizontal)
+        stop.setContentHuggingPriority(.required, for: .horizontal)
         bar.widthAnchor.constraint(equalTo: text.widthAnchor).isActive = true
         let row = NSStackView(views: [text, stop])
         row.orientation = .horizontal

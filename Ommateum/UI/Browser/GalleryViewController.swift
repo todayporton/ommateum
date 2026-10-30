@@ -90,14 +90,20 @@ final class GalleryViewController: NSViewController, BrowserContent {
 
     func select(_ urls: Set<URL>) {
         strip.select(urls)
+        selectFirstIfEmpty()
         updatePreview()
+    }
+
+    /// The gallery always has something to preview, as in Finder.
+    private func selectFirstIfEmpty() {
+        if strip.selectedItems.isEmpty, let first = strip.displayedItems.first {
+            strip.select([first.url])
+        }
     }
 
     func show(_ items: [FileItem], in directory: URL, sort: SortSpec) {
         strip.show(items, in: directory, sort: sort)
-        if strip.selectedItems.isEmpty, let first = strip.displayedItems.first {
-            strip.select([first.url])
-        }
+        selectFirstIfEmpty()
         updatePreview()
     }
 }

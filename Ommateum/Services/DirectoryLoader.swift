@@ -7,7 +7,19 @@ enum DirectoryLoader {
             let options: FileManager.DirectoryEnumerationOptions = showHidden ? [] : [.skipsHiddenFiles]
             let urls = try FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: FileItem.resourceKeys, options: options)
             try Task.checkCancellation()
-            return urls.map { FileItem(url: $0, in: url) }.filter { showHidden || !$0.isHidden }
+            // Reading each item's metadata dominates in large folders, so do it in parallel.
+            let chunkSize = Swift.max(urls.count / ProcessInfo.processInfo.activeProcessorCount, 256)
+            let items = try await withThrowingTaskGroup(of: [FileItem].self) { group in
+                for start in stride(from: 0, to: urls.count, by: chunkSize) {
+                    let chunk = urls[start..<Swift.min(start + chunkSize, urls.count)]
+                    group.addTask {
+                        try Task.checkCancellation()
+                        return chunk.map { FileItem(url: $0, in: url) }
+                    }
+                }
+                return try await group.reduce(into: [FileItem]()) { $0 += $1 }
+            }
+            return items.filter { showHidden || !$0.isHidden }
         }.value
     }
 }
