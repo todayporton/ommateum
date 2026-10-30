@@ -34,6 +34,10 @@ struct CustomAction: Codable, Equatable {
     var appliesTo: Target?
     /// Only for files with these extensions (case-insensitive). Folders never match when set.
     var extensions: [String]?
+    /// Also offer the action when nothing is selected; it then receives the shown folder as its item.
+    var whenNoSelection: Bool?
+    /// Keyboard shortcut such as "cmd+shift+t". Must include cmd or ctrl.
+    var shortcut: String?
 
     func applies(to items: [(url: URL, isDirectory: Bool)]) -> Bool {
         guard !items.isEmpty else { return false }
@@ -77,8 +81,14 @@ final class CustomActionsProvider: FileActionProvider {
             let items = context.items.map { url in
                 (url: url, isDirectory: (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) ?? false)
             }
-            return definitions.filter { $0.applies(to: items) }.map { definition in
-                FileAction(title: definition.title) { context in CustomActionRunner.run(definition, context: context) }
+            return definitions.filter { definition in
+                items.isEmpty ? definition.whenNoSelection == true : definition.applies(to: items)
+            }.map { definition in
+                FileAction(title: definition.title, key: definition.shortcut.flatMap(KeyCombo.init)) { context in
+                    var context = context
+                    if context.items.isEmpty { context = FileActionContext(items: [context.directory], directory: context.directory, window: context.window) }
+                    CustomActionRunner.run(definition, context: context)
+                }
             }
         }
     }
@@ -104,8 +114,8 @@ final class CustomActionsProvider: FileActionProvider {
     func openForEditing() {
         if !FileManager.default.fileExists(atPath: fileURL.path) {
             let example = CustomActionsFile(actions: [
-                CustomAction(title: "ターミナルで開く", type: .script, command: "/usr/bin/open",
-                             arguments: ["-a", "Terminal", "{files}"], appliesTo: .folders),
+                CustomAction(title: "テキストエディットで開く", type: .script, command: "/usr/bin/open",
+                             arguments: ["-a", "TextEdit", "{files}"], appliesTo: .files),
             ])
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]

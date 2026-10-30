@@ -1,6 +1,6 @@
 import AppKit
 
-/// What an action operates on: the selected items of the active browser.
+/// What an action operates on: the selected items of the active browser (empty when nothing is selected).
 struct FileActionContext {
     let items: [URL]
     let directory: URL
@@ -11,6 +11,7 @@ struct FileActionContext {
 struct FileAction {
     let title: String
     var image: NSImage? = nil
+    var key: KeyCombo? = nil
     let perform: (FileActionContext) -> Void
 }
 
@@ -21,7 +22,7 @@ protocol FileActionProvider {
 }
 
 final class FileActionRegistry {
-    static let shared = FileActionRegistry(providers: [DropboxTransferActionProvider(), CustomActionsProvider.shared])
+    static let shared = FileActionRegistry(providers: [OpenInTerminalActionProvider(), DropboxTransferActionProvider(), CustomActionsProvider.shared])
 
     private(set) var providers: [any FileActionProvider]
 
@@ -34,8 +35,7 @@ final class FileActionRegistry {
     }
 
     func actions(for context: FileActionContext) -> [FileAction] {
-        guard !context.items.isEmpty else { return [] }
-        return providers.flatMap { $0.actions(for: context) }
+        providers.flatMap { $0.actions(for: context) }
     }
 
     func menuItems(for context: FileActionContext) -> [NSMenuItem] {
@@ -45,7 +45,37 @@ final class FileActionRegistry {
             item.target = target
             item.representedObject = target // keep the target alive with the item
             item.image = action.image
+            if let key = action.key {
+                item.keyEquivalent = key.character
+                item.keyEquivalentModifierMask = key.modifiers
+            }
             return item
         }
+    }
+}
+
+/// A keyboard shortcut written as text in actions.json, e.g. "cmd+shift+t".
+struct KeyCombo: Equatable {
+    let character: String
+    let modifiers: NSEvent.ModifierFlags
+
+    init?(_ text: String) {
+        var modifiers: NSEvent.ModifierFlags = []
+        var character: String?
+        for part in text.lowercased().split(separator: "+").map({ $0.trimmingCharacters(in: .whitespaces) }) {
+            switch part {
+            case "cmd", "command": modifiers.insert(.command)
+            case "shift": modifiers.insert(.shift)
+            case "opt", "option", "alt": modifiers.insert(.option)
+            case "ctrl", "control": modifiers.insert(.control)
+            default:
+                guard character == nil, part.count == 1 else { return nil }
+                character = part
+            }
+        }
+        // A bare letter would fire while typing to select a file.
+        guard let character, !modifiers.isDisjoint(with: [.command, .control]) else { return nil }
+        self.character = character
+        self.modifiers = modifiers
     }
 }

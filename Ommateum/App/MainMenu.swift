@@ -66,6 +66,7 @@ enum MainMenu {
         add(menu, "複製", #selector(FileBrowserViewController.duplicate(_:)), "d")
         add(menu, "エイリアスを作成", #selector(FileBrowserViewController.makeAlias(_:)), "a", [.command, .control])
         add(menu, "クイックルック", #selector(FileBrowserViewController.toggleQuickLook(_:)), "y")
+        add(menu, "情報を見る", #selector(FileBrowserViewController.showInfo(_:)), "i")
         add(menu, "ゴミ箱に入れる", #selector(FileBrowserViewController.moveToTrash(_:)), "\u{8}")
         menu.addItem(.separator())
         menu.addItem(BrowserMenus.tagSubmenu(target: nil))

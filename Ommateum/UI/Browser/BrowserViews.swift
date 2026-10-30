@@ -117,6 +117,8 @@ enum BrowserMenus {
             add("Finderで表示", #selector(FileBrowserViewController.revealInFinder(_:)))
             add("パスをコピー", #selector(FileBrowserViewController.copyPath(_:)), key: "c", modifiers: [.command, .option])
             add("サイドバーに追加", #selector(FileBrowserViewController.addToSidebar(_:)), key: "t", modifiers: [.command, .control])
+            add("情報を見る", #selector(FileBrowserViewController.showInfo(_:)), key: "i")
+            FileActionRegistry.shared.menuItems(for: browser.actionContext).forEach(menu.addItem)
             return menu
         }
 
@@ -136,6 +138,7 @@ enum BrowserMenus {
         add("複製", #selector(FileBrowserViewController.duplicate(_:)), key: "d")
         add("エイリアスを作成", #selector(FileBrowserViewController.makeAlias(_:)), key: "a", modifiers: [.command, .control])
         add("クイックルック", #selector(FileBrowserViewController.toggleQuickLook(_:)), key: "y")
+        add("情報を見る", #selector(FileBrowserViewController.showInfo(_:)), key: "i")
         menu.addItem(.separator())
         add("コピー", #selector(FileBrowserViewController.copy(_:)), key: "c")
         add("パスをコピー", #selector(FileBrowserViewController.copyPath(_:)), key: "c", modifiers: [.command, .option])

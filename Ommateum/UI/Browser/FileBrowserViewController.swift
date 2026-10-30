@@ -530,6 +530,11 @@ final class FileBrowserViewController: NSViewController, NSMenuItemValidation {
 
     @objc func toggleQuickLook(_ sender: Any?) { contentToggleQuickLook() }
 
+    @objc func showInfo(_ sender: Any?) {
+        let urls = selectedItems.map(\.url)
+        InfoPanelController.show(urls: urls.isEmpty ? [currentURL] : urls, undoManager: undoManager)
+    }
+
     @objc func addToSidebar(_ sender: Any?) {
         let folders = selectedItems.filter(\.isNavigable).map(\.url)
         for url in folders.isEmpty ? [currentURL] : folders {

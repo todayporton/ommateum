@@ -40,7 +40,8 @@ final class FileOperations {
     }
 
     /// Filled in by a background operation; read by its undo action.
-    private final class Outcome<Value> {
+    // nonisolated: as a main-actor generic class its deinit crashes the optimizer (Swift 6.3.3, Release builds).
+    private nonisolated final class Outcome<Value> {
         var value: Value
         init(_ value: Value) { self.value = value }
     }

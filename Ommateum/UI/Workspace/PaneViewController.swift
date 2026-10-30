@@ -83,6 +83,9 @@ final class PaneViewController: NSViewController {
         tabBar.translatesAutoresizingMaskIntoConstraints = false
         contentView.translatesAutoresizingMaskIntoConstraints = false
         contentView.pane = self
+        root.setAccessibilityElement(true)
+        root.setAccessibilityRole(.group)
+        root.setAccessibilityLabel("ペイン")
         root.addSubview(tabBar)
         root.addSubview(contentView)
         let height = tabBar.heightAnchor.constraint(equalToConstant: TabBarView.height)

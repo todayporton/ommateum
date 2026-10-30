@@ -60,4 +60,31 @@ struct CustomActionsTests {
         try FileManager.default.setAttributes([.modificationDate: Date().addingTimeInterval(5)], ofItemAtPath: file.path)
         #expect(provider.actions(for: context).map(\.title) == ["actions.json を読み込めません…"])
     }
+
+    @Test func parsesShortcuts() {
+        #expect(KeyCombo("cmd+shift+t") == KeyCombo("Shift + Command + T"))
+        #expect(KeyCombo("ctrl+opt+k")?.modifiers == [.control, .option])
+        #expect(KeyCombo("cmd+shift+t")?.character == "t")
+        #expect(KeyCombo("t") == nil) // would fire while typing
+        #expect(KeyCombo("shift+t") == nil)
+        #expect(KeyCombo("cmd+tt") == nil)
+    }
+
+    @Test func noSelectionActionsReceiveTheShownFolder() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("ommateum-tests-\(UUID())")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let file = dir.appendingPathComponent("actions.json")
+        try Data(#"{"version":1,"actions":[{"title":"Here","type":"shareService","name":"AirDrop","whenNoSelection":true,"shortcut":"cmd+shift+k"},{"title":"SelectionOnly","type":"shareService","name":"AirDrop"}]}"#.utf8).write(to: file)
+        let provider = CustomActionsProvider(fileURL: file)
+        let empty = provider.actions(for: FileActionContext(items: [], directory: dir, window: nil))
+        #expect(empty.map(\.title) == ["Here"])
+        #expect(empty.first?.key?.character == "k")
+        #expect(provider.actions(for: FileActionContext(items: [dir], directory: dir, window: nil)).count == 2)
+    }
+
+    @Test func infoPanelHelpers() {
+        #expect(InfoModel.modeString(0o754) == "rwxr-xr--")
+        #expect(InfoModel.parseTags(" 仕事, 重要、仕事 ,, ") == ["仕事", "重要"])
+    }
 }
