@@ -2,11 +2,12 @@ import AppKit
 
 protocol SidebarHost: AnyObject {
     func sidebarOpen(_ url: URL, inNewTab: Bool)
+    func sidebarOpenWorkspace(_ name: String, inNewWindow: Bool)
     var sidebarUndoManager: UndoManager? { get }
 }
 
 final class SidebarSection: NSObject {
-    enum Kind { case favorites, locations }
+    enum Kind { case favorites, locations, workspaces }
     let kind: Kind
     let title: String
     var entries: [SidebarEntry] = []
@@ -33,13 +34,23 @@ final class SidebarEntry: NSObject {
     }
 }
 
-/// Finder-style source list: 「よく使う項目」(user editable) and 「場所」(volumes, iCloud Drive, cloud storage).
+/// A saved workspace listed in the sidebar.
+final class SidebarWorkspaceEntry: NSObject {
+    let name: String
+
+    init(name: String) { self.name = name }
+}
+
+/// Finder-style source list: 「よく使う項目」(user editable), 「場所」(volumes, iCloud Drive, cloud storage)
+/// and 「ワークスペース」(saved workspaces).
 final class SidebarViewController: NSViewController {
     weak var host: SidebarHost?
 
     private let outlineView = NSOutlineView()
     private let favorites = SidebarSection(kind: .favorites, title: "よく使う項目")
     private let locations = SidebarSection(kind: .locations, title: "場所")
+    private let workspaces = SidebarSection(kind: .workspaces, title: "ワークスペース")
+    private var workspaceEntries: [SidebarWorkspaceEntry] = []
     private static let favoriteDragType = NSPasteboard.PasteboardType("com.ommateum.sidebar-favorite")
 
     override func loadView() {
@@ -67,6 +78,7 @@ final class SidebarViewController: NSViewController {
         view = scrollView
 
         NotificationCenter.default.addObserver(self, selector: #selector(reload), name: .sidebarChanged, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(reload), name: .workspacesChanged, object: nil)
         let workspaceCenter = NSWorkspace.shared.notificationCenter
         for name in [NSWorkspace.didMountNotification, NSWorkspace.didUnmountNotification, NSWorkspace.didRenameVolumeNotification] {
             workspaceCenter.addObserver(self, selector: #selector(reload), name: name, object: nil)
@@ -85,6 +97,7 @@ final class SidebarViewController: NSViewController {
             SidebarEntry(url: ref.url, icon: Self.symbolIcon(for: ref.url), favoriteIndex: index)
         }
         locations.entries = Self.locationEntries()
+        workspaceEntries = WorkspaceStore.shared.names.map(SidebarWorkspaceEntry.init)
         outlineView.reloadData()
         outlineView.expandItem(nil, expandChildren: true)
     }
@@ -149,12 +162,31 @@ final class SidebarViewController: NSViewController {
 
     // MARK: Actions
 
+    /// Sections in display order; empty ones other than 「よく使う項目」 are left out.
+    private var sections: [SidebarSection] {
+        [favorites] + (locations.entries.isEmpty ? [] : [locations]) + (workspaceEntries.isEmpty ? [] : [workspaces])
+    }
+
     @objc private func clicked(_ sender: Any?) {
+        if let workspace = outlineView.item(atRow: outlineView.clickedRow) as? SidebarWorkspaceEntry {
+            // Same as the menu: ⌥ opens it in a new window.
+            host?.sidebarOpenWorkspace(workspace.name, inNewWindow: NSEvent.modifierFlags.contains(.option))
+            return
+        }
         guard let entry = outlineView.item(atRow: outlineView.clickedRow) as? SidebarEntry else { return }
         host?.sidebarOpen(entry.url, inNewTab: NSEvent.modifierFlags.contains(.command))
     }
 
     private var menuEntry: SidebarEntry? { outlineView.item(atRow: outlineView.clickedRow) as? SidebarEntry }
+    private var menuWorkspace: SidebarWorkspaceEntry? { outlineView.item(atRow: outlineView.clickedRow) as? SidebarWorkspaceEntry }
+
+    @objc private func openWorkspaceInNewWindow(_ sender: Any?) {
+        if let name = menuWorkspace?.name { host?.sidebarOpenWorkspace(name, inNewWindow: true) }
+    }
+
+    @objc private func manageWorkspaces(_ sender: Any?) {
+        (NSApp.delegate as? AppDelegate)?.showWorkspaceManager(sender)
+    }
 
     @objc private func openInNewTab(_ sender: Any?) {
         if let entry = menuEntry { host?.sidebarOpen(entry.url, inNewTab: true) }
@@ -202,7 +234,10 @@ extension SidebarViewController: NSMenuDelegate {
         func add(_ title: String, _ action: Selector) {
             menu.addItem(withTitle: title, action: action, keyEquivalent: "").target = self
         }
-        if let entry = menuEntry {
+        if menuWorkspace != nil {
+            add("新規ウインドウで開く", #selector(openWorkspaceInNewWindow(_:)))
+            add("ワークスペースを管理…", #selector(manageWorkspaces(_:)))
+        } else if let entry = menuEntry {
             add("新規タブで開く", #selector(openInNewTab(_:)))
             add("Finderで表示", #selector(revealInFinder(_:)))
             if entry.favoriteIndex != nil {
@@ -222,24 +257,36 @@ extension SidebarViewController: NSMenuDelegate {
 
 extension SidebarViewController: NSOutlineViewDataSource, NSOutlineViewDelegate {
     func outlineView(_ outlineView: NSOutlineView, numberOfChildrenOfItem item: Any?) -> Int {
-        if let section = item as? SidebarSection { return section.entries.count }
-        return item == nil ? (locations.entries.isEmpty ? 1 : 2) : 0
+        if let section = item as? SidebarSection {
+            return section === workspaces ? workspaceEntries.count : section.entries.count
+        }
+        return item == nil ? sections.count : 0
     }
 
     func outlineView(_ outlineView: NSOutlineView, child index: Int, ofItem item: Any?) -> Any {
-        if let section = item as? SidebarSection { return section.entries[index] }
-        return index == 0 ? favorites : locations
+        if let section = item as? SidebarSection {
+            return section === workspaces ? workspaceEntries[index] : section.entries[index]
+        }
+        return sections[index]
     }
 
     func outlineView(_ outlineView: NSOutlineView, isItemExpandable item: Any) -> Bool { item is SidebarSection }
     func outlineView(_ outlineView: NSOutlineView, isGroupItem item: Any) -> Bool { item is SidebarSection }
-    func outlineView(_ outlineView: NSOutlineView, shouldSelectItem item: Any) -> Bool { item is SidebarEntry }
+    func outlineView(_ outlineView: NSOutlineView, shouldSelectItem item: Any) -> Bool { item is SidebarEntry || item is SidebarWorkspaceEntry }
 
     func outlineView(_ outlineView: NSOutlineView, viewFor tableColumn: NSTableColumn?, item: Any) -> NSView? {
         if let section = item as? SidebarSection {
             let id = NSUserInterfaceItemIdentifier("header")
             let cell = outlineView.makeView(withIdentifier: id, owner: nil) as? NSTableCellView ?? makeCell(id: id, withImage: false)
             cell.textField?.stringValue = section.title
+            return cell
+        }
+        if let workspace = item as? SidebarWorkspaceEntry {
+            let id = NSUserInterfaceItemIdentifier("entry")
+            let cell = outlineView.makeView(withIdentifier: id, owner: nil) as? NSTableCellView ?? makeCell(id: id, withImage: true)
+            cell.textField?.stringValue = workspace.name
+            cell.imageView?.image = Self.symbol("rectangle.split.2x2")
+            cell.toolTip = workspace.name
             return cell
         }
         guard let entry = item as? SidebarEntry else { return nil }

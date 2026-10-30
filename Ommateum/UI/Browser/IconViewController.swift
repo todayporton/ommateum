@@ -9,6 +9,8 @@ final class BrowserCollectionView: NSCollectionView {
     var onRename: (() -> Void)?
     var onQuickLook: (() -> Void)?
     var onTypeSelect: ((String) -> Void)?
+    /// A press changed the selection. Setting `selectionIndexPaths` does not call the delegate.
+    var onPressSelect: (() -> Void)?
     var menuProvider: ((_ indexPath: IndexPath?) -> NSMenu?)?
 
     override func mouseDown(with event: NSEvent) {
@@ -17,6 +19,12 @@ final class BrowserCollectionView: NSCollectionView {
         if event.clickCount == 2 {
             if let hit { onItemDoubleClick?(hit) } else { onEmptyDoubleClick?() }
             return
+        }
+        // Dragging makes the collection view select on mouse-up; Finder highlights on press.
+        if let hit, event.clickCount == 1, !selectionIndexPaths.contains(hit),
+           event.modifierFlags.isDisjoint(with: [.command, .shift, .control]) {
+            selectionIndexPaths = [hit]
+            onPressSelect?()
         }
         super.mouseDown(with: event)
     }
@@ -129,6 +137,10 @@ final class IconViewController: NSViewController, BrowserContent {
             self.select([match.url])
             self.onSelectionChange?()
             self.contentDelegate?.contentSelectionDidChange()
+        }
+        collectionView.onPressSelect = { [weak self] in
+            self?.onSelectionChange?()
+            self?.contentDelegate?.contentSelectionDidChange()
         }
         collectionView.setAccessibilityLabel("アイコン表示")
         collectionView.menuProvider = { [weak self] indexPath in

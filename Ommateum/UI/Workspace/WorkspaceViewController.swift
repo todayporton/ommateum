@@ -97,7 +97,7 @@ final class WorkspaceViewController: NSViewController {
         ])
         let multiple = panes.count > 1
         for pane in panes.values {
-            pane.showsTabBarForSingleTab = multiple
+            pane.showsTabBarForSingleTab = multiple || showsTabBarsForOtherWindows
             pane.highlightsActive = multiple
             pane.isActive = pane.id == activePaneID
         }
@@ -237,6 +237,23 @@ final class WorkspaceViewController: NSViewController {
             }
         }
         return nil
+    }
+
+    /// With several windows open a lone tab needs its bar too: it is the only handle for dragging the tab to another window.
+    var showsTabBarsForOtherWindows = false {
+        didSet {
+            panes.values.forEach { $0.showsTabBarForSingleTab = panes.count > 1 || showsTabBarsForOtherWindows }
+        }
+    }
+
+    /// Moves every tab of `other` here. `other` closes itself once it is empty.
+    func mergeTabs(from other: WorkspaceViewController) {
+        for pane in Array(other.panes.values) {
+            for tab in pane.tabs {
+                if let moved = pane.detachTab(tab.id) { activePane?.addTab(moved) }
+            }
+        }
+        activePane?.focus()
     }
 
     func adoptTab(_ tab: FileBrowserViewController) {

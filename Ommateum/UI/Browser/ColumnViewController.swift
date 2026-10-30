@@ -71,7 +71,12 @@ final class ColumnViewController: NSViewController, BrowserContent {
     }
 
     private func handleMouseDown(_ event: NSEvent) {
-        guard event.clickCount == 2, event.window === view.window, view.window != nil else { return }
+        guard event.window === view.window, view.window != nil else { return }
+        if event.clickCount == 1 {
+            selectOnPress(event)
+            return
+        }
+        guard event.clickCount == 2 else { return }
         let point = browser.convert(event.locationInWindow, from: nil)
         guard browser.bounds.contains(point), !(browser.hitTest(browser.convert(point, to: browser.superview)) is NSScroller) else { return }
         // Column resize handles lie outside the inside-of-column frame; double-clicking them resizes the column.
@@ -82,6 +87,19 @@ final class ColumnViewController: NSViewController, BrowserContent {
         var row = -1, column = -1
         if browser.getRow(&row, column: &column, for: point), row >= 0 { return }
         DispatchQueue.main.async { [weak self] in self?.contentDelegate?.contentDidDoubleClickEmptyArea() }
+    }
+
+    /// Highlights the pressed row right away, like Finder; NSBrowser otherwise waits for mouse-up.
+    /// A press inside a multiple selection is left alone because it may start dragging all of it.
+    private func selectOnPress(_ event: NSEvent) {
+        guard event.modifierFlags.isDisjoint(with: [.command, .shift, .control]) else { return }
+        let point = browser.convert(event.locationInWindow, from: nil)
+        guard browser.bounds.contains(point), renamingNode == nil else { return }
+        var row = -1, column = -1
+        guard browser.getRow(&row, column: &column, for: point), row >= 0,
+              browser.selectedRowIndexes(inColumn: column)?.contains(row) != true else { return }
+        browser.selectRow(row, inColumn: column)
+        selectionChanged(nil)
     }
 
     override func loadView() {

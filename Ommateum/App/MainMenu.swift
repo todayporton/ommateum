@@ -152,6 +152,7 @@ enum MainMenu {
         add(menu, "次のタブを表示", #selector(MainWindowController.selectNextTab(_:)), "}")
         add(menu, "前のタブを表示", #selector(MainWindowController.selectPreviousTab(_:)), "{")
         menu.addItem(.separator())
+        add(menu, "すべてのウインドウを結合", #selector(AppDelegate.mergeWindowsIntoFront(_:)))
         add(menu, "すべてを手前に移動", #selector(NSApplication.arrangeInFront(_:)))
         return menu
     }

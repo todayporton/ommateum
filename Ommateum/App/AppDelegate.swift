@@ -94,6 +94,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             // Remember the last window's state even if the user closes it before quitting.
             if self.windowControllers.count == 1 { self.saveSession() }
             self.windowControllers.removeAll { $0 === closed }
+            self.updateTabBarsForWindowCount()
+        }
+        updateTabBarsForWindowCount()
+    }
+
+    private func updateTabBarsForWindowCount() {
+        windowControllers.forEach { $0.workspace.showsTabBarsForOtherWindows = windowControllers.count > 1 }
+    }
+
+    /// Finder's "すべてのウインドウを結合": all tabs move to the frontmost window.
+    @objc func mergeWindowsIntoFront(_ sender: Any?) {
+        guard let target = keyWindowController else { return }
+        for controller in windowControllers where controller !== target {
+            target.workspace.mergeTabs(from: controller.workspace)
         }
     }
 
@@ -206,6 +220,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             return true
         case #selector(saveWorkspace(_:)), #selector(saveWorkspaceAs(_:)):
             return keyWindowController != nil
+        case #selector(mergeWindowsIntoFront(_:)):
+            return windowControllers.count > 1
         default:
             return true
         }

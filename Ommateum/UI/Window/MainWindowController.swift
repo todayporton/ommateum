@@ -224,6 +224,11 @@ extension MainWindowController: WorkspaceHost, SidebarHost {
         updateForActiveBrowser()
     }
 
+    func sidebarOpenWorkspace(_ name: String, inNewWindow: Bool) {
+        guard let snapshot = WorkspaceStore.shared.workspace(named: name) else { return }
+        (NSApp.delegate as? AppDelegate)?.loadWorkspace(snapshot, inNewWindow: inNewWindow)
+    }
+
     var sidebarUndoManager: UndoManager? { window?.undoManager }
 }
 

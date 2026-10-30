@@ -14,7 +14,18 @@ final class BrowserOutlineView: NSOutlineView {
             onEmptyDoubleClick?()
             return
         }
+        selectOnMouseDown(row(at: point), event: event)
         super.mouseDown(with: event)
+    }
+
+    /// With dragging enabled NSTableView selects on mouse-up; Finder highlights the item as soon as it is pressed.
+    /// Only for a plain press on an unselected row: a press inside a multiple selection may start dragging all of it.
+    private func selectOnMouseDown(_ row: Int, event: NSEvent) {
+        guard row >= 0, event.clickCount == 1, !selectedRowIndexes.contains(row),
+              event.modifierFlags.isDisjoint(with: [.command, .shift, .control]),
+              item(atRow: row) is ListNode,
+              !frameOfOutlineCell(atRow: row).contains(convert(event.locationInWindow, from: nil)) else { return }
+        selectRowIndexes([row], byExtendingSelection: false)
     }
 
     override func keyDown(with event: NSEvent) {
@@ -385,22 +396,30 @@ extension ListViewController: NSOutlineViewDataSource, NSOutlineViewDelegate, NS
     func outlineView(_ outlineView: NSOutlineView, validateDrop info: NSDraggingInfo, proposedItem item: Any?, proposedChildIndex index: Int) -> NSDragOperation {
         let urls = DropPolicy.fileURLs(from: info.draggingPasteboard)
         guard !urls.isEmpty else { return [] }
-        if let node = item as? ListNode, node.item.isNavigable {
-            outlineView.setDropItem(node, dropChildIndex: NSOutlineViewDropOnItemIndex)
-            return DropPolicy.operation(for: info, urls: urls, destination: node.item.url)
-        }
-        // Anything else drops into the folder shown by this list.
-        guard let directory else { return [] }
-        outlineView.setDropItem(nil, dropChildIndex: NSOutlineViewDropOnItemIndex)
-        return DropPolicy.operation(for: info, urls: urls, destination: directory)
+        // Decide from the row under the cursor, not from the proposal: near a row's edge NSOutlineView proposes
+        // "insert into the folder above", which would highlight a folder the cursor is not on.
+        let (node, destination) = dropTarget(for: info)
+        guard let destination else { return [] }
+        outlineView.setDropItem(node, dropChildIndex: NSOutlineViewDropOnItemIndex)
+        return DropPolicy.operation(for: info, urls: urls, destination: destination)
     }
 
     func outlineView(_ outlineView: NSOutlineView, acceptDrop info: NSDraggingInfo, item: Any?, childIndex index: Int) -> Bool {
         let urls = DropPolicy.fileURLs(from: info.draggingPasteboard)
-        guard let destination = (item as? ListNode)?.item.url ?? directory else { return false }
+        guard let destination = dropTarget(for: info).destination else { return false }
         let operation = DropPolicy.operation(for: info, urls: urls, destination: destination)
         guard !operation.isEmpty else { return false }
         return contentDelegate?.contentAcceptDrop(urls, into: destination, operation: operation) ?? false
+    }
+
+    /// A folder row receives the drop itself; a file row hands it to the folder containing it; anywhere else goes
+    /// to the shown folder. `node` is the row to highlight (nil highlights the whole list).
+    private func dropTarget(for info: NSDraggingInfo) -> (node: ListNode?, destination: URL?) {
+        let row = outlineView.row(at: outlineView.convert(info.draggingLocation, from: nil))
+        guard row >= 0, let hit = outlineView.item(atRow: row) as? ListNode else { return (nil, directory) }
+        if hit.item.isNavigable { return (hit, hit.item.url) }
+        if let parent = outlineView.parent(forItem: hit) as? ListNode { return (parent, parent.item.url) }
+        return (nil, directory)
     }
 }
 
