@@ -10,7 +10,7 @@ import AppKit
 final class FileOperations {
     static let shared = FileOperations()
 
-    enum Mode { case copy, move }
+    nonisolated enum Mode { case copy, move }
 
     /// A planned transfer of one item, after conflict resolution.
     private struct Transfer {
@@ -60,8 +60,11 @@ final class FileOperations {
             ops.revert(outcome.value, mode: mode, actionName: actionName, window: window, undoManager: undoManager)
         }
         undoManager?.setActionName(actionName)
+        let progress = TransferProgress()
+        TransferProgressPanel.shared.track(progress, title: actionName)
         Task {
-            let result = await Self.perform(plan, mode: mode)
+            let result = await Self.perform(plan, mode: mode, progress: progress)
+            TransferProgressPanel.shared.finish(progress)
             outcome.value = result.completed
             if let error = result.error { showError(error, window: window) }
             if !result.completed.isEmpty { completion?(result.completed.map(\.transfer.destination)) }
@@ -149,27 +152,47 @@ final class FileOperations {
         return response
     }
 
-    private nonisolated static func perform(_ plan: [Transfer], mode: Mode) async -> (completed: [Done], error: Error?) {
+    private nonisolated static func perform(_ plan: [Transfer], mode: Mode, progress: TransferProgress) async -> (completed: [Done], error: Error?) {
         await Task.detached(priority: .userInitiated) {
             var done: [Done] = []
             let fm = FileManager.default
+            let copied = plan.filter { mode == .copy || !isSameVolume($0.source, $0.destination) }.map(\.source)
+            progress.setTotal(FileCopier.totalSize(of: copied, progress: progress))
             for transfer in plan {
+                if progress.isCancelled { break }
+                progress.setCurrent(transfer.source.lastPathComponent)
+                var trashed: NSURL?
                 do {
-                    var trashed: NSURL?
                     if let replacing = transfer.replacing {
                         try fm.trashItem(at: replacing, resultingItemURL: &trashed)
                     }
                     switch mode {
-                    case .copy: try fm.copyItem(at: transfer.source, to: transfer.destination)
-                    case .move: try fm.moveItem(at: transfer.source, to: transfer.destination)
+                    case .copy:
+                        try FileCopier.copy(from: transfer.source, to: transfer.destination, progress: progress)
+                    case .move where isSameVolume(transfer.source, transfer.destination):
+                        try fm.moveItem(at: transfer.source, to: transfer.destination)
+                    case .move:
+                        // Across volumes a move is a copy plus delete; only delete once the copy is complete.
+                        try FileCopier.copy(from: transfer.source, to: transfer.destination, progress: progress)
+                        try fm.removeItem(at: transfer.source)
                     }
                     done.append(Done(transfer: transfer, trashedReplacement: trashed as URL?))
                 } catch {
-                    return (done, error)
+                    // Nothing took the replaced item's place, so put it back.
+                    if let trashed, let url = trashed as URL? { try? fm.moveItem(at: url, to: transfer.destination) }
+                    return (done, error is CancellationError ? nil : error)
                 }
             }
             return (done, nil)
         }.value
+    }
+
+    private nonisolated static func isSameVolume(_ source: URL, _ destination: URL) -> Bool {
+        func volume(_ url: URL) -> NSObject? {
+            (try? url.resourceValues(forKeys: [.volumeIdentifierKey]))?.volumeIdentifier as? NSObject
+        }
+        guard let lhs = volume(source), let rhs = volume(destination.deletingLastPathComponent()) else { return false }
+        return lhs == rhs
     }
 
     // MARK: Trash
@@ -264,6 +287,72 @@ final class FileOperations {
         undoManager?.registerUndo(withTarget: self) { ops in ops.trash([url], window: window, undoManager: undoManager) }
         undoManager?.setActionName("新規フォルダ")
         return url
+    }
+
+    // MARK: Alias
+
+    /// Creates Finder aliases ("名前 のエイリアス") next to the originals.
+    @discardableResult
+    func makeAliases(_ urls: [URL], window: NSWindow?, undoManager: UndoManager?) -> [URL] {
+        var created: [URL] = []
+        for url in urls {
+            do {
+                let destination = Self.availableAliasURL(for: url)
+                let data = try url.bookmarkData(options: .suitableForBookmarkFile, includingResourceValuesForKeys: nil, relativeTo: nil)
+                try URL.writeBookmarkData(data, to: destination)
+                created.append(destination)
+            } catch {
+                showError(error, window: window)
+                break
+            }
+        }
+        if !created.isEmpty {
+            undoManager?.registerUndo(withTarget: self) { ops in ops.trash(created, window: window, undoManager: undoManager) }
+            undoManager?.setActionName("エイリアスを作成")
+        }
+        return created
+    }
+
+    /// The extension stays part of the name, as in Finder: "写真.jpg のエイリアス", "写真.jpg のエイリアス 2".
+    nonisolated static func availableAliasURL(for url: URL) -> URL {
+        let directory = url.deletingLastPathComponent()
+        let base = "\(url.lastPathComponent) のエイリアス"
+        var candidate = directory.appendingPathComponent(base)
+        var index = 2
+        while FileManager.default.fileExists(atPath: candidate.path) {
+            candidate = directory.appendingPathComponent("\(base) \(index)")
+            index += 1
+        }
+        return candidate
+    }
+
+    // MARK: Tags
+
+    /// Replaces the Finder tags of `urls`; undo restores each item's previous tags.
+    func setTags(_ change: (_ current: [String]) -> [String], on urls: [URL], window: NSWindow?, undoManager: UndoManager?) {
+        var previous: [(URL, [String])] = []
+        for url in urls {
+            let current = Self.tags(of: url)
+            do {
+                try (url as NSURL).setResourceValue(change(current), forKey: .tagNamesKey)
+                previous.append((url, current))
+            } catch {
+                showError(error, window: window)
+                break
+            }
+        }
+        guard !previous.isEmpty else { return }
+        undoManager?.registerUndo(withTarget: self) { ops in
+            for (url, tags) in previous {
+                ops.setTags({ _ in tags }, on: [url], window: window, undoManager: undoManager)
+            }
+        }
+        undoManager?.setActionName("タグ")
+    }
+
+    nonisolated static func tags(of url: URL) -> [String] {
+        // A fresh URL: URL instances cache resource values, which would return stale tags after a change.
+        (try? URL(fileURLWithPath: url.path).resourceValues(forKeys: [.tagNamesKey]))?.tagNames ?? []
     }
 
     // MARK: Naming

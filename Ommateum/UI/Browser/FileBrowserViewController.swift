@@ -359,6 +359,24 @@ final class FileBrowserViewController: NSViewController, NSMenuItemValidation {
         FileOperations.shared.trash(selectedItems.map(\.url), window: view.window, undoManager: undoManager)
     }
 
+    @objc func makeAlias(_ sender: Any?) {
+        let created = FileOperations.shared.makeAliases(selectedItems.map(\.url), window: view.window, undoManager: undoManager)
+        guard !created.isEmpty else { return }
+        pendingSelection = Set(created)
+        reload()
+    }
+
+    /// `sender.representedObject` is the tag name; toggles it on the whole selection, as Finder's tag dots do.
+    @objc func toggleTag(_ sender: NSMenuItem) {
+        guard let tag = sender.representedObject as? String else { return }
+        let urls = selectedItems.map(\.url)
+        let adding = !urls.allSatisfy { FileOperations.tags(of: $0).contains(tag) }
+        FileOperations.shared.setTags({ tags in
+            adding ? (tags.contains(tag) ? tags : tags + [tag]) : tags.filter { $0 != tag }
+        }, on: urls, window: view.window, undoManager: undoManager)
+        reload()
+    }
+
     @objc func renameSelection(_ sender: Any?) {
         guard selectedItems.count == 1, let url = selectedItems.first?.url else { NSSound.beep(); return }
         content?.beginRename(url)
@@ -431,7 +449,7 @@ final class FileBrowserViewController: NSViewController, NSMenuItemValidation {
         case #selector(goBack(_:)): return canGoBack
         case #selector(goForward(_:)): return canGoForward
         case #selector(goToEnclosingFolder(_:)): return canGoUp
-        case #selector(openSelection(_:)), #selector(duplicate(_:)), #selector(moveToTrash(_:)), #selector(copy(_:)):
+        case #selector(openSelection(_:)), #selector(duplicate(_:)), #selector(moveToTrash(_:)), #selector(copy(_:)), #selector(makeAlias(_:)):
             return hasSelection
         case #selector(renameSelection(_:)): return selectedItems.count == 1
         case #selector(paste(_:)), #selector(pasteAndMove(_:)):
@@ -439,6 +457,11 @@ final class FileBrowserViewController: NSViewController, NSMenuItemValidation {
         case #selector(showAsIcons(_:)): menuItem.state = viewMode == .icon ? .on : .off
         case #selector(showAsList(_:)): menuItem.state = viewMode == .list ? .on : .off
         case #selector(showAsColumns(_:)): menuItem.state = viewMode == .column ? .on : .off
+        case #selector(toggleTag(_:)):
+            guard hasSelection, let tag = menuItem.representedObject as? String else { return false }
+            let urls = selectedItems.map(\.url)
+            let count = urls.filter { FileOperations.tags(of: $0).contains(tag) }.count
+            menuItem.state = count == 0 ? .off : (count == urls.count ? .on : .mixed)
         case #selector(sortBy(_:)):
             menuItem.state = (menuItem.representedObject as? String) == sort.key.rawValue ? .on : .off
         default: break

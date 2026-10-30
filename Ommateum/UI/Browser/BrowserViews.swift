@@ -134,10 +134,13 @@ enum BrowserMenus {
         menu.addItem(.separator())
         if items.count == 1 { add("名前を変更", #selector(FileBrowserViewController.renameSelection(_:)), key: "") }
         add("複製", #selector(FileBrowserViewController.duplicate(_:)), key: "d")
+        add("エイリアスを作成", #selector(FileBrowserViewController.makeAlias(_:)), key: "a", modifiers: [.command, .control])
         add("クイックルック", #selector(FileBrowserViewController.toggleQuickLook(_:)), key: "y")
         menu.addItem(.separator())
         add("コピー", #selector(FileBrowserViewController.copy(_:)), key: "c")
         add("パスをコピー", #selector(FileBrowserViewController.copyPath(_:)), key: "c", modifiers: [.command, .option])
+        menu.addItem(.separator())
+        menu.addItem(tagSubmenu(target: browser))
         menu.addItem(.separator())
         menu.addItem(SharingServices.shareMenuItem(for: items.map(\.url)))
         FileActionRegistry.shared.menuItems(for: browser.actionContext).forEach(menu.addItem)
@@ -146,6 +149,26 @@ enum BrowserMenus {
             add("サイドバーに追加", #selector(FileBrowserViewController.addToSidebar(_:)), key: "t", modifiers: [.command, .control])
         }
         return menu
+    }
+
+    static func tagSubmenu(target: AnyObject?) -> NSMenuItem {
+        let parent = NSMenuItem(title: "タグ", action: nil, keyEquivalent: "")
+        let submenu = NSMenu()
+        let colors = NSWorkspace.shared.fileLabelColors
+        // Index 0 is "なし".
+        for (index, label) in NSWorkspace.shared.fileLabels.enumerated() where index > 0 && index < colors.count {
+            let item = NSMenuItem(title: label, action: #selector(FileBrowserViewController.toggleTag(_:)), keyEquivalent: "")
+            item.representedObject = label
+            item.target = target
+            item.image = NSImage(size: NSSize(width: 12, height: 12), flipped: false) { rect in
+                colors[index].setFill()
+                NSBezierPath(ovalIn: rect.insetBy(dx: 1, dy: 1)).fill()
+                return true
+            }
+            submenu.addItem(item)
+        }
+        parent.submenu = submenu
+        return parent
     }
 
     private static func openWithSubmenu(for items: [FileItem], target: AnyObject) -> NSMenuItem {

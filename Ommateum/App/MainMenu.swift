@@ -64,9 +64,11 @@ enum MainMenu {
         menu.addItem(.separator())
         add(menu, "名前を変更", #selector(FileBrowserViewController.renameSelection(_:)))
         add(menu, "複製", #selector(FileBrowserViewController.duplicate(_:)), "d")
+        add(menu, "エイリアスを作成", #selector(FileBrowserViewController.makeAlias(_:)), "a", [.command, .control])
         add(menu, "クイックルック", #selector(FileBrowserViewController.toggleQuickLook(_:)), "y")
         add(menu, "ゴミ箱に入れる", #selector(FileBrowserViewController.moveToTrash(_:)), "\u{8}")
         menu.addItem(.separator())
+        menu.addItem(BrowserMenus.tagSubmenu(target: nil))
         let actions = NSMenu(title: "アクション")
         actions.delegate = FileActionsMenuController.shared
         menu.addItem(submenu(actions))
