@@ -88,6 +88,8 @@ enum MainMenu {
         add(menu, "ペースト", #selector(NSText.paste(_:)), "v")
         add(menu, "項目をここに移動", #selector(FileBrowserViewController.pasteAndMove(_:)), "v", [.command, .option])
         add(menu, "すべてを選択", #selector(NSText.selectAll(_:)), "a")
+        menu.addItem(.separator())
+        add(menu, "検索", #selector(FileBrowserViewController.startSearch(_:)), "f")
         return menu
     }
 
@@ -96,8 +98,10 @@ enum MainMenu {
         add(menu, "アイコン", #selector(FileBrowserViewController.showAsIcons(_:)), "1")
         add(menu, "リスト", #selector(FileBrowserViewController.showAsList(_:)), "2")
         add(menu, "カラム", #selector(FileBrowserViewController.showAsColumns(_:)), "3")
+        add(menu, "ギャラリー", #selector(FileBrowserViewController.showAsGallery(_:)), "4")
         menu.addItem(.separator())
         menu.addItem(BrowserMenus.sortSubmenu(target: nil))
+        menu.addItem(BrowserMenus.groupSubmenu(target: nil))
         menu.addItem(.separator())
         add(menu, "サイドバーを表示/非表示", #selector(NSSplitViewController.toggleSidebar(_:)), "s", [.command, .control])
         add(menu, "隠しファイルを表示", #selector(AppDelegate.toggleHiddenFiles(_:)), ".", [.command, .shift])

@@ -17,6 +17,7 @@ final class FileBrowserViewController: NSViewController, NSMenuItemValidation {
     private(set) var currentURL: URL
     private(set) var viewMode: ViewMode
     private(set) var sort: SortSpec
+    private(set) var groupBy: GroupKey?
     private var backHistory: [URL] = []
     private var forwardHistory: [URL] = []
 
@@ -29,12 +30,18 @@ final class FileBrowserViewController: NSViewController, NSMenuItemValidation {
 
     private let contentContainer = NSView()
     private let banner = BannerView()
+    private let searchBar = SearchBarView()
+    private var searchText = ""
+    private var searchScope = SearchBarView.Scope.thisFolder
+    private var spotlight: SpotlightSearch?
+    private var spotlightItems: [FileItem]?
     private let placeholder = PlaceholderView()
 
     init(state: TabState) {
         id = state.id
         viewMode = state.viewMode
         sort = state.sort
+        groupBy = state.groupBy
         backHistory = state.backHistory.map(\.url)
         forwardHistory = state.forwardHistory.map(\.url)
         if let resolved = state.location.resolve() {
@@ -59,6 +66,7 @@ final class FileBrowserViewController: NSViewController, NSMenuItemValidation {
         var state = TabState(url: currentURL, viewMode: viewMode)
         state.id = id
         state.sort = sort
+        state.groupBy = groupBy
         state.backHistory = backHistory.suffix(50).map(LocationRef.init(url:))
         state.forwardHistory = forwardHistory.suffix(50).map(LocationRef.init(url:))
         return state
@@ -82,7 +90,11 @@ final class FileBrowserViewController: NSViewController, NSMenuItemValidation {
         contentContainer.translatesAutoresizingMaskIntoConstraints = false
         placeholder.translatesAutoresizingMaskIntoConstraints = false
         placeholder.isHidden = true
-        let stack = NSStackView(views: [banner, contentContainer])
+        searchBar.translatesAutoresizingMaskIntoConstraints = false
+        searchBar.isHidden = true
+        searchBar.onChange = { [weak self] text, scope in self?.searchChanged(text: text, scope: scope) }
+        searchBar.onClose = { [weak self] in self?.endSearch(nil) }
+        let stack = NSStackView(views: [banner, searchBar, contentContainer])
         stack.orientation = .vertical
         stack.spacing = 0
         stack.translatesAutoresizingMaskIntoConstraints = false
@@ -95,6 +107,8 @@ final class FileBrowserViewController: NSViewController, NSMenuItemValidation {
             stack.trailingAnchor.constraint(equalTo: root.trailingAnchor),
             banner.leadingAnchor.constraint(equalTo: stack.leadingAnchor),
             banner.trailingAnchor.constraint(equalTo: stack.trailingAnchor),
+            searchBar.leadingAnchor.constraint(equalTo: stack.leadingAnchor),
+            searchBar.trailingAnchor.constraint(equalTo: stack.trailingAnchor),
             contentContainer.leadingAnchor.constraint(equalTo: stack.leadingAnchor),
             contentContainer.trailingAnchor.constraint(equalTo: stack.trailingAnchor),
             placeholder.centerXAnchor.constraint(equalTo: contentContainer.centerXAnchor),
@@ -109,6 +123,7 @@ final class FileBrowserViewController: NSViewController, NSMenuItemValidation {
         reload()
         NotificationCenter.default.addObserver(self, selector: #selector(showHiddenChanged), name: .showHiddenFilesChanged, object: nil)
         NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(volumesChanged), name: NSWorkspace.didUnmountNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(itemsRestored(_:)), name: FileOperations.didRestoreItems, object: nil)
     }
 
     isolated deinit {
@@ -124,14 +139,16 @@ final class FileBrowserViewController: NSViewController, NSMenuItemValidation {
         case .list: ListViewController()
         case .icon: IconViewController()
         case .column: ColumnViewController()
+        case .gallery: GalleryViewController()
         }
         newContent.contentDelegate = self
+        newContent.groupKey = groupBy
         addChild(newContent)
         newContent.view.frame = contentContainer.bounds
         newContent.view.autoresizingMask = [.width, .height]
         contentContainer.addSubview(newContent.view)
         content = newContent
-        if !items.isEmpty { newContent.show(items, in: currentURL, sort: sort) }
+        if !items.isEmpty { showItems() }
     }
 
     func focus() {
@@ -150,6 +167,7 @@ final class FileBrowserViewController: NSViewController, NSMenuItemValidation {
             backHistory.append(currentURL)
             forwardHistory.removeAll()
         }
+        closeSearchBar()
         currentURL = url
         pendingSelection = select
         missingOriginalPath = nil
@@ -199,6 +217,60 @@ final class FileBrowserViewController: NSViewController, NSMenuItemValidation {
         host?.browserDidChangeLocation(self)
     }
 
+    // MARK: Search
+
+    /// What the current view mode should list: the folder, or the search results.
+    private func showItems() {
+        let shown: [FileItem]
+        if searchText.isEmpty {
+            shown = items
+        } else if searchScope == .subfolders {
+            shown = spotlightItems ?? []
+            searchBar.setResultCount(spotlightItems?.count)
+        } else {
+            shown = items.filter { $0.matches(query: searchText) }
+            searchBar.setResultCount(shown.count)
+        }
+        content?.show(shown, in: currentURL, sort: sort)
+    }
+
+    @objc func startSearch(_ sender: Any?) {
+        searchBar.isHidden = false
+        searchBar.focusField()
+    }
+
+    @objc func endSearch(_ sender: Any?) {
+        guard !searchBar.isHidden else { return }
+        closeSearchBar()
+        showItems()
+        focus()
+    }
+
+    private func closeSearchBar() {
+        searchBar.isHidden = true
+        searchBar.reset()
+        searchText = ""
+        searchScope = .thisFolder
+        spotlight = nil
+        spotlightItems = nil
+    }
+
+    private func searchChanged(text: String, scope: SearchBarView.Scope) {
+        let text = text.trimmingCharacters(in: .whitespaces)
+        guard text != searchText || scope != searchScope else { return }
+        searchText = text
+        searchScope = scope
+        spotlight = nil
+        spotlightItems = nil
+        if scope == .subfolders, !text.isEmpty {
+            spotlight = SpotlightSearch(text: text, scope: currentURL) { [weak self] results in
+                self?.spotlightItems = results
+                self?.showItems()
+            }
+        }
+        showItems()
+    }
+
     // MARK: Loading
 
     func reload() {
@@ -222,7 +294,7 @@ final class FileBrowserViewController: NSViewController, NSMenuItemValidation {
         items = loaded
         placeholder.isHidden = true
         content?.view.isHidden = false
-        content?.show(items, in: currentURL, sort: sort)
+        showItems()
         if !pendingSelection.isEmpty {
             content?.select(pendingSelection)
             pendingSelection = []
@@ -287,6 +359,15 @@ final class FileBrowserViewController: NSViewController, NSMenuItemValidation {
 
     @objc private func showHiddenChanged() { reload() }
 
+    /// An undo or redo brought items back or renamed them: select those shown in this tab.
+    @objc private func itemsRestored(_ notification: Notification) {
+        guard let urls = notification.userInfo?["urls"] as? [URL] else { return }
+        let shown = urls.filter { $0.deletingLastPathComponent().standardizedFileURL.path == currentURL.path }
+        guard !shown.isEmpty else { return }
+        pendingSelection = Set(shown)
+        reload()
+    }
+
     @objc private func volumesChanged() {
         if !FileSystem.isDirectory(currentURL) { relocateToExistingAncestor() }
     }
@@ -344,8 +425,12 @@ final class FileBrowserViewController: NSViewController, NSMenuItemValidation {
     @objc func newFolder(_ sender: Any?) {
         guard let directory = targetDirectory,
               let url = FileOperations.shared.newFolder(in: directory, window: view.window, undoManager: undoManager) else { return }
-        pendingRename = url
-        if directory == currentURL { reload() }
+        if directory.path == currentURL.path {
+            pendingRename = url
+            reload()
+        } else {
+            content?.beginRename(url) // a subfolder shown in column view; it loads and renames there
+        }
     }
 
     @objc func duplicate(_ sender: Any?) {
@@ -423,6 +508,15 @@ final class FileBrowserViewController: NSViewController, NSMenuItemValidation {
     @objc func showAsIcons(_ sender: Any?) { setViewMode(.icon) }
     @objc func showAsList(_ sender: Any?) { setViewMode(.list) }
     @objc func showAsColumns(_ sender: Any?) { setViewMode(.column) }
+    @objc func showAsGallery(_ sender: Any?) { setViewMode(.gallery) }
+
+    /// `sender.representedObject` is a `GroupKey` raw value, or nil for no grouping.
+    @objc func groupItems(_ sender: NSMenuItem) {
+        groupBy = (sender.representedObject as? String).flatMap(GroupKey.init(rawValue:))
+        content?.groupKey = groupBy
+        showItems()
+        host?.browserDidChangeLocation(self)
+    }
 
     @objc func sortBy(_ sender: NSMenuItem) {
         guard let key = sender.representedObject as? String, let sortKey = SortKey(rawValue: key) else { return }
@@ -457,6 +551,11 @@ final class FileBrowserViewController: NSViewController, NSMenuItemValidation {
         case #selector(showAsIcons(_:)): menuItem.state = viewMode == .icon ? .on : .off
         case #selector(showAsList(_:)): menuItem.state = viewMode == .list ? .on : .off
         case #selector(showAsColumns(_:)): menuItem.state = viewMode == .column ? .on : .off
+        case #selector(showAsGallery(_:)): menuItem.state = viewMode == .gallery ? .on : .off
+        case #selector(groupItems(_:)):
+            menuItem.state = (menuItem.representedObject as? String) == groupBy?.rawValue ? .on : .off
+            return viewMode == .list
+        case #selector(endSearch(_:)): return !searchBar.isHidden
         case #selector(toggleTag(_:)):
             guard hasSelection, let tag = menuItem.representedObject as? String else { return false }
             let urls = selectedItems.map(\.url)
@@ -555,7 +654,7 @@ extension FileBrowserViewController: BrowserContentDelegate {
 
     func contentSortDidChange(_ newSort: SortSpec) {
         sort = newSort
-        content?.show(items, in: currentURL, sort: sort)
+        showItems()
     }
 
     func contentTargetDirectoryDidChange() {

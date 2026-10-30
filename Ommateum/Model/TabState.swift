@@ -1,13 +1,14 @@
 import Foundation
 
 enum ViewMode: String, Codable, CaseIterable, Sendable {
-    case icon, list, column
+    case icon, list, column, gallery
 
     var title: String {
         switch self {
         case .icon: "アイコン"
         case .list: "リスト"
         case .column: "カラム"
+        case .gallery: "ギャラリー"
         }
     }
 
@@ -16,6 +17,7 @@ enum ViewMode: String, Codable, CaseIterable, Sendable {
         case .icon: "square.grid.2x2"
         case .list: "list.bullet"
         case .column: "rectangle.split.3x1"
+        case .gallery: "photo.on.rectangle"
         }
     }
 }
@@ -30,6 +32,19 @@ enum SortKey: String, Codable, CaseIterable, Sendable {
         case .dateCreated: "作成日"
         case .size: "サイズ"
         case .kind: "種類"
+        }
+    }
+}
+
+/// How the list view groups items.
+enum GroupKey: String, Codable, CaseIterable, Sendable {
+    case kind, dateModified, size
+
+    var title: String {
+        switch self {
+        case .kind: "種類"
+        case .dateModified: "変更日"
+        case .size: "サイズ"
         }
     }
 }
@@ -74,6 +89,8 @@ struct TabState: Codable, Equatable, Sendable {
     var location: LocationRef
     var viewMode: ViewMode = .list
     var sort = SortSpec()
+    /// Optional so that sessions and workspaces saved before grouping existed still decode.
+    var groupBy: GroupKey?
     var backHistory: [LocationRef] = []
     var forwardHistory: [LocationRef] = []
 

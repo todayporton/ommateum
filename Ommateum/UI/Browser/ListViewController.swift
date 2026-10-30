@@ -54,12 +54,25 @@ final class ListNode: NSObject {
     init(_ item: FileItem) { self.item = item }
 }
 
+/// A section header row when the list is grouped.
+final class ListGroupNode: NSObject {
+    let title: String
+    let children: [ListNode]
+
+    init(title: String, children: [ListNode]) {
+        self.title = title
+        self.children = children
+    }
+}
+
 final class ListViewController: NSViewController, BrowserContent {
     weak var contentDelegate: BrowserContentDelegate?
+    var groupKey: GroupKey?
 
     private let outlineView = BrowserOutlineView()
     private let scrollView = NSScrollView()
     private var roots: [ListNode] = []
+    private var groups: [ListGroupNode] = []
     private var directory: URL?
     private var sort = SortSpec()
     private var childMonitors: [URL: DirectoryMonitor] = [:]
@@ -78,6 +91,7 @@ final class ListViewController: NSViewController, BrowserContent {
         static let date = NSUserInterfaceItemIdentifier("dateModified")
         static let size = NSUserInterfaceItemIdentifier("size")
         static let kind = NSUserInterfaceItemIdentifier("kind")
+        static let group = NSUserInterfaceItemIdentifier("group")
     }
 
     override func loadView() {
@@ -101,6 +115,7 @@ final class ListViewController: NSViewController, BrowserContent {
         outlineView.delegate = self
         outlineView.target = self
         outlineView.doubleAction = #selector(doubleClicked(_:))
+        outlineView.setAccessibilityLabel("ファイル一覧")
         outlineView.setDraggingSourceOperationMask([.copy, .move, .link, .generic], forLocal: false)
         outlineView.setDraggingSourceOperationMask([.copy, .move, .generic], forLocal: true)
         outlineView.registerForDraggedTypes([.fileURL])
@@ -154,8 +169,18 @@ final class ListViewController: NSViewController, BrowserContent {
         self.directory = directory
         self.sort = sort
         outlineView.sortDescriptors = [NSSortDescriptor(key: sort.key.rawValue, ascending: sort.ascending)]
-        roots = items.sorted(by: sort).map(ListNode.init)
+        let sorted = items.sorted(by: sort)
+        roots = sorted.map(ListNode.init)
+        if let groupKey {
+            let nodes = Dictionary(uniqueKeysWithValues: zip(sorted.map(\.url), roots))
+            groups = sorted.grouped(by: groupKey).map { group in
+                ListGroupNode(title: group.title, children: group.items.compactMap { nodes[$0.url] })
+            }
+        } else {
+            groups = []
+        }
         outlineView.reloadData()
+        groups.forEach { outlineView.expandItem($0) }
         for url in expanded {
             if let node = roots.first(where: { $0.item.url.path == url.path }) { outlineView.expandItem(node) }
         }
@@ -247,18 +272,24 @@ final class ListViewController: NSViewController, BrowserContent {
 
 extension ListViewController: NSOutlineViewDataSource, NSOutlineViewDelegate, NSTextFieldDelegate {
     func outlineView(_ outlineView: NSOutlineView, numberOfChildrenOfItem item: Any?) -> Int {
-        guard let node = item as? ListNode else { return roots.count }
+        if let group = item as? ListGroupNode { return group.children.count }
+        guard let node = item as? ListNode else { return groups.isEmpty ? roots.count : groups.count }
         return node.children?.count ?? 0
     }
 
     func outlineView(_ outlineView: NSOutlineView, child index: Int, ofItem item: Any?) -> Any {
-        guard let node = item as? ListNode else { return roots[index] }
+        if let group = item as? ListGroupNode { return group.children[index] }
+        guard let node = item as? ListNode else { return groups.isEmpty ? roots[index] : groups[index] }
         return node.children?[index] ?? roots[index]
     }
 
     func outlineView(_ outlineView: NSOutlineView, isItemExpandable item: Any) -> Bool {
-        (item as? ListNode)?.item.isNavigable ?? false
+        item is ListGroupNode || (item as? ListNode)?.item.isNavigable ?? false
     }
+
+    func outlineView(_ outlineView: NSOutlineView, isGroupItem item: Any) -> Bool { item is ListGroupNode }
+
+    func outlineView(_ outlineView: NSOutlineView, shouldSelectItem item: Any) -> Bool { item is ListNode }
 
     func outlineViewItemWillExpand(_ notification: Notification) {
         guard let node = notification.userInfo?["NSObject"] as? ListNode, node.children == nil else { return }
@@ -272,6 +303,13 @@ extension ListViewController: NSOutlineViewDataSource, NSOutlineViewDelegate, NS
     }
 
     func outlineView(_ outlineView: NSOutlineView, viewFor tableColumn: NSTableColumn?, item: Any) -> NSView? {
+        if let group = item as? ListGroupNode {
+            let cell = (outlineView.makeView(withIdentifier: Column.group, owner: nil) as? ListCellView) ?? ListCellView(identifier: Column.group, hasImage: false)
+            cell.textField?.stringValue = "\(group.title)（\(group.children.count)）"
+            cell.textField?.font = .boldSystemFont(ofSize: NSFont.smallSystemFontSize)
+            cell.textField?.textColor = .secondaryLabelColor
+            return cell
+        }
         guard let node = item as? ListNode, let id = tableColumn?.identifier else { return nil }
         let cell = (outlineView.makeView(withIdentifier: id, owner: nil) as? ListCellView) ?? ListCellView(identifier: id, hasImage: id == Column.name)
         cell.textField?.delegate = self
@@ -294,6 +332,10 @@ extension ListViewController: NSOutlineViewDataSource, NSOutlineViewDelegate, NS
         let secondary = id != Column.name
         cell.textField?.textColor = secondary ? .secondaryLabelColor : .labelColor
         return cell
+    }
+
+    func outlineView(_ outlineView: NSOutlineView, typeSelectStringFor tableColumn: NSTableColumn?, item: Any) -> String? {
+        tableColumn?.identifier == Column.name ? (item as? ListNode)?.item.name : nil
     }
 
     func outlineViewSelectionDidChange(_ notification: Notification) {

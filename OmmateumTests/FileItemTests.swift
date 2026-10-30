@@ -51,4 +51,39 @@ struct FileItemTests {
         let items = try await DirectoryLoader.load(dir, showHidden: false).sorted(by: SortSpec(key: .size, ascending: false))
         #expect(items.map(\.name) == ["b", "c", "a"])
     }
+
+    @Test func searchMatchesLikeFinder() throws {
+        let dir = try makeTempDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let url = dir.appendingPathComponent("Report 請求書.PDF")
+        try Data("x".utf8).write(to: url)
+        let item = FileItem(url: url)
+        #expect(item.matches(query: "report"))
+        #expect(item.matches(query: " 請求 "))
+        #expect(item.matches(query: ""))
+        #expect(!item.matches(query: "invoice"))
+    }
+
+    @Test func groupsByDateAndKindKeepingOrder() throws {
+        let dir = try makeTempDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let now = Date()
+        let calendar = Calendar.current
+        func make(_ name: String, daysAgo: Int) throws -> FileItem {
+            let url = dir.appendingPathComponent(name)
+            try Data("x".utf8).write(to: url)
+            let date = calendar.date(byAdding: .day, value: -daysAgo, to: now)!
+            try FileManager.default.setAttributes([.modificationDate: date], ofItemAtPath: url.path)
+            return FileItem(url: URL(fileURLWithPath: url.path))
+        }
+        let items = [try make("a.txt", daysAgo: 0), try make("b.txt", daysAgo: 1), try make("c.png", daysAgo: 5),
+                     try make("d.txt", daysAgo: 20), try make("e.png", daysAgo: 400), try make("f.txt", daysAgo: 0)]
+        let byDate = items.grouped(by: .dateModified, now: now, calendar: calendar)
+        #expect(byDate.map(\.title) == ["今日", "昨日", "過去7日間", "過去30日間", "それ以前"])
+        #expect(byDate[0].items.map(\.url.lastPathComponent) == ["a.txt", "f.txt"])
+        let byKind = items.grouped(by: .kind)
+        #expect(byKind.count == 2)
+        #expect(byKind.flatMap(\.items).count == items.count)
+        #expect(items.grouped(by: .size).map(\.title) == ["1 MB 未満"])
+    }
 }

@@ -29,10 +29,16 @@ protocol BrowserContent: NSViewController {
     var targetDirectory: URL? { get }
     /// Screen rect of the icon for `url`, used by Quick Look's zoom animation.
     func iconScreenFrame(for url: URL) -> NSRect?
+    /// Set before `show`. Only the list view groups; other views ignore it.
+    var groupKey: GroupKey? { get set }
 }
 
 extension BrowserContent {
     var targetDirectory: URL? { nil }
+    var groupKey: GroupKey? {
+        get { nil }
+        set {}
+    }
 }
 
 /// Decides the drag operation for files dropped on a folder, following Finder:

@@ -94,7 +94,7 @@ struct FileTransferTests {
         let file = dir.appendingPathComponent("a.txt")
         try Data("x".utf8).write(to: file)
         let alias = try #require(FileOperations.shared.makeAliases([file], window: nil, undoManager: nil).first)
-        #expect(try URL(resolvingAliasFileAt: alias).path == file.path)
+        #expect(try URL(resolvingAliasFileAt: alias).resolvingSymlinksInPath().path == file.resolvingSymlinksInPath().path)
 
         let undo = UndoManager()
         undo.groupsByEvent = false

@@ -203,13 +203,28 @@ enum BrowserMenus {
         let submenu = NSMenu()
         for (title, action) in [("アイコン", #selector(FileBrowserViewController.showAsIcons(_:))),
                                 ("リスト", #selector(FileBrowserViewController.showAsList(_:))),
-                                ("カラム", #selector(FileBrowserViewController.showAsColumns(_:)))] {
+                                ("カラム", #selector(FileBrowserViewController.showAsColumns(_:))),
+                                ("ギャラリー", #selector(FileBrowserViewController.showAsGallery(_:)))] {
             let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
             item.target = target
             submenu.addItem(item)
         }
         submenu.addItem(.separator())
         submenu.addItem(sortSubmenu(target: target))
+        submenu.addItem(groupSubmenu(target: target))
+        parent.submenu = submenu
+        return parent
+    }
+
+    static func groupSubmenu(target: AnyObject?) -> NSMenuItem {
+        let parent = NSMenuItem(title: "グループ分け", action: nil, keyEquivalent: "")
+        let submenu = NSMenu()
+        for (title, key) in [("なし", String?.none)] + GroupKey.allCases.map({ ($0.title, Optional($0.rawValue)) }) {
+            let item = NSMenuItem(title: title, action: #selector(FileBrowserViewController.groupItems(_:)), keyEquivalent: "")
+            item.representedObject = key
+            item.target = target
+            submenu.addItem(item)
+        }
         parent.submenu = submenu
         return parent
     }

@@ -8,6 +8,7 @@ final class BrowserCollectionView: NSCollectionView {
     var onOpen: (() -> Void)?
     var onRename: (() -> Void)?
     var onQuickLook: (() -> Void)?
+    var onTypeSelect: ((String) -> Void)?
     var menuProvider: ((_ indexPath: IndexPath?) -> NSMenu?)?
 
     override func mouseDown(with event: NSEvent) {
@@ -26,9 +27,22 @@ final class BrowserCollectionView: NSCollectionView {
         case 49 where flags.isEmpty: onQuickLook?()
         case 36 where flags.isEmpty, 76 where flags.isEmpty: onRename?()
         case 125 where flags == .command: onOpen?()
-        default: super.keyDown(with: event)
+        default:
+            // Printable keys jump to the first matching name, as NSTableView's type select does.
+            if flags.subtracting(.shift).isEmpty, let text = event.characters, !text.isEmpty,
+               !text.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) || (0xF700...0xF8FF).contains($0.value) }) {
+                if event.timestamp - lastTypeSelectTime > 1 { typeSelectBuffer = "" }
+                lastTypeSelectTime = event.timestamp
+                typeSelectBuffer += text
+                onTypeSelect?(typeSelectBuffer)
+            } else {
+                super.keyDown(with: event)
+            }
         }
     }
+
+    private var typeSelectBuffer = ""
+    private var lastTypeSelectTime: TimeInterval = 0
 
     override func menu(for event: NSEvent) -> NSMenu? {
         menuProvider?(indexPathForItem(at: convert(event.locationInWindow, from: nil))) ?? super.menu(for: event)
@@ -36,7 +50,21 @@ final class BrowserCollectionView: NSCollectionView {
 }
 
 final class IconViewController: NSViewController, BrowserContent {
+    enum Style { case grid, strip }
+
     weak var contentDelegate: BrowserContentDelegate?
+    /// Called in addition to the delegate; the gallery uses it to update its preview.
+    var onSelectionChange: (() -> Void)?
+    var displayedItems: [FileItem] { items }
+
+    private let style: Style
+
+    init(style: Style = .grid) {
+        self.style = style
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
     private let collectionView = BrowserCollectionView()
     private var items: [FileItem] = []
@@ -57,11 +85,13 @@ final class IconViewController: NSViewController, BrowserContent {
         let clip = BrowserClipView()
         clip.onEmptyDoubleClick = { [weak self] in self?.contentDelegate?.contentDidDoubleClickEmptyArea() }
         scrollView.contentView = clip
-        scrollView.hasVerticalScroller = true
+        scrollView.hasVerticalScroller = style == .grid
+        scrollView.hasHorizontalScroller = style == .strip
         scrollView.autohidesScrollers = true
         scrollView.borderType = .noBorder
 
         let layout = NSCollectionViewFlowLayout()
+        layout.scrollDirection = style == .strip ? .horizontal : .vertical
         layout.itemSize = NSSize(width: 104, height: 100)
         layout.minimumInteritemSpacing = 6
         layout.minimumLineSpacing = 6
@@ -94,6 +124,13 @@ final class IconViewController: NSViewController, BrowserContent {
             self.beginRename(url)
         }
         collectionView.onQuickLook = { [weak self] in self?.contentDelegate?.contentToggleQuickLook() }
+        collectionView.onTypeSelect = { [weak self] text in
+            guard let self, let match = self.items.first(where: { $0.name.localizedStandardRange(of: text)?.lowerBound == $0.name.startIndex }) else { return }
+            self.select([match.url])
+            self.onSelectionChange?()
+            self.contentDelegate?.contentSelectionDidChange()
+        }
+        collectionView.setAccessibilityLabel("アイコン表示")
         collectionView.menuProvider = { [weak self] indexPath in
             guard let self else { return nil }
             guard let indexPath, self.items.indices.contains(indexPath.item) else {
@@ -137,7 +174,7 @@ final class IconViewController: NSViewController, BrowserContent {
         let wanted = Set(urls.map(\.path))
         let paths = Set(items.indices.filter { wanted.contains(items[$0].url.path) }.map { IndexPath(item: $0, section: 0) })
         collectionView.selectionIndexPaths = paths
-        if let first = paths.min() { collectionView.scrollToItems(at: [first], scrollPosition: .nearestHorizontalEdge) }
+        if let first = paths.min() { collectionView.scrollToItems(at: [first], scrollPosition: style == .strip ? .nearestVerticalEdge : .nearestHorizontalEdge) }
     }
 
     func beginRename(_ url: URL) {
@@ -191,10 +228,12 @@ extension IconViewController: NSCollectionViewDataSource, NSCollectionViewDelega
     }
 
     func collectionView(_ collectionView: NSCollectionView, didSelectItemsAt indexPaths: Set<IndexPath>) {
+        onSelectionChange?()
         contentDelegate?.contentSelectionDidChange()
     }
 
     func collectionView(_ collectionView: NSCollectionView, didDeselectItemsAt indexPaths: Set<IndexPath>) {
+        onSelectionChange?()
         contentDelegate?.contentSelectionDidChange()
     }
 

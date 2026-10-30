@@ -12,6 +12,18 @@ final class FileOperations {
 
     nonisolated enum Mode { case copy, move }
 
+    /// Posted after an undo or redo changed items, with their URLs under `userInfo["urls"]`, so browsers can select them.
+    static let didRestoreItems = Notification.Name("OmmateumFileOperationsDidRestoreItems")
+
+    private func postRestored(_ urls: [URL], undoManager: UndoManager?) {
+        guard !urls.isEmpty, undoManager?.isUndoing == true || undoManager?.isRedoing == true else { return }
+        postRestored(urls)
+    }
+
+    private func postRestored(_ urls: [URL]) {
+        NotificationCenter.default.post(name: Self.didRestoreItems, object: nil, userInfo: ["urls": urls])
+    }
+
     /// A planned transfer of one item, after conflict resolution.
     private struct Transfer {
         let source: URL
@@ -75,7 +87,9 @@ final class FileOperations {
     private func revert(_ done: [Done], mode: Mode, actionName: String, window: NSWindow?, undoManager: UndoManager?) {
         let redoPlan = done.map { Transfer(source: $0.transfer.source, destination: $0.transfer.destination, replacing: $0.trashedReplacement == nil ? nil : $0.transfer.destination) }
         undoManager?.registerUndo(withTarget: self) { ops in
-            ops.run(redoPlan, mode: mode, actionName: actionName, window: window, undoManager: undoManager)
+            ops.run(redoPlan, mode: mode, actionName: actionName, window: window, undoManager: undoManager) { [weak ops] created in
+                ops?.postRestored(created)
+            }
         }
         undoManager?.setActionName(actionName)
         Task {
@@ -96,7 +110,7 @@ final class FileOperations {
                     return error
                 }
             }.value
-            if let error { showError(error, window: window) }
+            if let error { showError(error, window: window) } else if mode == .move { postRestored(done.map(\.transfer.source)) }
         }
     }
 
@@ -240,7 +254,7 @@ final class FileOperations {
                     return error
                 }
             }.value
-            if let error { showError(error, window: window) }
+            if let error { showError(error, window: window) } else { postRestored(originals) }
         }
     }
 
@@ -273,6 +287,7 @@ final class FileOperations {
             ops.rename(destination, to: oldName, window: window, undoManager: undoManager)
         }
         undoManager?.setActionName("名称変更")
+        postRestored([destination], undoManager: undoManager)
         return destination
     }
 
