@@ -1,0 +1,563 @@
+import AppKit
+import Quartz
+
+/// Actions a browser forwards to its pane / window (things outside the tab itself).
+protocol FileBrowserHost: AnyObject {
+    func browserDidChangeLocation(_ browser: FileBrowserViewController)
+    func browser(_ browser: FileBrowserViewController, openInNewTab url: URL)
+    func browser(_ browser: FileBrowserViewController, openInSplit url: URL, edge: PaneEdge)
+    func browserDidBecomeActive(_ browser: FileBrowserViewController)
+}
+
+/// One tab: a folder shown in one view mode, with its own back/forward history.
+final class FileBrowserViewController: NSViewController, NSMenuItemValidation {
+    let id: UUID
+    weak var host: FileBrowserHost?
+
+    private(set) var currentURL: URL
+    private(set) var viewMode: ViewMode
+    private(set) var sort: SortSpec
+    private var backHistory: [URL] = []
+    private var forwardHistory: [URL] = []
+
+    private var items: [FileItem] = []
+    private var content: BrowserContent?
+    private var monitor: DirectoryMonitor?
+    private var loadTask: Task<Void, Never>?
+    private var pendingSelection: Set<URL> = []
+    private var pendingRename: URL?
+
+    private let contentContainer = NSView()
+    private let banner = BannerView()
+    private let placeholder = PlaceholderView()
+
+    init(state: TabState) {
+        id = state.id
+        viewMode = state.viewMode
+        sort = state.sort
+        backHistory = state.backHistory.map(\.url)
+        forwardHistory = state.forwardHistory.map(\.url)
+        if let resolved = state.location.resolve() {
+            currentURL = resolved
+        } else {
+            currentURL = FileSystem.nearestExistingDirectory(to: state.location.url) ?? FileManager.default.homeDirectoryForCurrentUser
+            missingOriginalPath = state.location.path
+        }
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    convenience init(url: URL, viewMode: ViewMode = Preferences.defaultViewMode) {
+        self.init(state: TabState(url: url, viewMode: viewMode))
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    /// Set when a restored tab's folder no longer exists; shown as a banner with a retry button.
+    private var missingOriginalPath: String?
+
+    var state: TabState {
+        var state = TabState(url: currentURL, viewMode: viewMode)
+        state.id = id
+        state.sort = sort
+        state.backHistory = backHistory.suffix(50).map(LocationRef.init(url:))
+        state.forwardHistory = forwardHistory.suffix(50).map(LocationRef.init(url:))
+        return state
+    }
+
+    /// Title for the tab and window: Finder's localized display name.
+    var displayTitle: String { FileManager.default.displayName(atPath: (targetDirectory ?? currentURL).path) }
+    var targetDirectory: URL? { content?.targetDirectory ?? currentURL }
+    var focusView: NSView? { content?.focusView }
+    var selectedItems: [FileItem] { content?.selectedItems ?? [] }
+    var canGoBack: Bool { !backHistory.isEmpty }
+    var canGoForward: Bool { !forwardHistory.isEmpty }
+    var canGoUp: Bool { currentURL.deletingLastPathComponent().path != currentURL.path }
+
+    // MARK: View
+
+    override func loadView() {
+        let root = NSView()
+        banner.translatesAutoresizingMaskIntoConstraints = false
+        banner.isHidden = true
+        contentContainer.translatesAutoresizingMaskIntoConstraints = false
+        placeholder.translatesAutoresizingMaskIntoConstraints = false
+        placeholder.isHidden = true
+        let stack = NSStackView(views: [banner, contentContainer])
+        stack.orientation = .vertical
+        stack.spacing = 0
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        root.addSubview(stack)
+        root.addSubview(placeholder)
+        NSLayoutConstraint.activate([
+            stack.topAnchor.constraint(equalTo: root.topAnchor),
+            stack.bottomAnchor.constraint(equalTo: root.bottomAnchor),
+            stack.leadingAnchor.constraint(equalTo: root.leadingAnchor),
+            stack.trailingAnchor.constraint(equalTo: root.trailingAnchor),
+            banner.leadingAnchor.constraint(equalTo: stack.leadingAnchor),
+            banner.trailingAnchor.constraint(equalTo: stack.trailingAnchor),
+            contentContainer.leadingAnchor.constraint(equalTo: stack.leadingAnchor),
+            contentContainer.trailingAnchor.constraint(equalTo: stack.trailingAnchor),
+            placeholder.centerXAnchor.constraint(equalTo: contentContainer.centerXAnchor),
+            placeholder.centerYAnchor.constraint(equalTo: contentContainer.centerYAnchor),
+            placeholder.widthAnchor.constraint(lessThanOrEqualTo: contentContainer.widthAnchor, constant: -40),
+        ])
+        view = root
+        installContent()
+        if let missing = missingOriginalPath {
+            showBanner("元の場所「\(missing)」が見つからないため、「\(displayTitle)」を表示しています。", retry: { [weak self] in self?.retryMissingLocation() })
+        }
+        reload()
+        NotificationCenter.default.addObserver(self, selector: #selector(showHiddenChanged), name: .showHiddenFilesChanged, object: nil)
+        NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(volumesChanged), name: NSWorkspace.didUnmountNotification, object: nil)
+    }
+
+    isolated deinit {
+        loadTask?.cancel()
+        NotificationCenter.default.removeObserver(self)
+        NSWorkspace.shared.notificationCenter.removeObserver(self)
+    }
+
+    private func installContent() {
+        content?.view.removeFromSuperview()
+        content?.removeFromParent()
+        let newContent: BrowserContent = switch viewMode {
+        case .list: ListViewController()
+        case .icon: IconViewController()
+        case .column: ColumnViewController()
+        }
+        newContent.contentDelegate = self
+        addChild(newContent)
+        newContent.view.frame = contentContainer.bounds
+        newContent.view.autoresizingMask = [.width, .height]
+        contentContainer.addSubview(newContent.view)
+        content = newContent
+        if !items.isEmpty { newContent.show(items, in: currentURL, sort: sort) }
+    }
+
+    func focus() {
+        if let focusView { view.window?.makeFirstResponder(focusView) }
+    }
+
+    // MARK: Navigation
+
+    func navigate(to url: URL, recordHistory: Bool = true, select: Set<URL> = []) {
+        let url = url.standardizedFileURL
+        guard url.path != currentURL.path else {
+            content?.select(select)
+            return
+        }
+        if recordHistory {
+            backHistory.append(currentURL)
+            forwardHistory.removeAll()
+        }
+        currentURL = url
+        pendingSelection = select
+        missingOriginalPath = nil
+        hideBanner()
+        items = []
+        if viewMode == .column { installContent() }
+        reload()
+        host?.browserDidChangeLocation(self)
+    }
+
+    @objc func goBack(_ sender: Any?) {
+        guard let previous = popExisting(&backHistory) else { NSSound.beep(); return }
+        forwardHistory.append(currentURL)
+        let from = currentURL
+        navigate(to: previous, recordHistory: false, select: [from])
+    }
+
+    @objc func goForward(_ sender: Any?) {
+        guard let next = popExisting(&forwardHistory) else { NSSound.beep(); return }
+        backHistory.append(currentURL)
+        navigate(to: next, recordHistory: false)
+    }
+
+    /// Pops history entries until one still exists (folders may have been deleted meanwhile).
+    private func popExisting(_ history: inout [URL]) -> URL? {
+        while let url = history.popLast() {
+            if FileSystem.isDirectory(url) { return url }
+        }
+        return nil
+    }
+
+    @objc func goToEnclosingFolder(_ sender: Any?) {
+        guard canGoUp else { NSSound.beep(); return }
+        let from = currentURL
+        let parent = currentURL.deletingLastPathComponent()
+        // In column view, "up" moves the root column so the current folder stays visible and selected.
+        navigate(to: parent, select: [from])
+    }
+
+    func setViewMode(_ mode: ViewMode) {
+        guard mode != viewMode else { return }
+        let selection = Set(selectedItems.map(\.url))
+        viewMode = mode
+        installContent()
+        content?.select(selection)
+        focus()
+        host?.browserDidChangeLocation(self)
+    }
+
+    // MARK: Loading
+
+    func reload() {
+        loadTask?.cancel()
+        let url = currentURL
+        let showHidden = Preferences.showHiddenFiles
+        loadTask = Task { [weak self] in
+            do {
+                let loaded = try await DirectoryLoader.load(url, showHidden: showHidden)
+                guard !Task.isCancelled, let self, self.currentURL == url else { return }
+                self.didLoad(loaded)
+            } catch is CancellationError {
+            } catch {
+                guard let self, self.currentURL == url else { return }
+                self.didFailToLoad(error)
+            }
+        }
+    }
+
+    private func didLoad(_ loaded: [FileItem]) {
+        items = loaded
+        placeholder.isHidden = true
+        content?.view.isHidden = false
+        content?.show(items, in: currentURL, sort: sort)
+        if !pendingSelection.isEmpty {
+            content?.select(pendingSelection)
+            pendingSelection = []
+        }
+        if let rename = pendingRename, items.contains(where: { $0.url.path == rename.path }) {
+            pendingRename = nil
+            content?.beginRename(rename)
+        }
+        if monitor == nil || monitoredURL != currentURL {
+            monitoredURL = currentURL
+            monitor = DirectoryMonitor(url: currentURL) { [weak self] in self?.directoryChanged() }
+        }
+    }
+
+    private var monitoredURL: URL?
+
+    private func didFailToLoad(_ error: Error) {
+        monitor = nil
+        monitoredURL = nil
+        items = []
+        content?.show([], in: currentURL, sort: sort)
+        if !FileSystem.isDirectory(currentURL) {
+            relocateToExistingAncestor()
+            return
+        }
+        let nsError = error as NSError
+        let denied = nsError.domain == NSCocoaErrorDomain && nsError.code == NSFileReadNoPermissionError
+        placeholder.configure(
+            message: denied ? "「\(displayTitle)」を表示するためのアクセス権がありません。" : "「\(displayTitle)」を読み込めませんでした。\n\(error.localizedDescription)",
+            buttons: [("再試行", { [weak self] in self?.reload() }),
+                      ("Finderで表示", { NSWorkspace.shared.activateFileViewerSelecting([self.currentURL]) })])
+        placeholder.isHidden = false
+        content?.view.isHidden = true
+    }
+
+    private func directoryChanged() {
+        if FileSystem.isDirectory(currentURL) {
+            reload()
+        } else {
+            relocateToExistingAncestor()
+        }
+    }
+
+    /// The shown folder disappeared (deleted, renamed, volume ejected): go to the nearest existing ancestor.
+    private func relocateToExistingAncestor() {
+        let missing = currentURL
+        guard let fallback = FileSystem.nearestExistingDirectory(to: missing) else { return }
+        navigate(to: fallback, recordHistory: false)
+        missingOriginalPath = missing.path
+        showBanner("「\(missing.path)」が見つかりません。移動・削除されたか、ボリュームが取り外されました。", retry: { [weak self] in self?.retryMissingLocation() })
+    }
+
+    private func retryMissingLocation() {
+        guard let path = missingOriginalPath else { return }
+        let url = URL(fileURLWithPath: path, isDirectory: true)
+        if FileSystem.isDirectory(url) {
+            navigate(to: url)
+        } else {
+            NSSound.beep()
+        }
+    }
+
+    @objc private func showHiddenChanged() { reload() }
+
+    @objc private func volumesChanged() {
+        if !FileSystem.isDirectory(currentURL) { relocateToExistingAncestor() }
+    }
+
+    private func showBanner(_ text: String, retry: (() -> Void)?) {
+        banner.configure(text: text, retry: retry, close: { [weak self] in self?.hideBanner() })
+        banner.isHidden = false
+    }
+
+    private func hideBanner() { banner.isHidden = true }
+
+    // MARK: Opening
+
+    func open(_ items: [FileItem], inNewTab: Bool) {
+        guard !items.isEmpty else { return }
+        let folders = items.filter(\.isNavigable)
+        let files = items.filter { !$0.isNavigable }
+        if inNewTab || folders.count > 1 {
+            folders.forEach { host?.browser(self, openInNewTab: $0.url) }
+        } else if let folder = folders.first {
+            navigate(to: resolveAlias(folder.url))
+        }
+        for file in files {
+            let target = resolveAlias(file.url)
+            if file.isAlias, FileSystem.isDirectory(target) {
+                navigate(to: target)
+            } else {
+                NSWorkspace.shared.open(file.url)
+            }
+        }
+    }
+
+    private func resolveAlias(_ url: URL) -> URL {
+        (try? URL(resolvingAliasFileAt: url, options: [.withoutUI, .withoutMounting])) ?? url
+    }
+
+    // MARK: Menu actions (responder chain)
+
+    @objc func openSelection(_ sender: Any?) { open(selectedItems, inNewTab: false) }
+
+    @objc func openSelectionInNewTab(_ sender: Any?) {
+        let folders = selectedItems.filter(\.isNavigable)
+        if folders.isEmpty { host?.browser(self, openInNewTab: currentURL) }
+        folders.forEach { host?.browser(self, openInNewTab: $0.url) }
+    }
+
+    @objc func openSelectionInSplitRight(_ sender: Any?) {
+        host?.browser(self, openInSplit: selectedItems.first(where: \.isNavigable)?.url ?? currentURL, edge: .right)
+    }
+
+    @objc func openSelectionInSplitDown(_ sender: Any?) {
+        host?.browser(self, openInSplit: selectedItems.first(where: \.isNavigable)?.url ?? currentURL, edge: .bottom)
+    }
+
+    @objc func newFolder(_ sender: Any?) {
+        guard let directory = targetDirectory,
+              let url = FileOperations.shared.newFolder(in: directory, window: view.window, undoManager: undoManager) else { return }
+        pendingRename = url
+        if directory == currentURL { reload() }
+    }
+
+    @objc func duplicate(_ sender: Any?) {
+        FileOperations.shared.duplicate(selectedItems.map(\.url), window: view.window, undoManager: undoManager) { [weak self] created in
+            self?.pendingSelection = Set(created)
+            self?.reload()
+        }
+    }
+
+    @objc func moveToTrash(_ sender: Any?) {
+        FileOperations.shared.trash(selectedItems.map(\.url), window: view.window, undoManager: undoManager)
+    }
+
+    @objc func renameSelection(_ sender: Any?) {
+        guard selectedItems.count == 1, let url = selectedItems.first?.url else { NSSound.beep(); return }
+        content?.beginRename(url)
+    }
+
+    @objc func copy(_ sender: Any?) {
+        let urls = selectedItems.map(\.url)
+        guard !urls.isEmpty else { return }
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.writeObjects(urls as [NSURL])
+    }
+
+    @objc func paste(_ sender: Any?) { pasteFiles(mode: .copy) }
+
+    /// ⌥⌘V: move the copied items here (Finder's "項目をここに移動").
+    @objc func pasteAndMove(_ sender: Any?) { pasteFiles(mode: .move) }
+
+    private func pasteFiles(mode: FileOperations.Mode) {
+        let urls = DropPolicy.fileURLs(from: .general)
+        guard !urls.isEmpty, let directory = targetDirectory else { NSSound.beep(); return }
+        FileOperations.shared.transfer(urls, to: directory, mode: mode, window: view.window, undoManager: undoManager) { [weak self] created in
+            self?.pendingSelection = Set(created)
+            self?.reload()
+        }
+    }
+
+    @objc func copyPath(_ sender: Any?) {
+        let paths = selectedItems.isEmpty ? [currentURL.path] : selectedItems.map(\.url.path)
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(paths.joined(separator: "\n"), forType: .string)
+    }
+
+    @objc func revealInFinder(_ sender: Any?) {
+        let urls = selectedItems.map(\.url)
+        NSWorkspace.shared.activateFileViewerSelecting(urls.isEmpty ? [currentURL] : urls)
+    }
+
+    /// Input for FileActionRegistry (context menu and ファイル ▸ アクション).
+    var actionContext: FileActionContext {
+        FileActionContext(items: selectedItems.map(\.url), directory: currentURL, window: view.window)
+    }
+
+    @objc func showAsIcons(_ sender: Any?) { setViewMode(.icon) }
+    @objc func showAsList(_ sender: Any?) { setViewMode(.list) }
+    @objc func showAsColumns(_ sender: Any?) { setViewMode(.column) }
+
+    @objc func sortBy(_ sender: NSMenuItem) {
+        guard let key = sender.representedObject as? String, let sortKey = SortKey(rawValue: key) else { return }
+        contentSortDidChange(SortSpec(key: sortKey, ascending: sortKey == .name || sortKey == .kind))
+    }
+
+    @objc func openWithApplication(_ sender: NSMenuItem) {
+        guard let app = sender.representedObject as? URL else { return }
+        NSWorkspace.shared.open(selectedItems.map(\.url), withApplicationAt: app, configuration: NSWorkspace.OpenConfiguration())
+    }
+
+    @objc func toggleQuickLook(_ sender: Any?) { contentToggleQuickLook() }
+
+    @objc func addToSidebar(_ sender: Any?) {
+        let folders = selectedItems.filter(\.isNavigable).map(\.url)
+        for url in folders.isEmpty ? [currentURL] : folders {
+            SidebarStore.shared.addFavorite(url)
+        }
+    }
+
+    func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        let hasSelection = !selectedItems.isEmpty
+        switch menuItem.action {
+        case #selector(goBack(_:)): return canGoBack
+        case #selector(goForward(_:)): return canGoForward
+        case #selector(goToEnclosingFolder(_:)): return canGoUp
+        case #selector(openSelection(_:)), #selector(duplicate(_:)), #selector(moveToTrash(_:)), #selector(copy(_:)):
+            return hasSelection
+        case #selector(renameSelection(_:)): return selectedItems.count == 1
+        case #selector(paste(_:)), #selector(pasteAndMove(_:)):
+            return !DropPolicy.fileURLs(from: .general).isEmpty
+        case #selector(showAsIcons(_:)): menuItem.state = viewMode == .icon ? .on : .off
+        case #selector(showAsList(_:)): menuItem.state = viewMode == .list ? .on : .off
+        case #selector(showAsColumns(_:)): menuItem.state = viewMode == .column ? .on : .off
+        case #selector(sortBy(_:)):
+            menuItem.state = (menuItem.representedObject as? String) == sort.key.rawValue ? .on : .off
+        default: break
+        }
+        return true
+    }
+
+    // MARK: Services (Quick Actions etc. operate on the selection)
+
+    override func validRequestor(forSendType sendType: NSPasteboard.PasteboardType?, returnType: NSPasteboard.PasteboardType?) -> Any? {
+        if returnType == nil, let sendType, [.fileURL, .URL, .string].contains(sendType), !selectedItems.isEmpty {
+            return self
+        }
+        return super.validRequestor(forSendType: sendType, returnType: returnType)
+    }
+
+    // MARK: Quick Look
+
+    // QLPreviewPanel's informal protocol is declared nonisolated; AppKit always calls it on the main thread.
+    nonisolated override func acceptsPreviewPanelControl(_ panel: QLPreviewPanel!) -> Bool { true }
+
+    nonisolated override func beginPreviewPanelControl(_ panel: QLPreviewPanel!) {
+        MainActor.assumeIsolated {
+            panel.dataSource = self
+            panel.delegate = self
+        }
+    }
+
+    nonisolated override func endPreviewPanelControl(_ panel: QLPreviewPanel!) {
+        MainActor.assumeIsolated {
+            panel.dataSource = nil
+            panel.delegate = nil
+        }
+    }
+}
+
+extension FileBrowserViewController: NSServicesMenuRequestor {
+    func writeSelection(to pboard: NSPasteboard, types: [NSPasteboard.PasteboardType]) -> Bool {
+        let urls = selectedItems.map(\.url)
+        guard !urls.isEmpty else { return false }
+        pboard.clearContents()
+        return pboard.writeObjects(urls as [NSURL])
+    }
+}
+
+// MARK: - Content delegate
+
+extension FileBrowserViewController: BrowserContentDelegate {
+    func contentOpen(_ items: [FileItem], inNewTab: Bool) { open(items, inNewTab: inNewTab) }
+
+    func contentDidDoubleClickEmptyArea() {
+        guard Preferences.doubleClickEmptyAreaGoesUp, canGoUp else { return }
+        goToEnclosingFolder(nil)
+    }
+
+    func contentSelectionDidChange() {
+        host?.browserDidBecomeActive(self)
+        if let panel = QLPreviewPanel.sharedPreviewPanelExists() ? QLPreviewPanel.shared() : nil, panel.isVisible {
+            panel.reloadData()
+        }
+    }
+
+    func contentRename(_ item: FileItem, to newName: String) -> URL? {
+        let renamed = FileOperations.shared.rename(item.url, to: newName, window: view.window, undoManager: undoManager)
+        if let renamed {
+            IconCache.shared.invalidate(item.url)
+            pendingSelection = [renamed]
+            reload()
+        }
+        return renamed
+    }
+
+    func contentAcceptDrop(_ urls: [URL], into directory: URL, operation: NSDragOperation) -> Bool {
+        FileOperations.shared.transfer(urls, to: directory, mode: operation.contains(.move) ? .move : .copy, window: view.window, undoManager: undoManager)
+        return true
+    }
+
+    func contentMenu(for clickedItems: [FileItem]) -> NSMenu {
+        host?.browserDidBecomeActive(self)
+        return BrowserMenus.contextMenu(for: clickedItems, in: self)
+    }
+
+    func contentToggleQuickLook() {
+        guard let panel = QLPreviewPanel.shared() else { return }
+        if panel.isVisible {
+            panel.orderOut(nil)
+        } else if !selectedItems.isEmpty {
+            panel.makeKeyAndOrderFront(nil)
+        }
+    }
+
+    func contentSortDidChange(_ newSort: SortSpec) {
+        sort = newSort
+        content?.show(items, in: currentURL, sort: sort)
+    }
+
+    func contentTargetDirectoryDidChange() {
+        host?.browserDidChangeLocation(self)
+    }
+}
+
+// MARK: - Quick Look data source
+
+extension FileBrowserViewController: QLPreviewPanelDataSource, QLPreviewPanelDelegate {
+    func numberOfPreviewItems(in panel: QLPreviewPanel!) -> Int { selectedItems.count }
+
+    func previewPanel(_ panel: QLPreviewPanel!, previewItemAt index: Int) -> (any QLPreviewItem)! {
+        selectedItems[index].url as NSURL
+    }
+
+    func previewPanel(_ panel: QLPreviewPanel!, sourceFrameOnScreenFor item: (any QLPreviewItem)!) -> NSRect {
+        guard let url = item.previewItemURL else { return .zero }
+        return content?.iconScreenFrame(for: url) ?? .zero
+    }
+
+    func previewPanel(_ panel: QLPreviewPanel!, handle event: NSEvent!) -> Bool {
+        // Let arrow keys move the selection in the browser while the panel is open, as in Finder.
+        guard event.type == .keyDown, let focusView else { return false }
+        focusView.keyDown(with: event)
+        return true
+    }
+}
