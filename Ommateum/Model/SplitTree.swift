@@ -112,6 +112,16 @@ indirect enum SplitTree: Equatable, Sendable {
         }
     }
 
+    /// Gives the two children on either side of `divider` the same size. The other children keep theirs.
+    static func equalizing(_ fractions: [Double], around divider: Int) -> [Double] {
+        guard fractions.indices.contains(divider), fractions.indices.contains(divider + 1) else { return fractions }
+        var result = fractions
+        let half = (fractions[divider] + fractions[divider + 1]) / 2
+        result[divider] = half
+        result[divider + 1] = half
+        return result
+    }
+
     static func normalize(_ values: [Double]) -> [Double] {
         let clamped = values.map { $0.isFinite && $0 > 0 ? $0 : 0 }
         let sum = clamped.reduce(0, +)

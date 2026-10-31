@@ -65,6 +65,12 @@ struct SplitTreeTests {
         #expect(tree == .split(.horizontal, [.leaf(a), .split(.vertical, [.leaf(b), .leaf(c)], [0.75, 0.25])], [0.5, 0.5]))
     }
 
+    @Test func equalizingOnlyChangesTheDividersNeighbors() {
+        #expect(SplitTree.equalizing([0.2, 0.3, 0.5], around: 1) == [0.2, 0.4, 0.4])
+        #expect(SplitTree.equalizing([0.75, 0.25], around: 0) == [0.5, 0.5])
+        #expect(SplitTree.equalizing([0.75, 0.25], around: 1) == [0.75, 0.25])
+    }
+
     @Test func codableRoundTrip() throws {
         let tree = SplitTree.leaf(a)
             .inserting(b, at: .right, of: a)

@@ -340,7 +340,7 @@ extension WorkspaceViewController: NSSplitViewDelegate {
 /// Split view whose subview sizes always follow `fractions`.
 ///
 /// Window and parent resizes lay the subviews out from the fractions (so proportions survive any number of
-/// relayouts and restarts); only a divider dragged by the user changes the fractions.
+/// relayouts and restarts); only a divider the user drags or double-clicks changes the fractions.
 final class LayoutSplitView: GapSplitView {
     var path: [Int] = []
     var fractions: [Double] = []
@@ -369,6 +369,25 @@ final class LayoutSplitView: GapSplitView {
         guard length > 0 else { return }
         let sizes = arrangedSubviews.map { isVertical ? $0.frame.width : $0.frame.height }
         fractions = SplitTree.normalize(sizes.map(Double.init))
+    }
+
+    // Double-clicking a divider centers it between its two neighbors. A single click still starts a drag.
+    override func mouseDown(with event: NSEvent) {
+        guard event.clickCount == 2, let divider = dividerIndex(at: convert(event.locationInWindow, from: nil)), currentFractions != nil else {
+            super.mouseDown(with: event)
+            return
+        }
+        fractions = SplitTree.equalizing(fractions, around: divider)
+        layoutFromFractions()
+        window?.invalidateCursorRects(for: self)
+    }
+
+    private func dividerIndex(at point: NSPoint) -> Int? {
+        let position = isVertical ? point.x : point.y
+        return arrangedSubviews.dropLast().indices.first { index in
+            let end = isVertical ? arrangedSubviews[index].frame.maxX : arrangedSubviews[index].frame.maxY
+            return position >= end && position <= end + dividerThickness
+        }
     }
 
     var currentFractions: [Double]? { fractions.count == arrangedSubviews.count ? fractions : nil }
