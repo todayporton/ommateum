@@ -58,9 +58,14 @@ final class PaneViewController: NSViewController {
         didSet {
             tabBar.isActivePane = isActive
             contentView.needsDisplay = true
+            updateCardHighlight()
         }
     }
-    var highlightsActive = false { didSet { tabBar.highlightsActivePane = highlightsActive } }
+    var highlightsActive = false { didSet { updateCardHighlight() } }
+
+    private func updateCardHighlight() {
+        (viewIfLoaded as? CardView)?.isHighlighted = isActive && highlightsActive
+    }
 
     init(id: UUID = UUID(), state: PaneState? = nil) {
         self.id = state?.id ?? id

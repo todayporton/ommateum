@@ -15,6 +15,8 @@ final class CardView: NSView {
     private let cardBackgroundColor: NSColor
 
     private let isOutlined: Bool
+    /// Marks the active pane with an accent-colored outline.
+    var isHighlighted = false { didSet { needsDisplay = true } }
 
     init(backgroundColor: NSColor = .controlBackgroundColor, isOutlined: Bool = true) {
         cardBackgroundColor = backgroundColor
@@ -23,7 +25,6 @@ final class CardView: NSView {
         wantsLayer = true
         layer?.cornerRadius = WindowLayout.cornerRadius
         layer?.cornerCurve = .continuous
-        layer?.borderWidth = isOutlined ? 1 : 0
         layer?.masksToBounds = true
     }
 
@@ -34,7 +35,8 @@ final class CardView: NSView {
     // Colors are resolved here so they follow light/dark mode changes.
     override func updateLayer() {
         layer?.backgroundColor = cardBackgroundColor.cgColor
-        layer?.borderColor = NSColor.separatorColor.cgColor
+        layer?.borderColor = (isHighlighted ? NSColor.controlAccentColor : NSColor.separatorColor).cgColor
+        layer?.borderWidth = isHighlighted ? 1.5 : (isOutlined ? 1 : 0)
     }
 }
 

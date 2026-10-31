@@ -31,8 +31,6 @@ final class TabBarView: NSView {
     var selectedIndex = 0 { didSet { updateAppearance() } }
     /// Whether this tab bar's pane is the active pane (others are drawn subdued).
     var isActivePane = true { didSet { updateAppearance() } }
-    /// Draw the accent line on the active pane's selected tab (only useful when there are several panes).
-    var highlightsActivePane = false { didSet { updateAppearance() } }
 
     private var buttons: [TabButton] = []
     private let addButton = NSButton()
@@ -311,10 +309,6 @@ private final class TabButton: NSView {
             NSColor.separatorColor.setFill()
             NSRect(x: 0, y: 0, width: 1, height: bounds.height).fill()
             NSRect(x: bounds.width - 1, y: 0, width: 1, height: bounds.height).fill()
-            if isActivePane, owner?.highlightsActivePane == true {
-                NSColor.controlAccentColor.setFill()
-                NSRect(x: 0, y: 0, width: bounds.width, height: 2).fill()
-            }
         } else if hovering {
             NSColor.labelColor.withAlphaComponent(0.05).setFill()
             bounds.fill()
