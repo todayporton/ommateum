@@ -91,6 +91,23 @@ private final class SidebarOutlineView: NSOutlineView {
     /// Moves free space and eject buttons toward the sidebar's right edge.
     private let trailingExtension: CGFloat = 7
     var onSectionClick: ((SidebarSection) -> Void)?
+    var onDragStateChanged: ((_ isOver: Bool) -> Void)?
+
+    // A drag sends no mouse-entered events, so the closed sidebar widens from these.
+    override func draggingEntered(_ sender: any NSDraggingInfo) -> NSDragOperation {
+        onDragStateChanged?(true)
+        return super.draggingEntered(sender)
+    }
+
+    override func draggingExited(_ sender: (any NSDraggingInfo)?) {
+        super.draggingExited(sender)
+        onDragStateChanged?(false)
+    }
+
+    override func draggingEnded(_ sender: any NSDraggingInfo) {
+        super.draggingEnded(sender)
+        onDragStateChanged?(false)
+    }
 
     /// Group names have no disclosure triangle: a click on one folds the group. They are not selectable, so no action is sent for them.
     override func mouseDown(with event: NSEvent) {
@@ -119,11 +136,19 @@ final class SidebarViewController: NSViewController {
 
     private let outlineView = SidebarOutlineView()
     private let card = CardView(backgroundColor: WindowLayout.backgroundColor, isOutlined: false)
+    private let dragTrigger = SidebarDragTrigger()
     private var contentTrailing: NSLayoutConstraint?
     private var contentWidth: NSLayoutConstraint?
     private var isCompact = false
     private var isOverlaying = false
     private var isMenuOpen = false
+    /// Keeps group names and indents while the width animates.
+    var keepsLabels = false {
+        didSet {
+            dragTrigger.isHidden = !showsIconsOnly
+            updateAllColors()
+        }
+    }
     /// Called when the pointer enters or leaves the closed sidebar.
     var onHoverChanged: ((Bool) -> Void)?
     private var sections: [SidebarSection] = []
@@ -151,6 +176,14 @@ final class SidebarViewController: NSViewController {
         outlineView.floatsGroupRows = false
         outlineView.rowSizeStyle = .custom
         outlineView.onSectionClick = { [weak self] in self?.toggleFolding($0) }
+        let dragStateChanged: (Bool) -> Void = { [weak self] isOver in
+            guard let self, self.isCompact else { return }
+            self.onHoverChanged?(isOver || self.isPointerOverCard)
+        }
+        outlineView.onDragStateChanged = dragStateChanged
+        dragTrigger.onDragStateChanged = dragStateChanged
+        dragTrigger.registerForDraggedTypes([.fileURL, Self.itemDragType])
+        dragTrigger.isHidden = true
         outlineView.dataSource = self
         outlineView.delegate = self
         outlineView.target = self
@@ -164,6 +197,9 @@ final class SidebarViewController: NSViewController {
         card.translatesAutoresizingMaskIntoConstraints = false
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         card.addSubview(scrollView)
+        dragTrigger.frame = card.bounds
+        dragTrigger.autoresizingMask = [.width, .height]
+        card.addSubview(dragTrigger)
         let root = NSView()
         root.addSubview(card)
         NSLayoutConstraint.activate([
@@ -208,6 +244,7 @@ final class SidebarViewController: NSViewController {
         contentTrailing?.isActive = !compact
         contentWidth?.constant = width
         contentWidth?.isActive = compact
+        dragTrigger.isHidden = !showsIconsOnly
         updateAllColors()
     }
 
@@ -223,11 +260,17 @@ final class SidebarViewController: NSViewController {
         } else {
             view.shadow = nil
         }
+        dragTrigger.isHidden = !showsIconsOnly
         updateAllColors()
     }
 
+    private var isPointerOverCard: Bool {
+        guard let window = view.window else { return false }
+        return card.bounds.contains(card.convert(window.mouseLocationOutsideOfEventStream, from: nil))
+    }
+
     /// Icons only: names are clipped by the card, and group names would be cut mid-word.
-    private var showsIconsOnly: Bool { isCompact && !isOverlaying }
+    private var showsIconsOnly: Bool { isCompact && !isOverlaying && !keepsLabels }
 
     override func mouseEntered(with event: NSEvent) {
         if isCompact { onHoverChanged?(true) }
@@ -649,9 +692,7 @@ extension SidebarViewController: NSMenuDelegate {
 
     func menuDidClose(_ menu: NSMenu) {
         isMenuOpen = false
-        guard isCompact, let window = view.window,
-              !card.bounds.contains(card.convert(window.mouseLocationOutsideOfEventStream, from: nil)) else { return }
-        onHoverChanged?(false)
+        if isCompact, !isPointerOverCard { onHoverChanged?(false) }
     }
 
     func menuNeedsUpdate(_ menu: NSMenu) {
@@ -705,6 +746,20 @@ extension SidebarViewController: NSMenuDelegate {
         menu.addItem(.separator())
         add("ディスクの空き容量を表示", #selector(toggleCapacity(_:))).state = SidebarStore.shared.showsCapacity ? .on : .off
     }
+}
+
+/// Covers the closed sidebar to notice drags: the clipped table does not receive them. It only widens the sidebar,
+/// then hides itself so the table takes over.
+private final class SidebarDragTrigger: NSView {
+    var onDragStateChanged: ((_ isOver: Bool) -> Void)?
+
+    override func draggingEntered(_ sender: any NSDraggingInfo) -> NSDragOperation {
+        onDragStateChanged?(true)
+        return []
+    }
+
+    override func draggingExited(_ sender: (any NSDraggingInfo)?) { onDragStateChanged?(false) }
+    override func draggingEnded(_ sender: any NSDraggingInfo) { onDragStateChanged?(false) }
 }
 
 /// Keeps the selected row a quiet gray even while the sidebar has focus.

@@ -190,7 +190,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
 
     /// AppKit's toggleSidebar: and its toolbar item only work with a system sidebar item.
     @objc func toggleSidebarPane(_ sender: Any?) {
-        root.setCompact(!root.isCompact)
+        root.setCompact(!root.isCompact, animated: true)
     }
 
     @objc func toolbarSplit(_ sender: Any?) {
