@@ -8,15 +8,19 @@ final class SidebarStore {
     private struct Stored: Codable {
         var version = 1
         var favorites: [LocationRef]
+        var hiddenLocations: [String]?
     }
 
     private(set) var favorites: [LocationRef] = []
+    /// Paths of 「場所」 entries the user hid.
+    private(set) var hiddenLocations: Set<String> = []
     private let fileURL: URL
 
     init(fileURL: URL = AppPaths.supportDirectory.appendingPathComponent("sidebar.json")) {
         self.fileURL = fileURL
         if let data = try? Data(contentsOf: fileURL), let stored = try? JSONDecoder().decode(Stored.self, from: data) {
             favorites = stored.favorites
+            hiddenLocations = Set(stored.hiddenLocations ?? [])
         } else {
             favorites = Self.defaultFavorites()
         }
@@ -47,6 +51,11 @@ final class SidebarStore {
         save()
     }
 
+    func setLocation(_ url: URL, hidden: Bool) {
+        if hidden { hiddenLocations.insert(url.path) } else { hiddenLocations.remove(url.path) }
+        save()
+    }
+
     func resetToDefaults() {
         favorites = Self.defaultFavorites()
         save()
@@ -57,7 +66,7 @@ final class SidebarStore {
             try FileManager.default.createDirectory(at: fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-            try encoder.encode(Stored(favorites: favorites)).write(to: fileURL, options: .atomic)
+            try encoder.encode(Stored(favorites: favorites, hiddenLocations: hiddenLocations.sorted())).write(to: fileURL, options: .atomic)
         } catch {
             NSLog("Ommateum: failed to save sidebar: \(error)")
         }
@@ -67,13 +76,11 @@ final class SidebarStore {
     /// Close to Finder's defaults (without AirDrop / Recents, which are not folders), plus Dropbox folders if present.
     static func defaultFavorites() -> [LocationRef] {
         let fm = FileManager.default
-        let home = fm.homeDirectoryForCurrentUser
         var urls: [URL] = [URL(fileURLWithPath: "/Applications")]
         for directory in [FileManager.SearchPathDirectory.desktopDirectory, .documentDirectory, .downloadsDirectory] {
             if let url = fm.urls(for: directory, in: .userDomainMask).first { urls.append(url) }
         }
-        urls.append(home)
-        urls.append(contentsOf: dropboxFolders())
+        urls.append(contentsOf: dropboxFolders()) // the home folder is in 「場所」, as in Finder
         return urls.filter(FileSystem.isDirectory).map(LocationRef.init(url:))
     }
 
