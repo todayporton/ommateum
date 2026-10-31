@@ -7,10 +7,7 @@ enum Preferences {
         static let restoreSession = "restoreSession"
         static let showHiddenFiles = "showHiddenFiles"
         static let defaultViewMode = "defaultViewMode"
-        static let settingsTab = "settingsTab"
     }
-
-    enum SettingsTab: String { case general, sidebar }
 
     static func registerDefaults() {
         UserDefaults.standard.register(defaults: [

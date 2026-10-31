@@ -566,7 +566,7 @@ final class FileBrowserViewController: NSViewController, NSMenuItemValidation {
     @objc func addToSidebar(_ sender: Any?) {
         let folders = selectedItems.filter(\.isNavigable).map(\.url)
         for url in folders.isEmpty ? [currentURL] : folders {
-            SidebarStore.shared.addFavorite(url)
+            SidebarStore.shared.addItem(url)
         }
     }
 

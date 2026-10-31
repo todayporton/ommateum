@@ -28,7 +28,7 @@ Ommateum/
                   DirectoryMonitor  … DispatchSourceによる変更監視
                   FileOperations    … コピー/移動/複製/ゴミ箱/改名/新規フォルダ + Undo + 競合確認
                   WorkspaceStore    … ワークスペースとセッションの保存・読込
-                  SidebarStore      … 独自サイドバー項目の保存
+                  SidebarStore      … サイドバーのグループ・登録サーバ・表示設定の保存
   UI/
     Window/     MainWindowController（ツールバー、サイドバー + ワークスペースの NSSplitViewController）
     Sidebar/    SidebarViewController（NSOutlineView ソースリスト）

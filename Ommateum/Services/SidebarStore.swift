@@ -1,120 +1,214 @@
 import AppKit
 
-/// The user's own sidebar favorites, persisted as JSON. This is the source of truth for the sidebar;
-/// Finder's favorites can be imported once on request (see `FinderSidebarImporter`), not synchronized.
+/// A user-named list of folders in the sidebar, such as ブックマーク or プロジェクト.
+struct SidebarGroup: Codable, Equatable {
+    var id = UUID()
+    var name: String
+    var items: [LocationRef]
+}
+
+/// Built-in sidebar sections that can be turned off.
+enum SidebarBuiltInSection: String, Codable, CaseIterable {
+    case servers, drives, workspaces
+
+    var title: String {
+        switch self {
+        case .servers: "サーバ"
+        case .drives: "ドライブ"
+        case .workspaces: "ワークスペース"
+        }
+    }
+}
+
+/// The user's sidebar groups, registered servers and display options, persisted as JSON. This is the source of truth for
+/// the sidebar; Finder's favorites can be imported once on request (see `FinderSidebarImporter`), not synchronized.
 final class SidebarStore {
     static let shared = SidebarStore()
+    static let defaultGroupName = "ブックマーク"
 
     private struct Stored: Codable {
-        var version = 1
-        var favorites: [LocationRef]
-        var hiddenLocations: [String]?
-        var hiddenCategories: [SidebarLocationCategory]?
+        var version = 2
+        var groups: [SidebarGroup]?
+        var servers: [RegisteredServer]?
+        var hiddenSections: [SidebarBuiltInSection]?
+        var showsCapacity: Bool?
+        /// Version 1: one flat list, migrated to a group on load.
+        var favorites: [LocationRef]?
     }
 
-    private(set) var favorites: [LocationRef] = []
-    /// `SidebarEntry.hideKey` of single 「場所」 entries hidden from the sidebar's context menu.
-    private(set) var hiddenLocations: Set<String> = []
-    /// Kinds of 「場所」 turned off in 設定 ▸ サイドバー.
-    private(set) var hiddenCategories: Set<SidebarLocationCategory> = []
+    private(set) var groups: [SidebarGroup] = []
+    private(set) var servers: [RegisteredServer] = []
+    private(set) var hiddenSections: Set<SidebarBuiltInSection> = []
+    private(set) var showsCapacity = true
     private let fileURL: URL
 
     init(fileURL: URL = AppPaths.supportDirectory.appendingPathComponent("sidebar.json")) {
         self.fileURL = fileURL
-        if let data = try? Data(contentsOf: fileURL), let stored = try? JSONDecoder().decode(Stored.self, from: data) {
-            favorites = stored.favorites
-            hiddenLocations = Set(stored.hiddenLocations ?? [])
-            hiddenCategories = Set(stored.hiddenCategories ?? [])
+        guard let data = try? Data(contentsOf: fileURL), let stored = try? JSONDecoder().decode(Stored.self, from: data) else {
+            groups = Self.defaultGroups()
+            return
+        }
+        if let storedGroups = stored.groups {
+            groups = storedGroups
         } else {
-            favorites = Self.defaultFavorites()
+            var items = stored.favorites ?? []
+            let trash = LocationRef(url: Self.trashURL)
+            if !items.contains(where: { $0.path == trash.path }) { items.append(trash) } // was a fixed sidebar entry before
+            groups = [SidebarGroup(name: Self.defaultGroupName, items: items)]
         }
+        servers = stored.servers ?? []
+        hiddenSections = Set(stored.hiddenSections ?? [])
+        showsCapacity = stored.showsCapacity ?? true
     }
 
-    func addFavorite(_ url: URL, at index: Int? = nil) {
+    // MARK: Groups
+
+    /// Group names must be unique and not empty. Returns the new group's id, or nil when the name is unusable.
+    @discardableResult
+    func addGroup(named name: String) -> UUID? {
+        guard let name = usableGroupName(name, excluding: nil) else { return nil }
+        let group = SidebarGroup(name: name, items: [])
+        groups.append(group)
+        save()
+        return group.id
+    }
+
+    @discardableResult
+    func renameGroup(_ id: UUID, to name: String) -> Bool {
+        guard let name = usableGroupName(name, excluding: id), let index = groups.firstIndex(where: { $0.id == id }) else { return false }
+        groups[index].name = name
+        save()
+        return true
+    }
+
+    private func usableGroupName(_ name: String, excluding id: UUID?) -> String? {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let taken = groups.contains { $0.id != id && $0.name.compare(trimmed, options: [.caseInsensitive, .widthInsensitive]) == .orderedSame }
+        return trimmed.isEmpty || taken ? nil : trimmed
+    }
+
+    func removeGroup(_ id: UUID) {
+        groups.removeAll { $0.id == id }
+        save()
+    }
+
+    func moveGroup(_ id: UUID, by offset: Int) {
+        guard let index = groups.firstIndex(where: { $0.id == id }), groups.indices.contains(index + offset) else { return }
+        groups.swapAt(index, index + offset)
+        save()
+    }
+
+    /// Adds to the given group, or the first one (created if none is left). A folder appears at most once per group.
+    func addItem(_ url: URL, toGroup id: UUID? = nil, at position: Int? = nil) {
+        if groups.isEmpty { groups = [SidebarGroup(name: Self.defaultGroupName, items: [])] }
+        let index = id.flatMap { id in groups.firstIndex { $0.id == id } } ?? 0
         let ref = LocationRef(url: url)
-        guard !favorites.contains(ref) else { return }
-        favorites.insert(ref, at: min(index ?? favorites.count, favorites.count))
+        guard !groups[index].items.contains(where: { $0.path == ref.path }) else { return }
+        groups[index].items.insert(ref, at: min(position ?? groups[index].items.count, groups[index].items.count))
         save()
     }
 
-    func removeFavorite(at index: Int) {
-        guard favorites.indices.contains(index) else { return }
-        favorites.remove(at: index)
+    func removeItem(at position: Int, fromGroup id: UUID) {
+        guard let index = groups.firstIndex(where: { $0.id == id }), groups[index].items.indices.contains(position) else { return }
+        groups[index].items.remove(at: position)
         save()
     }
 
-    func moveFavorite(from source: Int, to destination: Int) {
-        guard favorites.indices.contains(source) else { return }
-        let item = favorites.remove(at: source)
-        favorites.insert(item, at: min(destination > source ? destination - 1 : destination, favorites.count))
-        save()
-    }
-
-    func replaceFavorites(with urls: [URL]) {
-        favorites = urls.map(LocationRef.init(url:))
-        save()
-    }
-
-    func isVisible(_ entry: SidebarEntry) -> Bool {
-        if let category = entry.category, hiddenCategories.contains(category) { return false }
-        return !hiddenLocations.contains(entry.hideKey)
-    }
-
-    func setLocation(key: String, hidden: Bool) {
-        if hidden { hiddenLocations.insert(key) } else { hiddenLocations.remove(key) }
-        save()
-    }
-
-    func setCategory(_ category: SidebarLocationCategory, hidden: Bool) {
-        if hidden { hiddenCategories.insert(category) } else { hiddenCategories.remove(category) }
-        save()
-    }
-
-    func isFavorite(_ url: URL) -> Bool {
-        favorites.contains { $0.url.standardizedFileURL.path == url.standardizedFileURL.path }
-    }
-
-    func setFavorite(_ url: URL, enabled: Bool) {
-        if enabled {
-            if !isFavorite(url) { addFavorite(url) }
-        } else if let index = favorites.firstIndex(where: { $0.url.standardizedFileURL.path == url.standardizedFileURL.path }) {
-            removeFavorite(at: index)
+    /// `destination` is an index in the target group as it is before the move; nil appends.
+    func moveItem(from source: Int, ofGroup sourceID: UUID, toGroup targetID: UUID, at destination: Int?) {
+        guard let sourceIndex = groups.firstIndex(where: { $0.id == sourceID }), groups[sourceIndex].items.indices.contains(source),
+              let targetIndex = groups.firstIndex(where: { $0.id == targetID }) else { return }
+        let item = groups[sourceIndex].items.remove(at: source)
+        var position = destination ?? groups[targetIndex].items.count
+        if sourceIndex == targetIndex, let destination, destination > source { position = destination - 1 }
+        if !groups[targetIndex].items.contains(where: { $0.path == item.path }) {
+            groups[targetIndex].items.insert(item, at: min(position, groups[targetIndex].items.count))
         }
-    }
-
-    func resetToDefaults() {
-        favorites = Self.defaultFavorites()
         save()
     }
 
-    private func save() {
+    func replaceItems(ofGroup id: UUID, with urls: [URL]) {
+        guard let index = groups.firstIndex(where: { $0.id == id }) else { return }
+        groups[index].items = urls.map(LocationRef.init(url:))
+        save()
+    }
+
+    // MARK: Servers
+
+    func addServer(_ address: ServerAddress) {
+        guard remember(address) else { return }
+        save()
+    }
+
+    /// Remembers a mounted share so it stays listed after disconnecting. Called while the sidebar reloads, so it does not notify.
+    func rememberMounted(_ address: ServerAddress) {
+        if remember(address) { save(notify: false) }
+    }
+
+    private func remember(_ address: ServerAddress) -> Bool {
+        if let index = serverIndex(named: address.name) {
+            guard let share = address.share, !servers[index].shares.contains(where: { $0.caseInsensitiveCompare(share) == .orderedSame }) else { return false }
+            servers[index].shares.append(share)
+        } else {
+            servers.append(RegisteredServer(name: address.name, url: address.baseURL.absoluteString, shares: address.share.map { [$0] } ?? []))
+        }
+        return true
+    }
+
+    func removeServer(named name: String) {
+        servers.removeAll { $0.name.caseInsensitiveCompare(name) == .orderedSame }
+        save()
+    }
+
+    func removeShare(_ share: String, fromServer name: String) {
+        guard let index = serverIndex(named: name) else { return }
+        servers[index].shares.removeAll { $0.caseInsensitiveCompare(share) == .orderedSame }
+        save()
+    }
+
+    private func serverIndex(named name: String) -> Int? {
+        servers.firstIndex { $0.name.caseInsensitiveCompare(name) == .orderedSame }
+    }
+
+    // MARK: Options
+
+    func setSection(_ section: SidebarBuiltInSection, hidden: Bool) {
+        if hidden { hiddenSections.insert(section) } else { hiddenSections.remove(section) }
+        save()
+    }
+
+    func setShowsCapacity(_ value: Bool) {
+        showsCapacity = value
+        save()
+    }
+
+    private func save(notify: Bool = true) {
         do {
             try FileManager.default.createDirectory(at: fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-            try encoder.encode(Stored(favorites: favorites, hiddenLocations: hiddenLocations.sorted(), hiddenCategories: hiddenCategories.sorted { $0.rawValue < $1.rawValue })).write(to: fileURL, options: .atomic)
+            let stored = Stored(groups: groups, servers: servers, hiddenSections: hiddenSections.sorted { $0.rawValue < $1.rawValue }, showsCapacity: showsCapacity)
+            try encoder.encode(stored).write(to: fileURL, options: .atomic)
         } catch {
             NSLog("Ommateum: failed to save sidebar: \(error)")
         }
-        NotificationCenter.default.post(name: .sidebarChanged, object: self)
+        if notify { NotificationCenter.default.post(name: .sidebarChanged, object: self) }
     }
 
-    /// The folders offered as checkboxes in 設定 ▸ サイドバー.
-    static func standardFavoriteFolders() -> [URL] {
-        let fm = FileManager.default
-        let directories: [FileManager.SearchPathDirectory] = [.desktopDirectory, .documentDirectory, .downloadsDirectory, .moviesDirectory, .musicDirectory, .picturesDirectory]
-        return ([URL(fileURLWithPath: "/Applications")] + directories.compactMap { fm.urls(for: $0, in: .userDomainMask).first }).filter(FileSystem.isDirectory)
+    static var trashURL: URL {
+        FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".Trash", isDirectory: true)
     }
 
-    /// Close to Finder's defaults (without AirDrop / Recents, which are not folders), plus Dropbox folders if present.
-    static func defaultFavorites() -> [LocationRef] {
+    /// One 「ブックマーク」 group with the usual folders (AirDrop / Recents are not folders), plus Dropbox folders if present.
+    static func defaultGroups() -> [SidebarGroup] {
         let fm = FileManager.default
-        var urls: [URL] = [URL(fileURLWithPath: "/Applications")]
-        for directory in [FileManager.SearchPathDirectory.desktopDirectory, .documentDirectory, .downloadsDirectory] {
+        var urls: [URL] = [fm.homeDirectoryForCurrentUser, URL(fileURLWithPath: "/Applications")]
+        for directory in [FileManager.SearchPathDirectory.desktopDirectory, .downloadsDirectory, .documentDirectory] {
             if let url = fm.urls(for: directory, in: .userDomainMask).first { urls.append(url) }
         }
-        urls.append(contentsOf: dropboxFolders()) // the home folder is in 「場所」, as in Finder
-        return urls.filter(FileSystem.isDirectory).map(LocationRef.init(url:))
+        urls.append(contentsOf: dropboxFolders())
+        urls.append(trashURL)
+        return [SidebarGroup(name: defaultGroupName, items: urls.filter(FileSystem.isDirectory).map(LocationRef.init(url:)))]
     }
 
     /// Dropbox folders: legacy sync folders in the home directory, or File Provider folders in ~/Library/CloudStorage.
@@ -131,24 +225,6 @@ final class SidebarStore {
     }
 }
 
-/// The kinds of 「場所」 with a checkbox in 設定 ▸ サイドバー.
-enum SidebarLocationCategory: String, Codable, CaseIterable {
-    case iCloud, cloudStorage, home, computer, hardDisks, externalDisks, servers, trash
-
-    var title: String {
-        switch self {
-        case .iCloud: "iCloud Drive"
-        case .cloudStorage: "クラウドストレージ"
-        case .home: NSUserName()
-        case .computer: "コンピュータ"
-        case .hardDisks: "ハードディスク"
-        case .externalDisks: "外部ディスク"
-        case .servers: "接続中のサーバ"
-        case .trash: "ゴミ箱"
-        }
-    }
-}
-
 extension Notification.Name {
     static let sidebarChanged = Notification.Name("OmmateumSidebarChanged")
 }
@@ -158,6 +234,10 @@ enum AppPaths {
         // Lets manual / automated UI checks run against a throwaway session and sidebar.
         if let override = ProcessInfo.processInfo.environment["OMMATEUM_SUPPORT_DIR"], !override.isEmpty {
             return URL(fileURLWithPath: override, isDirectory: true)
+        }
+        // Tests launch the app as their host; it must not read or rewrite the user's real data.
+        if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil {
+            return FileManager.default.temporaryDirectory.appendingPathComponent("ommateum-test-host", isDirectory: true)
         }
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support")

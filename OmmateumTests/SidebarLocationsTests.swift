@@ -3,69 +3,98 @@ import Testing
 @testable import Ommateum
 
 struct SidebarLocationsTests {
-    @Test func listsFinderStyleLocationsInOrder() {
-        let entries = SidebarViewController.locationEntries()
-        #expect(entries.first?.url.path == FileManager.default.homeDirectoryForCurrentUser.path)
-        #expect(entries[1].role == .computer)
-        #expect(entries[1].url.path == "/Volumes")
-        #expect(entries.last?.role == .trash)
-    }
-
-    @Test func hiddenLocationsPersistAndOldFilesStillLoad() throws {
+    private func makeStore(json: String? = nil) throws -> (store: SidebarStore, file: URL, cleanup: () -> Void) {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent("ommateum-tests-\(UUID())")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: dir) }
         let file = dir.appendingPathComponent("sidebar.json")
+        if let json { try Data(json.utf8).write(to: file) }
+        return (SidebarStore(fileURL: file), file, { try? FileManager.default.removeItem(at: dir) })
+    }
 
-        try Data(#"{"version":1,"favorites":[]}"#.utf8).write(to: file) // written before hiding existed
-        let store = SidebarStore(fileURL: file)
-        #expect(store.favorites.isEmpty)
-        #expect(store.hiddenLocations.isEmpty)
+    @Test func migratesFlatFavoritesToAGroupWithTrash() throws {
+        let (store, _, cleanup) = try makeStore(json: #"{"version":1,"favorites":[{"path":"/tmp"}],"hiddenLocations":["/"]}"#)
+        defer { cleanup() }
+        #expect(store.groups.map(\.name) == ["ブックマーク"])
+        #expect(store.groups[0].items.map(\.path) == ["/tmp", SidebarStore.trashURL.path])
+    }
 
-        store.setLocation(key: "/", hidden: true)
-        store.setLocation(key: "/Volumes", hidden: true)
-        store.setLocation(key: "/Volumes", hidden: false)
-        store.setCategory(.trash, hidden: true)
+    @Test func groupsPersistAndRejectBadNames() throws {
+        let (store, file, cleanup) = try makeStore(json: #"{"version":2,"groups":[]}"#)
+        defer { cleanup() }
+        let project = try #require(store.addGroup(named: " プロジェクト "))
+        #expect(store.addGroup(named: "プロジェクト") == nil)
+        #expect(store.addGroup(named: "  ") == nil)
+        let other = try #require(store.addGroup(named: "素材"))
+        #expect(!store.renameGroup(other, to: "プロジェクト"))
+        #expect(store.renameGroup(other, to: "資料"))
+        store.moveGroup(other, by: -1)
+        store.addItem(URL(fileURLWithPath: "/tmp"), toGroup: project)
+        store.addItem(URL(fileURLWithPath: "/tmp"), toGroup: project)
+        store.setSection(.drives, hidden: true)
+        store.setShowsCapacity(false)
+
         let reloaded = SidebarStore(fileURL: file)
-        #expect(reloaded.hiddenLocations == ["/"])
-        #expect(reloaded.hiddenCategories == [.trash])
-
-        let icon = NSImage()
-        #expect(!reloaded.isVisible(SidebarEntry(url: URL(fileURLWithPath: "/"), icon: icon, category: .hardDisks)))
-        #expect(!reloaded.isVisible(SidebarEntry(url: URL(fileURLWithPath: "/x"), icon: icon, category: .trash)))
-        #expect(reloaded.isVisible(SidebarEntry(url: URL(fileURLWithPath: "/x"), icon: icon, category: .home)))
+        #expect(reloaded.groups.map(\.name) == ["資料", "プロジェクト"])
+        #expect(reloaded.groups[1].items.map(\.path) == ["/tmp"])
+        #expect(reloaded.hiddenSections == [.drives])
+        #expect(!reloaded.showsCapacity)
     }
 
-    @Test func favoriteCheckboxesAddAndRemove() throws {
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("ommateum-tests-\(UUID())")
-        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: dir) }
-        let store = SidebarStore(fileURL: dir.appendingPathComponent("sidebar.json"))
-        store.replaceFavorites(with: [])
-        store.setFavorite(dir, enabled: true)
-        store.setFavorite(dir, enabled: true)
-        #expect(store.favorites.count == 1)
-        #expect(store.isFavorite(dir))
-        store.setFavorite(dir, enabled: false)
-        #expect(!store.isFavorite(dir))
+    @Test func itemsMoveWithinAndBetweenGroups() throws {
+        let (store, _, cleanup) = try makeStore(json: #"{"version":2,"groups":[]}"#)
+        defer { cleanup() }
+        let a = try #require(store.addGroup(named: "A"))
+        let b = try #require(store.addGroup(named: "B"))
+        store.replaceItems(ofGroup: a, with: ["/1", "/2", "/3"].map { URL(fileURLWithPath: $0) })
+        func paths(_ index: Int) -> [String] { store.groups[index].items.map(\.path) }
+
+        store.moveItem(from: 0, ofGroup: a, toGroup: a, at: 2)
+        #expect(paths(0) == ["/2", "/1", "/3"])
+        store.moveItem(from: 2, ofGroup: a, toGroup: b, at: nil)
+        #expect(paths(0) == ["/2", "/1"])
+        #expect(paths(1) == ["/3"])
+        store.removeItem(at: 0, fromGroup: a)
+        #expect(paths(0) == ["/1"])
+        store.removeGroup(a)
+        #expect(store.groups.map(\.name) == ["B"])
     }
 
-    @Test func serverNamesComeFromTheRemountURL() throws {
-        func name(_ text: String) throws -> String? { SidebarViewController.serverName(fromRemountURL: try #require(URL(string: text))) }
-        #expect(try name("smb://user@MyNAS._smb._tcp.local/music") == "MyNAS")
-        #expect(try name("smb://nas.local/share") == "nas")
-        #expect(try name("smb://192.168.1.2/share") == "192.168.1.2")
-        #expect(try name("smb://files.example.com/share") == "files.example.com")
+    @Test func parsesServerAddresses() throws {
+        let nas = try #require(ServerAddress("smb://user@MyNAS._smb._tcp.local/music"))
+        #expect(nas.name == "MyNAS")
+        #expect(nas.share == "music")
+        #expect(nas.baseURL.absoluteString == "smb://user@MyNAS._smb._tcp.local")
+        #expect(ServerAddress("nas.local/写真")?.share == "写真") // smb is assumed
+        #expect(ServerAddress("smb://192.168.1.2")?.name == "192.168.1.2")
+        #expect(ServerAddress("smb://192.168.1.2")?.share == nil)
+        #expect(ServerAddress("afp://files.example.com/x")?.name == "files.example.com")
+        #expect(ServerAddress("smb://u:secret@nas.local/x")?.baseURL.absoluteString.contains("secret") == false)
+        #expect(ServerAddress("file:///etc") == nil)
+        #expect(ServerAddress("") == nil)
     }
 
-    @Test func sharesAreGroupedPerServer() {
-        let icon = NSImage()
-        func share(_ path: String) -> SidebarEntry { SidebarEntry(url: URL(fileURLWithPath: path), icon: icon, isEjectable: true) }
-        let servers = SidebarViewController.serverEntries(from: [("NAS", share("/Volumes/music")), ("Other", share("/Volumes/x")), ("NAS", share("/Volumes/photo"))])
-        #expect(servers.map(\.name) == ["NAS", "Other"])
-        #expect(servers[0].shares.map(\.url.path) == ["/Volumes/music", "/Volumes/photo"])
-        #expect(servers[0].url.path == "/Volumes/music")
-        #expect(servers[0].category == .servers)
-        #expect(servers[0].hideKey == "server:NAS")
+    @Test func serversAreRememberedAndListSharesAsChildren() throws {
+        let (store, file, cleanup) = try makeStore(json: #"{"version":2,"groups":[]}"#)
+        defer { cleanup() }
+        let music = try #require(ServerAddress("smb://user@MyNAS._smb._tcp.local/music"))
+        store.rememberMounted(music)
+        store.rememberMounted(music)
+        store.addServer(try #require(ServerAddress("smb://mynas.local/photo")))
+        #expect(SidebarStore(fileURL: file).servers.map(\.shares) == [["music", "photo"]])
+
+        let mounted = MountedShare(address: music, entry: SidebarEntry(url: URL(fileURLWithPath: "/Volumes/music"), icon: NSImage(), isEjectable: true, isVolume: true))
+        let extra = MountedShare(address: try #require(ServerAddress("smb://MyNAS.local/backup")), entry: SidebarEntry(url: URL(fileURLWithPath: "/Volumes/backup"), icon: NSImage()))
+        let server = try #require(SidebarViewController.serverEntries(registered: store.servers, mounted: [mounted, extra]).first)
+        #expect(server.server.name == "MyNAS")
+        #expect(server.shares.count == 3)
+        #expect((server.shares[0] as? SidebarEntry)?.url.path == "/Volumes/music")
+        #expect((server.shares[1] as? SidebarUnmountedShare)?.name == "photo")
+        #expect((server.shares[2] as? SidebarEntry)?.url.path == "/Volumes/backup")
+        #expect(server.server.mountURL(share: "photo")?.absoluteString == "smb://user@MyNAS._smb._tcp.local/photo")
+
+        store.removeShare("photo", fromServer: "MyNAS")
+        #expect(store.servers[0].shares == ["music"])
+        store.removeServer(named: "mynas")
+        #expect(store.servers.isEmpty)
     }
 }
