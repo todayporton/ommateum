@@ -157,7 +157,7 @@ final class SidebarViewController: NSViewController {
         outlineView.menu?.delegate = self
         outlineView.setAccessibilityLabel("サイドバー")
         scrollView.documentView = outlineView
-        let card = CardView(backgroundColor: WindowLayout.sidebarBackgroundColor)
+        let card = CardView(backgroundColor: WindowLayout.backgroundColor, isOutlined: false)
         card.translatesAutoresizingMaskIntoConstraints = false
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         card.addSubview(scrollView)

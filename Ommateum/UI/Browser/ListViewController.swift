@@ -18,8 +18,24 @@ final class BrowserRowView: NSTableRowView {
 }
 
 final class BrowserOutlineView: NSOutlineView {
-    static let stripeInset: CGFloat = 4
+    static let stripeInset: CGFloat = 10
+    /// Keeps row contents inside the rounded bands.
+    private static let contentInset: CGFloat = 8
     static let stripeRadius: CGFloat = 7
+
+    override func frameOfCell(atColumn column: Int, row: Int) -> NSRect {
+        var frame = super.frameOfCell(atColumn: column, row: row)
+        if column == 0 {
+            frame.origin.x += Self.contentInset
+            frame.size.width -= Self.contentInset
+        }
+        if column == numberOfColumns - 1 { frame.size.width -= Self.stripeInset + Self.contentInset }
+        return frame
+    }
+
+    override func frameOfOutlineCell(atRow row: Int) -> NSRect {
+        super.frameOfOutlineCell(atRow: row).offsetBy(dx: Self.contentInset, dy: 0)
+    }
 
     /// Draws every other row, including the empty area below the last one, as a rounded band.
     override func drawBackground(inClipRect clipRect: NSRect) {

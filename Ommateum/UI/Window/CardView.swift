@@ -4,10 +4,6 @@ import AppKit
 enum WindowLayout {
     static let gap: CGFloat = 6
     static let cornerRadius: CGFloat = 8
-    /// A step darker than the panes, while still lighter than the gaps.
-    static let sidebarBackgroundColor = NSColor(name: "OmmateumSidebarBackground") { appearance in
-        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? NSColor(white: 0.095, alpha: 1) : NSColor(white: 0.95, alpha: 1)
-    }
     /// Shows through the gaps and behind the toolbar. Darker than the cards so their edges stand out.
     static let backgroundColor = NSColor(name: "OmmateumWindowBackground") { appearance in
         appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? NSColor(white: 0.08, alpha: 1) : NSColor(white: 0.78, alpha: 1)
@@ -18,13 +14,16 @@ enum WindowLayout {
 final class CardView: NSView {
     private let cardBackgroundColor: NSColor
 
-    init(backgroundColor: NSColor = .controlBackgroundColor) {
+    private let isOutlined: Bool
+
+    init(backgroundColor: NSColor = .controlBackgroundColor, isOutlined: Bool = true) {
         cardBackgroundColor = backgroundColor
+        self.isOutlined = isOutlined
         super.init(frame: .zero)
         wantsLayer = true
         layer?.cornerRadius = WindowLayout.cornerRadius
         layer?.cornerCurve = .continuous
-        layer?.borderWidth = 1
+        layer?.borderWidth = isOutlined ? 1 : 0
         layer?.masksToBounds = true
     }
 
