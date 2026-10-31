@@ -78,7 +78,7 @@ final class PaneViewController: NSViewController {
     }
 
     override func loadView() {
-        let root = NSView()
+        let root = CardView()
         tabBar.delegate = self
         tabBar.translatesAutoresizingMaskIntoConstraints = false
         contentView.translatesAutoresizingMaskIntoConstraints = false

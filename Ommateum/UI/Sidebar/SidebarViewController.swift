@@ -143,7 +143,23 @@ final class SidebarViewController: NSViewController {
         outlineView.menu?.delegate = self
         outlineView.setAccessibilityLabel("サイドバー")
         scrollView.documentView = outlineView
-        view = scrollView
+        let card = CardView()
+        card.translatesAutoresizingMaskIntoConstraints = false
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+        card.addSubview(scrollView)
+        let root = NSView()
+        root.addSubview(card)
+        NSLayoutConstraint.activate([
+            scrollView.topAnchor.constraint(equalTo: card.topAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: card.bottomAnchor),
+            scrollView.leadingAnchor.constraint(equalTo: card.leadingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: card.trailingAnchor),
+            card.topAnchor.constraint(equalTo: root.safeAreaLayoutGuide.topAnchor),
+            card.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -WindowLayout.gap),
+            card.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: WindowLayout.gap),
+            card.trailingAnchor.constraint(equalTo: root.trailingAnchor),
+        ])
+        view = root
 
         NotificationCenter.default.addObserver(self, selector: #selector(reload), name: .sidebarChanged, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(reload), name: .workspacesChanged, object: nil)

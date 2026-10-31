@@ -2,7 +2,7 @@ import AppKit
 
 /// One Ommateum window: toolbar, the single sidebar on the left, and the split workspace.
 final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuItemValidation {
-    private let splitViewController = NSSplitViewController()
+    private let splitViewController = WindowSplitViewController()
     private let sidebar = SidebarViewController()
     private var sidebarItem: NSSplitViewItem!
     let workspace: WorkspaceViewController
@@ -28,14 +28,19 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         window.minSize = NSSize(width: 520, height: 320)
         window.isRestorable = false
         window.tabbingMode = .disallowed // Ommateum has its own tabs per pane
-        window.titlebarSeparatorStyle = .automatic
+        window.titlebarSeparatorStyle = .none
         window.toolbarStyle = .unified
         super.init(window: window)
         window.delegate = self
 
         sidebar.host = self
-        sidebarItem = NSSplitViewItem(sidebarWithViewController: sidebar)
-        sidebarItem.minimumThickness = 150
+        let splitView = GapSplitView()
+        splitView.isVertical = true
+        splitViewController.splitView = splitView
+        sidebarItem = NSSplitViewItem(viewController: sidebar)
+        sidebarItem.holdingPriority = NSLayoutConstraint.Priority(NSLayoutConstraint.Priority.defaultLow.rawValue + 10) // resizing the window resizes the panes
+        splitViewController.sidebarItem = sidebarItem
+        sidebarItem.minimumThickness = 170
         sidebarItem.maximumThickness = 400
         sidebarItem.canCollapse = true
         splitViewController.addSplitViewItem(sidebarItem)
@@ -75,10 +80,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
             window.center()
         }
         sidebarItem.isCollapsed = !(snapshot?.sidebarVisible ?? true)
-        if let width = snapshot?.sidebarWidth {
-            splitViewController.splitView.layoutSubtreeIfNeeded()
-            splitViewController.splitView.setPosition(CGFloat(width), ofDividerAt: 0)
-        }
+        splitViewController.splitView.layoutSubtreeIfNeeded()
+        splitViewController.splitView.setPosition(CGFloat(snapshot?.sidebarWidth ?? 230), ofDividerAt: 0)
     }
 
     /// Replaces the whole window state with a saved workspace.

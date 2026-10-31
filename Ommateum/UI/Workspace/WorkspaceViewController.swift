@@ -91,9 +91,9 @@ final class WorkspaceViewController: NSViewController {
         NSLayoutConstraint.activate([
             // Keep panes (and their tab bars) below the toolbar; the window uses a full-size content view.
             root.topAnchor.constraint(equalTo: container.safeAreaLayoutGuide.topAnchor),
-            root.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            root.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -WindowLayout.gap),
             root.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            root.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            root.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -WindowLayout.gap),
         ])
         let multiple = panes.count > 1
         for pane in panes.values {
@@ -341,7 +341,7 @@ extension WorkspaceViewController: NSSplitViewDelegate {
 ///
 /// Window and parent resizes lay the subviews out from the fractions (so proportions survive any number of
 /// relayouts and restarts); only a divider dragged by the user changes the fractions.
-final class LayoutSplitView: NSSplitView {
+final class LayoutSplitView: GapSplitView {
     var path: [Int] = []
     var fractions: [Double] = []
 
