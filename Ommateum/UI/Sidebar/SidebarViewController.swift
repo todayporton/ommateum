@@ -84,7 +84,7 @@ struct MountedShare {
     let entry: SidebarEntry
 }
 
-/// Lines every row up with the group names, leaving the disclosure triangle in the margin to their left.
+/// Lines every row up with the group names. Disclosure chevrons are drawn by the cells, on the right.
 /// Shares are indented inside their cells (`SidebarCell.shareIndent`).
 private final class SidebarOutlineView: NSOutlineView {
     private let groupNameX: CGFloat = 14
@@ -110,15 +110,9 @@ private final class SidebarOutlineView: NSOutlineView {
         frame.origin.x = groupNameX
         return frame
     }
-
-    override func frameOfOutlineCell(atRow row: Int) -> NSRect {
-        var frame = super.frameOfOutlineCell(atRow: row)
-        frame.origin.x = max(0, groupNameX - frame.width)
-        return frame
-    }
 }
 
-/// QSpace-style source list: any number of user-named groups, then サーバ (registered servers with their shares),
+/// QSpace-style source list: any number of user-named groups, then サーバー (registered servers with their shares),
 /// ドライブ (local volumes) and ワークスペース (saved workspaces).
 final class SidebarViewController: NSViewController {
     weak var host: SidebarHost?
@@ -126,8 +120,8 @@ final class SidebarViewController: NSViewController {
     private let outlineView = SidebarOutlineView()
     private var sections: [SidebarSection] = []
     /// Sections and servers the user folded; kept across reloads, which rebuild every row object.
+    /// A folded row simply has no children: NSOutlineView refuses to collapse rows without its own disclosure triangle.
     private var collapsedKeys: Set<String> = []
-    private var isReloading = false
     private var highlightedURL: URL?
     private var capacities: [String: Int64] = [:]
     private static let itemDragType = NSPasteboard.PasteboardType("com.ommateum.sidebar-item")
@@ -249,34 +243,30 @@ final class SidebarViewController: NSViewController {
         addBuiltIn(.workspaces, kind: .workspaces, children: WorkspaceStore.shared.names.map(SidebarWorkspaceEntry.init))
         sections = result
 
-        isReloading = true
         outlineView.reloadData()
-        for section in sections {
-            outlineView.expandItem(section)
-            for case let server as SidebarServerEntry in section.children where !collapsedKeys.contains(Self.collapseKey(server)) {
-                outlineView.expandItem(server)
-            }
-        }
-        isReloading = false
+        expandAll()
         highlight(highlightedURL)
         refreshCapacities()
     }
 
-    /// A folded section simply has no children: NSOutlineView refuses to collapse rows without a disclosure triangle.
-    private func toggleFolding(_ section: SidebarSection) {
-        let key = Self.collapseKey(section)
-        if collapsedKeys.remove(key) == nil { collapsedKeys.insert(key) }
-        isReloading = true
-        outlineView.reloadItem(section, reloadChildren: true)
-        outlineView.expandItem(section)
-        for case let server as SidebarServerEntry in section.children where !collapsedKeys.contains(Self.collapseKey(server)) {
-            outlineView.expandItem(server)
+    private func expandAll() {
+        for section in sections {
+            outlineView.expandItem(section)
+            section.children.filter { $0 is SidebarServerEntry }.forEach { outlineView.expandItem($0) }
         }
-        isReloading = false
+    }
+
+    private func toggleFolding(_ item: NSObject) {
+        let key = Self.collapseKey(item)
+        if collapsedKeys.remove(key) == nil { collapsedKeys.insert(key) }
+        outlineView.reloadItem(item, reloadChildren: true)
+        expandAll()
         highlight(highlightedURL)
         // Reloading an item keeps its row view, so didAdd does not run and the header would lose its style.
         updateAllColors()
     }
+
+    private func isFolded(_ item: NSObject) -> Bool { collapsedKeys.contains(Self.collapseKey(item)) }
 
     private static func collapseKey(_ item: Any) -> String {
         if let section = item as? SidebarSection {
@@ -411,10 +401,8 @@ final class SidebarViewController: NSViewController {
         case let server as SidebarServerEntry:
             if server.shares.isEmpty {
                 connect(server.server)
-            } else if outlineView.isItemExpanded(server) {
-                outlineView.collapseItem(server)
             } else {
-                outlineView.expandItem(server)
+                toggleFolding(server)
             }
         default:
             break
@@ -533,14 +521,14 @@ final class SidebarViewController: NSViewController {
     }
 
     @objc private func addServer(_ sender: Any?) {
-        prompt("サーバを追加", informative: "アドレスの例: smb://MyNAS.local/music\n共有名を省くと、接続時に選べます。パスワードはシステムの画面で入力します。", placeholder: "smb://サーバ名/共有名", confirm: "接続") { [weak self] text in
+        prompt("サーバーを追加", informative: "アドレスの例: smb://MyNAS.local/music\n共有名を省くと、接続時に選べます。パスワードはシステムの画面で入力します。", placeholder: "smb://サーバー名/共有名", confirm: "接続") { [weak self] text in
             self?.registerAndConnect(text)
         }
     }
 
     private func registerAndConnect(_ text: String) {
         guard let address = ServerAddress(text) else {
-            FileOperations.shared.showError(message: "「\(text)」はサーバのアドレスとして使えません。smb://, afp://, nfs://, http://, https:// に対応しています。", window: view.window)
+            FileOperations.shared.showError(message: "「\(text)」はサーバーのアドレスとして使えません。smb://, afp://, nfs://, http://, https:// に対応しています。", window: view.window)
             return
         }
         SidebarStore.shared.addServer(address)
@@ -631,7 +619,7 @@ extension SidebarViewController: NSMenuDelegate {
             add("接続…", #selector(connectServer(_:)), server)
             add("共有を追加…", #selector(addShare(_:)), server)
             if server.mountedShares.isEmpty {
-                add("サーバを登録から削除", #selector(removeServer(_:)), server)
+                add("サーバーを登録から削除", #selector(removeServer(_:)), server)
             } else {
                 add("接続を解除", #selector(disconnectServer(_:)), server)
             }
@@ -647,8 +635,8 @@ extension SidebarViewController: NSMenuDelegate {
         }
         if menu.numberOfItems > 0 { menu.addItem(.separator()) }
         add("新規グループ…", #selector(newGroup(_:)))
-        add("サーバを追加…", #selector(addServer(_:)))
-        add("すべてのサーバの接続を解除", #selector(disconnectAllServers(_:)))
+        add("サーバーを追加…", #selector(addServer(_:)))
+        add("すべてのサーバーの接続を解除", #selector(disconnectAllServers(_:)))
         add("すべての外部ディスクを取り出す", #selector(ejectAllExternalDrives(_:)))
         menu.addItem(.separator())
         for section in SidebarBuiltInSection.allCases {
@@ -672,22 +660,19 @@ private final class SidebarRowView: NSTableRowView {
     }
 }
 
-/// The small eject button of a sidebar row, with a rounded background while hovered or pressed.
-private final class EjectButton: NSButton {
+/// A small button at the right of a sidebar row (eject, disclosure), with a rounded background while hovered or pressed.
+private final class RowIconButton: NSButton {
     private var isHovered = false {
         didSet {
             if isHovered != oldValue { updateStyle() }
         }
     }
 
-    init() {
+    init(symbol: String, label: String) {
         super.init(frame: .zero)
         isBordered = false
         imagePosition = .imageOnly
-        image = NSImage(systemSymbolName: "eject.fill", accessibilityDescription: "取り出す")?
-            .withSymbolConfiguration(.init(pointSize: 9, weight: .medium))
-        toolTip = "取り出す"
-        setAccessibilityLabel("取り出す")
+        setSymbol(symbol, label: label)
         setContentCompressionResistancePriority(.required, for: .horizontal)
         setContentHuggingPriority(.required, for: .horizontal)
         NSLayoutConstraint.activate([widthAnchor.constraint(equalToConstant: 18), heightAnchor.constraint(equalToConstant: 18)])
@@ -695,6 +680,18 @@ private final class EjectButton: NSButton {
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    func setSymbol(_ symbol: String, label: String) {
+        image = NSImage(systemSymbolName: symbol, accessibilityDescription: label)?
+            .withSymbolConfiguration(.init(pointSize: 9, weight: .medium))
+        toolTip = label
+        setAccessibilityLabel(label)
+    }
+
+    /// Down while open, right while folded.
+    func setDisclosure(isOpen: Bool) {
+        setSymbol(isOpen ? "chevron.down" : "chevron.right", label: isOpen ? "閉じる" : "開く")
+    }
 
     private func updateStyle() {
         contentTintColor = isHovered ? .labelColor : .tertiaryLabelColor
@@ -724,11 +721,71 @@ private final class EjectButton: NSButton {
     }
 }
 
+/// A group name; its chevron appears at the right while the pointer is over the row.
+private final class SidebarHeaderCell: NSTableCellView {
+    private let disclosureButton = RowIconButton(symbol: "chevron.down", label: "閉じる")
+    private var onDisclosure: (() -> Void)?
+
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        let field = NSTextField(labelWithString: "")
+        field.lineBreakMode = .byTruncatingTail
+        field.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(field)
+        textField = field
+        disclosureButton.translatesAutoresizingMaskIntoConstraints = false
+        disclosureButton.target = self
+        disclosureButton.action = #selector(disclosurePressed(_:))
+        disclosureButton.isHidden = true
+        addSubview(disclosureButton)
+        NSLayoutConstraint.activate([
+            field.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 2),
+            field.trailingAnchor.constraint(lessThanOrEqualTo: disclosureButton.leadingAnchor, constant: -2),
+            field.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -3),
+            disclosureButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -4),
+            disclosureButton.centerYAnchor.constraint(equalTo: field.centerYAnchor),
+        ])
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    func configure(title: String, isOpen: Bool, onDisclosure: @escaping () -> Void) {
+        textField?.stringValue = title
+        self.onDisclosure = onDisclosure
+        disclosureButton.setDisclosure(isOpen: isOpen)
+        updateHover()
+    }
+
+    /// Folding moves rows under a still pointer without any mouse-entered event, so this asks where the pointer is.
+    private func updateHover() {
+        guard let window else { disclosureButton.isHidden = true; return }
+        disclosureButton.isHidden = !bounds.contains(convert(window.mouseLocationOutsideOfEventStream, from: nil))
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        updateHover()
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        trackingAreas.forEach(removeTrackingArea)
+        addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect], owner: self))
+    }
+
+    override func mouseEntered(with event: NSEvent) { disclosureButton.isHidden = false }
+    override func mouseExited(with event: NSEvent) { disclosureButton.isHidden = true }
+
+    @objc private func disclosurePressed(_ sender: Any?) { onDisclosure?() }
+}
+
 /// A sidebar row: icon, name, free-space badge and eject button.
 private final class SidebarCell: NSTableCellView {
     private let badge = NSTextField(labelWithString: "")
-    private let ejectButton = EjectButton()
+    private let ejectButton = RowIconButton(symbol: "eject.fill", label: "取り出す")
+    private let disclosureButton = RowIconButton(symbol: "chevron.down", label: "閉じる")
     private var onEject: (() -> Void)?
+    private var onDisclosure: (() -> Void)?
     private var stackLeading: NSLayoutConstraint?
     private var isDimmed = false
     /// How far a share sits inside its server row.
@@ -747,7 +804,9 @@ private final class SidebarCell: NSTableCellView {
         badge.setContentCompressionResistancePriority(.required, for: .horizontal)
         ejectButton.target = self
         ejectButton.action = #selector(ejectPressed(_:))
-        let stack = NSStackView(views: [image, field, badge, ejectButton])
+        disclosureButton.target = self
+        disclosureButton.action = #selector(disclosurePressed(_:))
+        let stack = NSStackView(views: [image, field, badge, ejectButton, disclosureButton])
         stack.distribution = .fill
         stack.spacing = 8
         stack.translatesAutoresizingMaskIntoConstraints = false
@@ -765,7 +824,7 @@ private final class SidebarCell: NSTableCellView {
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
-    func configure(name: String, icon: NSImage, tooltip: String?, indent: CGFloat = 0, dimmed: Bool = false, badgeText: String? = nil, onEject: (() -> Void)? = nil) {
+    func configure(name: String, icon: NSImage, tooltip: String?, indent: CGFloat = 0, dimmed: Bool = false, badgeText: String? = nil, onEject: (() -> Void)? = nil, disclosure: (isOpen: Bool, action: () -> Void)? = nil) {
         stackLeading?.constant = indent
         textField?.stringValue = name
         isDimmed = dimmed
@@ -775,6 +834,10 @@ private final class SidebarCell: NSTableCellView {
         self.onEject = onEject
         ejectButton.isHidden = onEject == nil
         ejectButton.resetHover()
+        onDisclosure = disclosure?.action
+        disclosureButton.isHidden = disclosure == nil
+        disclosureButton.setDisclosure(isOpen: disclosure?.isOpen ?? true)
+        disclosureButton.resetHover()
     }
 
     func updateColors(isSelected: Bool, isActive: Bool) {
@@ -791,6 +854,7 @@ private final class SidebarCell: NSTableCellView {
     }
 
     @objc private func ejectPressed(_ sender: Any?) { onEject?() }
+    @objc private func disclosurePressed(_ sender: Any?) { onDisclosure?() }
 }
 
 extension SidebarViewController: NSOutlineViewDataSource, NSOutlineViewDelegate {
@@ -798,7 +862,7 @@ extension SidebarViewController: NSOutlineViewDataSource, NSOutlineViewDelegate 
         switch item {
         case nil: sections.count
         case let section as SidebarSection: collapsedKeys.contains(Self.collapseKey(section)) ? 0 : section.children.count
-        case let server as SidebarServerEntry: server.shares.count
+        case let server as SidebarServerEntry: isFolded(server) ? 0 : server.shares.count
         default: 0
         }
     }
@@ -816,8 +880,8 @@ extension SidebarViewController: NSOutlineViewDataSource, NSOutlineViewDelegate 
     }
 
     func outlineView(_ outlineView: NSOutlineView, isGroupItem item: Any) -> Bool { item is SidebarSection }
-    /// Group names stay flush with their items; clicking a name folds the group.
-    func outlineView(_ outlineView: NSOutlineView, shouldShowOutlineCellForItem item: Any) -> Bool { !(item is SidebarSection) }
+    /// Chevrons are drawn by the cells, at the right of the row.
+    func outlineView(_ outlineView: NSOutlineView, shouldShowOutlineCellForItem item: Any) -> Bool { false }
     func outlineView(_ outlineView: NSOutlineView, shouldSelectItem item: Any) -> Bool { item is SidebarEntry || item is SidebarWorkspaceEntry }
 
     func outlineView(_ outlineView: NSOutlineView, rowViewForItem item: Any) -> NSTableRowView? { SidebarRowView() }
@@ -829,19 +893,15 @@ extension SidebarViewController: NSOutlineViewDataSource, NSOutlineViewDelegate 
 
     func outlineViewSelectionDidChange(_ notification: Notification) { updateAllColors() }
 
-    func outlineViewItemDidCollapse(_ notification: Notification) {
-        if !isReloading, let item = notification.userInfo?["NSObject"] { collapsedKeys.insert(Self.collapseKey(item)) }
-    }
-
-    func outlineViewItemDidExpand(_ notification: Notification) {
-        if !isReloading, let item = notification.userInfo?["NSObject"] { collapsedKeys.remove(Self.collapseKey(item)) }
-    }
-
     func outlineView(_ outlineView: NSOutlineView, viewFor tableColumn: NSTableColumn?, item: Any) -> NSView? {
         if let section = item as? SidebarSection {
             let id = NSUserInterfaceItemIdentifier("header")
-            let cell = outlineView.makeView(withIdentifier: id, owner: nil) as? NSTableCellView ?? makeHeaderCell(id: id)
-            cell.textField?.stringValue = section.title
+            let cell = outlineView.makeView(withIdentifier: id, owner: nil) as? SidebarHeaderCell ?? {
+                let cell = SidebarHeaderCell()
+                cell.identifier = id
+                return cell
+            }()
+            cell.configure(title: section.title, isOpen: !isFolded(section)) { [weak self] in self?.toggleFolding(section) }
             return cell
         }
         let id = NSUserInterfaceItemIdentifier("entry")
@@ -855,38 +915,16 @@ extension SidebarViewController: NSOutlineViewDataSource, NSOutlineViewDelegate 
             cell.configure(name: workspace.name, icon: Self.symbol("rectangle.split.2x2"), tooltip: workspace.name)
         case let entry as SidebarEntry:
             cell.configure(name: entry.name, icon: entry.icon, tooltip: entry.url.path, indent: outlineView.parent(forItem: entry) is SidebarServerEntry ? SidebarCell.shareIndent : 0, badgeText: badgeText(for: entry),
-                           onEject: showsEject(entry) ? { [weak self] in self?.eject([entry.url]) } : nil)
+                           onEject: entry.isEjectable ? { [weak self] in self?.eject([entry.url]) } : nil)
         case let share as SidebarUnmountedShare:
             cell.configure(name: share.name, icon: Self.symbol("externaldrive.connected.to.line.below"), tooltip: "未接続（クリックで接続）", indent: SidebarCell.shareIndent, dimmed: true)
         case let server as SidebarServerEntry:
-            let mounted = server.mountedShares
-            cell.configure(name: server.server.name, icon: Self.symbol("server.rack"), tooltip: server.server.url, dimmed: mounted.isEmpty,
-                           onEject: mounted.isEmpty ? nil : { [weak self] in self?.eject(mounted.map(\.url)) })
+            let disclosure = server.shares.isEmpty ? nil : (isOpen: !isFolded(server), action: { [weak self] in self?.toggleFolding(server) } as () -> Void)
+            cell.configure(name: server.server.name, icon: Self.symbol("server.rack"), tooltip: server.server.url, dimmed: server.mountedShares.isEmpty,
+                           disclosure: disclosure)
         default:
             return nil
         }
-        return cell
-    }
-
-    /// A lone share is disconnected with its server's button.
-    private func showsEject(_ entry: SidebarEntry) -> Bool {
-        guard entry.isEjectable else { return false }
-        return ((outlineView.parent(forItem: entry) as? SidebarServerEntry)?.mountedShares.count ?? 2) > 1
-    }
-
-    private func makeHeaderCell(id: NSUserInterfaceItemIdentifier) -> NSTableCellView {
-        let cell = NSTableCellView()
-        cell.identifier = id
-        let field = NSTextField(labelWithString: "")
-        field.lineBreakMode = .byTruncatingTail
-        field.translatesAutoresizingMaskIntoConstraints = false
-        cell.addSubview(field)
-        cell.textField = field
-        NSLayoutConstraint.activate([
-            field.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 2),
-            field.trailingAnchor.constraint(lessThanOrEqualTo: cell.trailingAnchor, constant: -2),
-            field.bottomAnchor.constraint(equalTo: cell.bottomAnchor, constant: -3),
-        ])
         return cell
     }
 

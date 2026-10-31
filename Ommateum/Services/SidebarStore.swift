@@ -13,7 +13,7 @@ enum SidebarBuiltInSection: String, Codable, CaseIterable {
 
     var title: String {
         switch self {
-        case .servers: "サーバ"
+        case .servers: "サーバー"
         case .drives: "ドライブ"
         case .workspaces: "ワークスペース"
         }
