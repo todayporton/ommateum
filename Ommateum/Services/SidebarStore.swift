@@ -5,6 +5,14 @@ struct SidebarGroup: Codable, Equatable {
     var id = UUID()
     var name: String
     var items: [LocationRef]
+    /// Display overrides by the item's path. Only the sidebar changes: the folder itself keeps its name.
+    var customizations: [String: SidebarItemCustomization]?
+}
+
+struct SidebarItemCustomization: Codable, Equatable {
+    var name: String?
+    /// SF Symbol name.
+    var icon: String?
 }
 
 /// Built-in sidebar sections that can be turned off.
@@ -110,7 +118,8 @@ final class SidebarStore {
 
     func removeItem(at position: Int, fromGroup id: UUID) {
         guard let index = groups.firstIndex(where: { $0.id == id }), groups[index].items.indices.contains(position) else { return }
-        groups[index].items.remove(at: position)
+        let removed = groups[index].items.remove(at: position)
+        groups[index].customizations?[removed.path] = nil
         save()
     }
 
@@ -119,10 +128,13 @@ final class SidebarStore {
         guard let sourceIndex = groups.firstIndex(where: { $0.id == sourceID }), groups[sourceIndex].items.indices.contains(source),
               let targetIndex = groups.firstIndex(where: { $0.id == targetID }) else { return }
         let item = groups[sourceIndex].items.remove(at: source)
+        let customization = groups[sourceIndex].customizations?[item.path]
+        if sourceIndex != targetIndex { groups[sourceIndex].customizations?[item.path] = nil }
         var position = destination ?? groups[targetIndex].items.count
         if sourceIndex == targetIndex, let destination, destination > source { position = destination - 1 }
         if !groups[targetIndex].items.contains(where: { $0.path == item.path }) {
             groups[targetIndex].items.insert(item, at: min(position, groups[targetIndex].items.count))
+            if let customization { groups[targetIndex].customizations = (groups[targetIndex].customizations ?? [:]).merging([item.path: customization]) { $1 } }
         }
         save()
     }
@@ -130,6 +142,32 @@ final class SidebarStore {
     func replaceItems(ofGroup id: UUID, with urls: [URL]) {
         guard let index = groups.firstIndex(where: { $0.id == id }) else { return }
         groups[index].items = urls.map(LocationRef.init(url:))
+        groups[index].customizations = nil
+        save()
+    }
+
+    func customization(ofItem path: String, inGroup id: UUID) -> SidebarItemCustomization? {
+        groups.first { $0.id == id }?.customizations?[path]
+    }
+
+    /// An empty name restores the folder's own name.
+    func setCustomName(_ name: String, ofItem path: String, inGroup id: UUID) {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        updateCustomization(ofItem: path, inGroup: id) { $0.name = trimmed.isEmpty ? nil : trimmed }
+    }
+
+    /// nil restores the default icon.
+    func setCustomIcon(_ icon: String?, ofItem path: String, inGroup id: UUID) {
+        updateCustomization(ofItem: path, inGroup: id) { $0.icon = icon }
+    }
+
+    private func updateCustomization(ofItem path: String, inGroup id: UUID, _ change: (inout SidebarItemCustomization) -> Void) {
+        guard let index = groups.firstIndex(where: { $0.id == id }) else { return }
+        var customization = groups[index].customizations?[path] ?? SidebarItemCustomization()
+        change(&customization)
+        var all = groups[index].customizations ?? [:]
+        all[path] = customization == SidebarItemCustomization() ? nil : customization
+        groups[index].customizations = all.isEmpty ? nil : all
         save()
     }
 

@@ -1,4 +1,5 @@
 import AppKit
+import SwiftUI
 
 protocol SidebarHost: AnyObject {
     func sidebarOpen(_ url: URL, inNewTab: Bool)
@@ -34,8 +35,10 @@ final class SidebarEntry: NSObject {
     /// Set for items of a user group.
     let groupID: UUID?
     let itemIndex: Int?
+    /// The group item's stored path, which keys its customization. `url` may spell the same place differently (/tmp, /private/tmp).
+    let itemPath: String?
 
-    init(url: URL, name: String? = nil, icon: NSImage, isEjectable: Bool = false, isVolume: Bool = false, groupID: UUID? = nil, itemIndex: Int? = nil) {
+    init(url: URL, name: String? = nil, icon: NSImage, isEjectable: Bool = false, isVolume: Bool = false, groupID: UUID? = nil, itemIndex: Int? = nil, itemPath: String? = nil) {
         self.url = url
         self.name = name ?? FileManager.default.displayName(atPath: url.path)
         self.icon = icon
@@ -43,6 +46,7 @@ final class SidebarEntry: NSObject {
         self.isVolume = isVolume
         self.groupID = groupID
         self.itemIndex = itemIndex
+        self.itemPath = itemPath
     }
 
     var isTrash: Bool { url.standardizedFileURL.path == SidebarStore.trashURL.standardizedFileURL.path }
@@ -379,7 +383,9 @@ final class SidebarViewController: NSViewController {
         var result: [SidebarSection] = store.groups.map { group in
             let section = SidebarSection(kind: .group(group.id), title: group.name)
             section.children = group.items.enumerated().map { index, ref in
-                SidebarEntry(url: ref.url, name: ref.url.path == SidebarStore.trashURL.path ? "ゴミ箱" : nil, icon: Self.symbolIcon(for: ref.url), groupID: group.id, itemIndex: index)
+                let custom = group.customizations?[ref.path]
+                return SidebarEntry(url: ref.url, name: custom?.name ?? (ref.url.path == SidebarStore.trashURL.path ? "ゴミ箱" : nil),
+                                    icon: custom?.icon.map(Self.symbol) ?? Self.symbolIcon(for: ref.url), groupID: group.id, itemIndex: index, itemPath: ref.path)
             }
             return section
         }
@@ -667,6 +673,35 @@ final class SidebarViewController: NSViewController {
         SidebarStore.shared.removeItem(at: index, fromGroup: id)
     }
 
+    @objc private func renameItem(_ sender: NSMenuItem) {
+        guard let entry = sender.representedObject as? SidebarEntry, let id = entry.groupID, let path = entry.itemPath else { return }
+        let folderName = FileManager.default.displayName(atPath: entry.url.path)
+        prompt("サイドバーでの表示名", informative: "「\(folderName)」のサイドバーでの表示だけを変えます。フォルダの名前は変わりません。空にすると元に戻ります。",
+               placeholder: folderName, initial: entry.name, confirm: "変更") { name in
+            SidebarStore.shared.setCustomName(name, ofItem: path, inGroup: id)
+        }
+    }
+
+    @objc private func changeItemIcon(_ sender: NSMenuItem) {
+        guard let entry = sender.representedObject as? SidebarEntry, let id = entry.groupID, let path = entry.itemPath else { return }
+        let controller = NSHostingController(rootView: AnyView(EmptyView()))
+        controller.rootView = AnyView(SidebarIconPicker(
+            current: SidebarStore.shared.customization(ofItem: path, inGroup: id)?.icon,
+            choose: { [weak controller] icon in
+                SidebarStore.shared.setCustomIcon(icon, ofItem: path, inGroup: id)
+                controller?.dismiss(nil)
+            },
+            cancel: { [weak controller] in controller?.dismiss(nil) }
+        ))
+        presentAsSheet(controller)
+    }
+
+    @objc private func resetItemCustomization(_ sender: NSMenuItem) {
+        guard let entry = sender.representedObject as? SidebarEntry, let id = entry.groupID, let path = entry.itemPath else { return }
+        SidebarStore.shared.setCustomName("", ofItem: path, inGroup: id)
+        SidebarStore.shared.setCustomIcon(nil, ofItem: path, inGroup: id)
+    }
+
     @objc private func ejectEntry(_ sender: NSMenuItem) {
         if let entry = sender.representedObject as? SidebarEntry { eject([entry.url]) }
     }
@@ -768,7 +803,16 @@ extension SidebarViewController: NSMenuDelegate {
         case let entry as SidebarEntry:
             add("新規タブで開く", #selector(openInNewTab(_:)), entry)
             add("Finderで表示", #selector(revealInFinder(_:)), entry)
-            if entry.groupID != nil { add("サイドバーから削除", #selector(removeFromGroup(_:)), entry) }
+            if let groupID = entry.groupID, let itemPath = entry.itemPath {
+                menu.addItem(.separator())
+                add("表示名を変更…", #selector(renameItem(_:)), entry)
+                add("アイコンを変更…", #selector(changeItemIcon(_:)), entry)
+                if SidebarStore.shared.customization(ofItem: itemPath, inGroup: groupID) != nil {
+                    add("表示名とアイコンを元に戻す", #selector(resetItemCustomization(_:)), entry)
+                }
+                menu.addItem(.separator())
+                add("サイドバーから削除", #selector(removeFromGroup(_:)), entry)
+            }
             if entry.isEjectable { add("「\(entry.name)」を取り出す", #selector(ejectEntry(_:)), entry) }
         case let share as SidebarUnmountedShare:
             add("接続", #selector(connectShare(_:)), share)

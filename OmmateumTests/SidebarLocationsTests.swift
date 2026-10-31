@@ -59,6 +59,35 @@ struct SidebarLocationsTests {
         #expect(store.groups.map(\.name) == ["B"])
     }
 
+    @Test func itemCustomizationsPersistAndFollowTheItem() throws {
+        let (store, file, cleanup) = try makeStore(json: #"{"version":2,"groups":[{"id":"11111111-1111-1111-1111-111111111111","name":"A","items":[{"path":"/1"},{"path":"/2"}]}]}"#)
+        defer { cleanup() }
+        let a = store.groups[0].id
+        let b = try #require(store.addGroup(named: "B"))
+        store.setCustomName(" 仕事 ", ofItem: "/1", inGroup: a)
+        store.setCustomIcon("star", ofItem: "/1", inGroup: a)
+        #expect(SidebarStore(fileURL: file).customization(ofItem: "/1", inGroup: a) == SidebarItemCustomization(name: "仕事", icon: "star"))
+
+        store.moveItem(from: 0, ofGroup: a, toGroup: b, at: nil)
+        #expect(store.customization(ofItem: "/1", inGroup: a) == nil)
+        #expect(store.customization(ofItem: "/1", inGroup: b)?.name == "仕事")
+
+        store.setCustomName("", ofItem: "/1", inGroup: b)
+        #expect(store.customization(ofItem: "/1", inGroup: b) == SidebarItemCustomization(icon: "star"))
+        store.setCustomIcon(nil, ofItem: "/1", inGroup: b)
+        #expect(store.groups[1].customizations == nil)
+    }
+
+    @Test func removingAnItemForgetsItsCustomization() throws {
+        let (store, _, cleanup) = try makeStore(json: #"{"version":2,"groups":[{"id":"11111111-1111-1111-1111-111111111111","name":"A","items":[{"path":"/1"}]}]}"#)
+        defer { cleanup() }
+        let a = store.groups[0].id
+        store.setCustomName("x", ofItem: "/1", inGroup: a)
+        store.removeItem(at: 0, fromGroup: a)
+        store.addItem(URL(fileURLWithPath: "/1"), toGroup: a)
+        #expect(store.customization(ofItem: "/1", inGroup: a) == nil)
+    }
+
     @Test func parsesServerAddresses() throws {
         let nas = try #require(ServerAddress("smb://user@MyNAS._smb._tcp.local/music"))
         #expect(nas.name == "MyNAS")
