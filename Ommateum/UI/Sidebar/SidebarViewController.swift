@@ -109,6 +109,18 @@ private final class SidebarOutlineView: NSOutlineView {
         onDragStateChanged?(false)
     }
 
+    // A drop does not reliably end with draggingEnded.
+    override func concludeDragOperation(_ sender: (any NSDraggingInfo)?) {
+        super.concludeDragOperation(sender)
+        onDragStateChanged?(false)
+    }
+
+    override func performDragOperation(_ sender: any NSDraggingInfo) -> Bool {
+        let accepted = super.performDragOperation(sender)
+        if !accepted { onDragStateChanged?(false) }
+        return accepted
+    }
+
     /// Group names have no disclosure triangle: a click on one folds the group. They are not selectable, so no action is sent for them.
     override func mouseDown(with event: NSEvent) {
         let row = row(at: convert(event.locationInWindow, from: nil))
@@ -1187,6 +1199,7 @@ extension SidebarViewController: NSOutlineViewDataSource, NSOutlineViewDelegate 
     }
 
     func outlineView(_ outlineView: NSOutlineView, acceptDrop info: NSDraggingInfo, item: Any?, childIndex index: Int) -> Bool {
+        dropTarget = nil
         let pasteboard = info.draggingPasteboard
         let position = index == NSOutlineViewDropOnItemIndex ? nil : index
         if let drag = pasteboard.string(forType: Self.itemDragType) {

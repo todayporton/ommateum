@@ -35,6 +35,24 @@ struct WindowLayoutTests {
         try await expectAnimates(to: rail, reset: { root.setOverlaying(true, animated: false) }) { root.setOverlaying(false, animated: true) }
     }
 
+    /// Closing with the pointer over the sidebar used to freeze it at an intermediate width.
+    @Test func hoverDuringClosingStillFinishesClosing() throws {
+        let controller = MainWindowController(snapshot: nil)
+        let window = try #require(controller.window)
+        defer { window.close() }
+        let root = try #require(window.contentViewController as? WindowRootViewController)
+        window.contentView?.layoutSubtreeIfNeeded()
+        let openPanes = controller.workspace.view.frame.width
+
+        root.setCompact(true, animated: true)
+        root.setOverlaying(true, animated: false)
+        window.contentView?.layoutSubtreeIfNeeded()
+        #expect(controller.workspace.view.frame.width == openPanes + 230 - WindowRootViewController.railWidth)
+        #expect(root.sidebar.view.frame.width == 230)
+        root.setOverlaying(false, animated: false)
+        #expect(root.sidebar.view.frame.width == WindowRootViewController.railWidth)
+    }
+
     @Test func closedSidebarKeepsAnIconColumnAndWidensOverThePanes() throws {
         let controller = MainWindowController(snapshot: nil)
         let window = try #require(controller.window)

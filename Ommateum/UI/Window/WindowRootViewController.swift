@@ -17,6 +17,8 @@ final class WindowRootViewController: NSViewController {
     /// The sidebar's width while it is wider than its slot, or changing.
     private var overlayWidth: CGFloat?
     private var animationTimer: Timer?
+    /// Sets the final limits of an opening or closing that is still animating.
+    private var pendingSlotFinish: (@MainActor @Sendable () -> Void)?
     static let animationDuration: TimeInterval = 0.18
 
     init(sidebar: SidebarViewController) {
@@ -93,6 +95,7 @@ final class WindowRootViewController: NSViewController {
     func setCompact(_ compact: Bool, animated: Bool = false) {
         setOverlaying(false, animated: false)
         cancelAnimation()
+        pendingSlotFinish = nil // reversed midway: this call sets the limits instead
         isCompact = compact
         sidebar.setHeadersVisible(!compact, animated: animated && view.window != nil)
         let slotWidth = slotItem.viewController.view.frame.width
@@ -111,9 +114,13 @@ final class WindowRootViewController: NSViewController {
         slotItem.maximumThickness = Self.maximumWidth
         sidebar.keepsLabels = true
         sidebar.setCompact(true, contentWidth: expandedWidth - WindowLayout.gap)
+        pendingSlotFinish = finish
         animate(from: slotWidth, to: compact ? Self.railWidth : expandedWidth, step: { [self] width in
             splitViewController.splitView.setPosition(width, ofDividerAt: 0)
-        }, completion: finish)
+        }, completion: { [self] in
+            pendingSlotFinish = nil
+            finish()
+        })
     }
 
     /// While the pointer is over the closed sidebar it widens above the panes, which keep their size.
@@ -121,6 +128,10 @@ final class WindowRootViewController: NSViewController {
         guard overlaying != isOverlaying, isCompact || !overlaying else { return }
         isOverlaying = overlaying
         cancelAnimation()
+        // The pointer can enter or leave while the sidebar is closing under it: complete that first.
+        let slotFinish = pendingSlotFinish
+        pendingSlotFinish = nil
+        slotFinish?()
         if overlaying { sidebar.setOverlaying(true) }
         sidebar.setHeadersVisible(overlaying, animated: animated && view.window != nil)
         let target = overlaying ? expandedWidth : Self.railWidth
