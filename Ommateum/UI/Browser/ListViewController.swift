@@ -141,6 +141,10 @@ final class ListViewController: NSViewController, BrowserContent {
     private var directory: URL?
     private var sort = SortSpec()
     private var childMonitors: [URL: DirectoryMonitor] = [:]
+    /// Folders to reopen and items to reselect once their parents have loaded. Children load asynchronously,
+    /// so anything inside an expanded folder is missing right after a reload.
+    private var pendingExpansion: Set<String> = []
+    private var pendingSelectionPaths: Set<String> = []
     /// While a name is being edited, refreshes (e.g. from the directory monitor) are held back so the edit isn't lost.
     private var renamingURL: URL? {
         didSet {
@@ -228,7 +232,7 @@ final class ListViewController: NSViewController, BrowserContent {
         }
         let sameDirectory = self.directory?.path == directory.path
         let keepSelection = sameDirectory ? Set(selectedItems.map(\.url)) : []
-        let expanded = sameDirectory ? expandedNodes().map(\.item.url) : []
+        pendingExpansion = sameDirectory ? Set(expandedNodes().map(\.item.url.path)) : []
         if !sameDirectory { childMonitors.removeAll() }
         self.directory = directory
         self.sort = sort
@@ -245,9 +249,7 @@ final class ListViewController: NSViewController, BrowserContent {
         }
         outlineView.reloadData()
         groups.forEach { outlineView.expandItem($0) }
-        for url in expanded {
-            if let node = roots.first(where: { $0.item.url.path == url.path }) { outlineView.expandItem(node) }
-        }
+        restoreExpansion(among: roots)
         select(keepSelection)
         if !sameDirectory { outlineView.scrollRowToVisible(0) }
     }
@@ -257,13 +259,25 @@ final class ListViewController: NSViewController, BrowserContent {
     }
 
     func select(_ urls: Set<URL>) {
-        let paths = Set(urls.map(\.path))
+        pendingSelectionPaths = Set(urls.map(\.path))
+        applyPendingSelection()
+    }
+
+    /// Selects what is listed so far; items still missing are retried when their folder has loaded.
+    private func applyPendingSelection() {
         var indexes = IndexSet()
         for row in 0..<outlineView.numberOfRows {
-            if let node = outlineView.item(atRow: row) as? ListNode, paths.contains(node.item.url.path) { indexes.insert(row) }
+            if let node = outlineView.item(atRow: row) as? ListNode, pendingSelectionPaths.contains(node.item.url.path) { indexes.insert(row) }
         }
         outlineView.selectRowIndexes(indexes, byExtendingSelection: false)
         if let first = indexes.first { outlineView.scrollRowToVisible(first) }
+        if indexes.count == pendingSelectionPaths.count { pendingSelectionPaths = [] }
+    }
+
+    private func restoreExpansion(among nodes: [ListNode]) {
+        for node in nodes where pendingExpansion.remove(node.item.url.path) != nil {
+            outlineView.expandItem(node)
+        }
     }
 
     func beginRename(_ url: URL) {
@@ -310,7 +324,10 @@ final class ListViewController: NSViewController, BrowserContent {
     // MARK: Child folders
 
     private func expandedNodes() -> [ListNode] {
-        roots.filter { outlineView.isItemExpanded($0) }
+        func expanded(in nodes: [ListNode]) -> [ListNode] {
+            nodes.filter { outlineView.isItemExpanded($0) }.flatMap { [$0] + expanded(in: $0.children ?? []) }
+        }
+        return expanded(in: roots)
     }
 
     private func loadChildren(of node: ListNode) {
@@ -320,13 +337,17 @@ final class ListViewController: NSViewController, BrowserContent {
         Task {
             let items = (try? await DirectoryLoader.load(url, showHidden: Preferences.showHiddenFiles)) ?? []
             node.isLoading = false
+            // A refresh replaces the child rows: carry over what was open and selected among them.
+            pendingExpansion.formUnion(expandedNodes().filter { $0.item.url.path.hasPrefix(url.path + "/") }.map(\.item.url.path))
+            if pendingSelectionPaths.isEmpty { pendingSelectionPaths = Set(selectedItems.map(\.url.path)) }
             node.children = items.sorted(by: sort).map(ListNode.init)
             outlineView.reloadItem(node, reloadChildren: true)
-            if childMonitors[url] == nil {
-                childMonitors[url] = DirectoryMonitor(url: url) { [weak self, weak node] in
-                    guard let self, let node, self.outlineView.isItemExpanded(node) else { return }
-                    self.loadChildren(of: node)
-                }
+            restoreExpansion(among: node.children ?? [])
+            applyPendingSelection()
+            // Replaced on every load: the old monitor only knows the node from before a reload.
+            childMonitors[url] = DirectoryMonitor(url: url) { [weak self, weak node] in
+                guard let self, let node, self.outlineView.isItemExpanded(node) else { return }
+                self.loadChildren(of: node)
             }
         }
     }

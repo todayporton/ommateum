@@ -52,6 +52,8 @@ final class ColumnViewController: NSViewController, BrowserContent {
     private var renamingNode: ColumnNode?
     /// A new item waiting for its column to load before its rename can start.
     private var pendingRename: URL?
+    /// Items to select once their column has loaded: a refresh replaces the deeper columns' nodes.
+    private var pendingSelectionPaths: Set<String> = []
     private let renameField = NSTextField()
 
     override func viewDidAppear() {
@@ -162,21 +164,26 @@ final class ColumnViewController: NSViewController, BrowserContent {
     }
 
     func select(_ urls: Set<URL>) {
-        let wanted = Set(urls.map(\.path))
+        pendingSelectionPaths = Set(urls.map(\.path))
+        applyPendingSelection()
+    }
+
+    private func applyPendingSelection() {
+        guard !pendingSelectionPaths.isEmpty else { return }
         // The items may be in any open column; a selected folder has opened the next one to its right.
         for column in stride(from: browser.lastColumn, through: 0, by: -1) {
             guard let children = parentNode(inColumn: column)?.children else { continue }
-            let rows = IndexSet(children.indices.filter { wanted.contains(children[$0].url.path) })
+            let rows = IndexSet(children.indices.filter { pendingSelectionPaths.contains(children[$0].url.path) })
             if !rows.isEmpty {
+                pendingSelectionPaths = []
                 browser.selectRowIndexes(rows, inColumn: column)
+                // Arrow keys act on the column holding the keyboard focus, which does not follow the selection by itself.
+                if (view.window?.firstResponder as? NSView)?.isDescendant(of: browser) == true {
+                    view.window?.makeFirstResponder(browser)
+                }
                 return
             }
         }
-    }
-
-    var targetDirectory: URL? {
-        // The deepest folder shown as a column: the parent of the last column.
-        parentNode(inColumn: browser.lastColumn)?.url ?? root?.url
     }
 
     func beginRename(_ url: URL) {
@@ -265,15 +272,18 @@ final class ColumnViewController: NSViewController, BrowserContent {
             if renamingNode == nil {
                 node.children = items.sorted(by: sort).map { ColumnNode(url: $0.url, item: $0) }
                 for column in 0..<max(browser.lastColumn + 1, 0) where parentNode(inColumn: column) === node {
+                    if pendingSelectionPaths.isEmpty, browser.selectedColumn == column {
+                        pendingSelectionPaths = Set(selectedItems.map(\.url.path))
+                    }
                     browser.reloadColumn(column)
                 }
+                applyPendingSelection()
             }
             if let pendingRename { beginRename(pendingRename) }
-            if monitors[url] == nil {
-                monitors[url] = DirectoryMonitor(url: url) { [weak self, weak node] in
-                    guard let node else { return }
-                    self?.load(node)
-                }
+            // Replaced on every load: the old monitor only knows the node from before a refresh.
+            monitors[url] = DirectoryMonitor(url: url) { [weak self, weak node] in
+                guard let node else { return }
+                self?.load(node)
             }
         }
     }
