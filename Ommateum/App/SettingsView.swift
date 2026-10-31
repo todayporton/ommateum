@@ -1,6 +1,23 @@
 import SwiftUI
 
 struct SettingsView: View {
+    @AppStorage(Preferences.Key.settingsTab) private var tab = Preferences.SettingsTab.general.rawValue
+
+    var body: some View {
+        TabView(selection: $tab) {
+            GeneralSettingsView()
+                .tabItem { Label("一般", systemImage: "gearshape") }
+                .tag(Preferences.SettingsTab.general.rawValue)
+            SidebarSettingsView()
+                .tabItem { Label("サイドバー", systemImage: "sidebar.left") }
+                .tag(Preferences.SettingsTab.sidebar.rawValue)
+        }
+        .frame(width: 420)
+        .fixedSize()
+    }
+}
+
+private struct GeneralSettingsView: View {
     @AppStorage(Preferences.Key.doubleClickEmptyAreaGoesUp) private var doubleClickGoesUp = true
     @AppStorage(Preferences.Key.restoreSession) private var restoreSession = true
     @AppStorage(Preferences.Key.defaultViewMode) private var defaultViewMode = ViewMode.list.rawValue
@@ -16,8 +33,50 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 420)
-        .fixedSize()
+        .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+/// Which items the sidebar shows, laid out like Finder's settings. Changes apply immediately.
+private struct SidebarSettingsView: View {
+    private let store = SidebarStore.shared
+    @State private var revision = 0
+
+    var body: some View {
+        let _ = revision
+        VStack(alignment: .leading, spacing: 6) {
+            Text("サイドバーに表示する項目:").fontWeight(.semibold)
+            Text("よく使う項目").font(.caption).foregroundStyle(.secondary).padding(.top, 6)
+            ForEach(SidebarStore.standardFavoriteFolders(), id: \.self) { url in
+                Toggle(FileManager.default.displayName(atPath: url.path), isOn: Binding(
+                    get: { store.isFavorite(url) },
+                    set: { store.setFavorite(url, enabled: $0) }
+                ))
+            }
+            Text("場所").font(.caption).foregroundStyle(.secondary).padding(.top, 6)
+            let entries = SidebarViewController.locationEntries()
+            ForEach(SidebarLocationCategory.allCases, id: \.self) { category in
+                Toggle(category.title, sources: sources(for: category, entries: entries), isOn: \.self)
+            }
+        }
+        .toggleStyle(.checkbox)
+        .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .onReceive(NotificationCenter.default.publisher(for: .sidebarChanged)) { _ in revision += 1 }
+    }
+
+    /// The checkbox shows a dash when some entries of the category were hidden one by one; clicking it resets them.
+    private func sources(for category: SidebarLocationCategory, entries: [SidebarEntry]) -> [Binding<Bool>] {
+        let categoryBinding = Binding<Bool>(
+            get: { !store.hiddenCategories.contains(category) },
+            set: { store.setCategory(category, hidden: !$0) }
+        )
+        return [categoryBinding] + entries.filter { $0.category == category }.map { entry in
+            Binding<Bool>(
+                get: { store.isVisible(entry) },
+                set: { store.setLocation(key: entry.hideKey, hidden: !$0) }
+            )
+        }
     }
 }
 

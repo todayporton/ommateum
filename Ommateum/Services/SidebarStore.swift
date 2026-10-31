@@ -9,11 +9,14 @@ final class SidebarStore {
         var version = 1
         var favorites: [LocationRef]
         var hiddenLocations: [String]?
+        var hiddenCategories: [SidebarLocationCategory]?
     }
 
     private(set) var favorites: [LocationRef] = []
-    /// Paths of 「場所」 entries the user hid.
+    /// `SidebarEntry.hideKey` of single 「場所」 entries hidden from the sidebar's context menu.
     private(set) var hiddenLocations: Set<String> = []
+    /// Kinds of 「場所」 turned off in 設定 ▸ サイドバー.
+    private(set) var hiddenCategories: Set<SidebarLocationCategory> = []
     private let fileURL: URL
 
     init(fileURL: URL = AppPaths.supportDirectory.appendingPathComponent("sidebar.json")) {
@@ -21,6 +24,7 @@ final class SidebarStore {
         if let data = try? Data(contentsOf: fileURL), let stored = try? JSONDecoder().decode(Stored.self, from: data) {
             favorites = stored.favorites
             hiddenLocations = Set(stored.hiddenLocations ?? [])
+            hiddenCategories = Set(stored.hiddenCategories ?? [])
         } else {
             favorites = Self.defaultFavorites()
         }
@@ -51,9 +55,31 @@ final class SidebarStore {
         save()
     }
 
-    func setLocation(_ url: URL, hidden: Bool) {
-        if hidden { hiddenLocations.insert(url.path) } else { hiddenLocations.remove(url.path) }
+    func isVisible(_ entry: SidebarEntry) -> Bool {
+        if let category = entry.category, hiddenCategories.contains(category) { return false }
+        return !hiddenLocations.contains(entry.hideKey)
+    }
+
+    func setLocation(key: String, hidden: Bool) {
+        if hidden { hiddenLocations.insert(key) } else { hiddenLocations.remove(key) }
         save()
+    }
+
+    func setCategory(_ category: SidebarLocationCategory, hidden: Bool) {
+        if hidden { hiddenCategories.insert(category) } else { hiddenCategories.remove(category) }
+        save()
+    }
+
+    func isFavorite(_ url: URL) -> Bool {
+        favorites.contains { $0.url.standardizedFileURL.path == url.standardizedFileURL.path }
+    }
+
+    func setFavorite(_ url: URL, enabled: Bool) {
+        if enabled {
+            if !isFavorite(url) { addFavorite(url) }
+        } else if let index = favorites.firstIndex(where: { $0.url.standardizedFileURL.path == url.standardizedFileURL.path }) {
+            removeFavorite(at: index)
+        }
     }
 
     func resetToDefaults() {
@@ -66,11 +92,18 @@ final class SidebarStore {
             try FileManager.default.createDirectory(at: fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-            try encoder.encode(Stored(favorites: favorites, hiddenLocations: hiddenLocations.sorted())).write(to: fileURL, options: .atomic)
+            try encoder.encode(Stored(favorites: favorites, hiddenLocations: hiddenLocations.sorted(), hiddenCategories: hiddenCategories.sorted { $0.rawValue < $1.rawValue })).write(to: fileURL, options: .atomic)
         } catch {
             NSLog("Ommateum: failed to save sidebar: \(error)")
         }
         NotificationCenter.default.post(name: .sidebarChanged, object: self)
+    }
+
+    /// The folders offered as checkboxes in 設定 ▸ サイドバー.
+    static func standardFavoriteFolders() -> [URL] {
+        let fm = FileManager.default
+        let directories: [FileManager.SearchPathDirectory] = [.desktopDirectory, .documentDirectory, .downloadsDirectory, .moviesDirectory, .musicDirectory, .picturesDirectory]
+        return ([URL(fileURLWithPath: "/Applications")] + directories.compactMap { fm.urls(for: $0, in: .userDomainMask).first }).filter(FileSystem.isDirectory)
     }
 
     /// Close to Finder's defaults (without AirDrop / Recents, which are not folders), plus Dropbox folders if present.
@@ -95,6 +128,24 @@ final class SidebarStore {
             .filter { (try? $0.resourceValues(forKeys: [.isSymbolicLinkKey]).isSymbolicLink) != true }
             .filter(FileSystem.isDirectory)
             .sorted { $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedAscending }
+    }
+}
+
+/// The kinds of 「場所」 with a checkbox in 設定 ▸ サイドバー.
+enum SidebarLocationCategory: String, Codable, CaseIterable {
+    case iCloud, cloudStorage, home, computer, hardDisks, externalDisks, servers, trash
+
+    var title: String {
+        switch self {
+        case .iCloud: "iCloud Drive"
+        case .cloudStorage: "クラウドストレージ"
+        case .home: NSUserName()
+        case .computer: "コンピュータ"
+        case .hardDisks: "ハードディスク"
+        case .externalDisks: "外部ディスク"
+        case .servers: "接続中のサーバ"
+        case .trash: "ゴミ箱"
+        }
     }
 }
 

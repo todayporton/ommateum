@@ -26,17 +26,25 @@ final class SidebarEntry: NSObject {
     let isEjectable: Bool
     let favoriteIndex: Int?
     let role: Role
+    /// The 設定 ▸ サイドバー checkbox this 「場所」 entry belongs to; nil for favorites and shares under a server.
+    let category: SidebarLocationCategory?
+    /// A server row: its mounted shares. Finder lists one row per server.
+    let shares: [SidebarEntry]
+    /// Identifies the entry in `SidebarStore.hiddenLocations`.
+    var hideKey: String { shares.isEmpty ? url.path : "server:\(name)" }
 
     /// `computer` lists volumes (/Volumes) and takes no drops; dropping on `trash` trashes the items.
     enum Role { case folder, computer, trash }
 
-    init(url: URL, name: String? = nil, icon: NSImage, isEjectable: Bool = false, favoriteIndex: Int? = nil, role: Role = .folder) {
+    init(url: URL, name: String? = nil, icon: NSImage, isEjectable: Bool = false, favoriteIndex: Int? = nil, role: Role = .folder, category: SidebarLocationCategory? = nil, shares: [SidebarEntry] = []) {
         self.url = url
         self.name = name ?? FileManager.default.displayName(atPath: url.path)
         self.icon = icon
         self.isEjectable = isEjectable
         self.favoriteIndex = favoriteIndex
         self.role = role
+        self.category = category
+        self.shares = shares
     }
 }
 
@@ -55,7 +63,6 @@ final class SidebarViewController: NSViewController {
     private let outlineView = NSOutlineView()
     private let favorites = SidebarSection(kind: .favorites, title: "よく使う項目")
     private let locations = SidebarSection(kind: .locations, title: "場所")
-    private var hiddenLocationEntries: [SidebarEntry] = []
     private let workspaces = SidebarSection(kind: .workspaces, title: "ワークスペース")
     private var workspaceEntries: [SidebarWorkspaceEntry] = []
     private static let favoriteDragType = NSPasteboard.PasteboardType("com.ommateum.sidebar-favorite")
@@ -103,10 +110,7 @@ final class SidebarViewController: NSViewController {
         favorites.entries = SidebarStore.shared.favorites.enumerated().map { index, ref in
             SidebarEntry(url: ref.url, icon: Self.symbolIcon(for: ref.url), favoriteIndex: index)
         }
-        let hidden = SidebarStore.shared.hiddenLocations
-        let allLocations = Self.locationEntries()
-        locations.entries = allLocations.filter { !hidden.contains($0.url.path) }
-        hiddenLocationEntries = allLocations.filter { hidden.contains($0.url.path) }
+        locations.entries = Self.locationEntries().filter(SidebarStore.shared.isVisible)
         workspaceEntries = WorkspaceStore.shared.names.map(SidebarWorkspaceEntry.init)
         outlineView.reloadData()
         outlineView.expandItem(nil, expandChildren: true)
@@ -128,28 +132,53 @@ final class SidebarViewController: NSViewController {
     static func locationEntries() -> [SidebarEntry] {
         var entries: [SidebarEntry] = []
         let fm = FileManager.default
-        entries.append(SidebarEntry(url: fm.homeDirectoryForCurrentUser, icon: symbol("house")))
+        entries.append(SidebarEntry(url: fm.homeDirectoryForCurrentUser, icon: symbol("house"), category: .home))
         let computerName = SCDynamicStoreCopyComputerName(nil, nil).map { $0 as String } ?? "コンピュータ"
-        entries.append(SidebarEntry(url: URL(fileURLWithPath: "/Volumes", isDirectory: true), name: computerName, icon: symbol("desktopcomputer"), role: .computer))
+        entries.append(SidebarEntry(url: URL(fileURLWithPath: "/Volumes", isDirectory: true), name: computerName, icon: symbol("desktopcomputer"), role: .computer, category: .computer))
         let iCloud = fm.homeDirectoryForCurrentUser.appendingPathComponent("Library/Mobile Documents/com~apple~CloudDocs")
         if FileSystem.isDirectory(iCloud) {
-            entries.append(SidebarEntry(url: iCloud, name: "iCloud Drive", icon: symbol("icloud")))
+            entries.append(SidebarEntry(url: iCloud, name: "iCloud Drive", icon: symbol("icloud"), category: .iCloud))
         }
         let cloudStorage = fm.homeDirectoryForCurrentUser.appendingPathComponent("Library/CloudStorage")
         for provider in ((try? fm.contentsOfDirectory(at: cloudStorage, includingPropertiesForKeys: nil, options: .skipsHiddenFiles)) ?? []) {
-            entries.append(SidebarEntry(url: provider, icon: symbol("cloud")))
+            entries.append(SidebarEntry(url: provider, icon: symbol("cloud"), category: .cloudStorage))
         }
-        let keys: [URLResourceKey] = [.volumeLocalizedNameKey, .volumeIsEjectableKey, .volumeIsRemovableKey, .volumeIsLocalKey, .volumeIsRootFileSystemKey]
+        let keys: [URLResourceKey] = [.volumeLocalizedNameKey, .volumeIsEjectableKey, .volumeIsRemovableKey, .volumeIsLocalKey, .volumeIsRootFileSystemKey, .volumeIsInternalKey, .volumeURLForRemountingKey]
+        var shares: [(server: String, entry: SidebarEntry)] = []
         for volume in fm.mountedVolumeURLs(includingResourceValuesForKeys: keys, options: [.skipHiddenVolumes]) ?? [] {
             let values = try? volume.resourceValues(forKeys: Set(keys))
             let isRoot = values?.volumeIsRootFileSystem ?? false
             let isLocal = values?.volumeIsLocal ?? true
             let ejectable = !isRoot && ((values?.volumeIsEjectable ?? false) || (values?.volumeIsRemovable ?? false) || !isLocal)
+            if !isLocal, let server = values?.volumeURLForRemounting.flatMap(serverName(fromRemountURL:)) {
+                shares.append((server, SidebarEntry(url: volume, name: values?.volumeLocalizedName, icon: symbol("network"), isEjectable: true)))
+                continue
+            }
             let icon = isLocal ? (ejectable ? symbol("externaldrive") : symbol("internaldrive")) : symbol("network")
-            entries.append(SidebarEntry(url: volume, name: values?.volumeLocalizedName, icon: icon, isEjectable: ejectable))
+            let category: SidebarLocationCategory = !isLocal ? .servers : (values?.volumeIsInternal == true && !ejectable ? .hardDisks : .externalDisks)
+            entries.append(SidebarEntry(url: volume, name: values?.volumeLocalizedName, icon: icon, isEjectable: ejectable, category: category))
         }
-        entries.append(SidebarEntry(url: fm.homeDirectoryForCurrentUser.appendingPathComponent(".Trash", isDirectory: true), name: "ゴミ箱", icon: symbol("trash"), role: .trash))
+        entries.append(contentsOf: serverEntries(from: shares))
+        entries.append(SidebarEntry(url: fm.homeDirectoryForCurrentUser.appendingPathComponent(".Trash", isDirectory: true), name: "ゴミ箱", icon: symbol("trash"), role: .trash, category: .trash))
         return entries
+    }
+
+    /// "smb://user@MyNAS._smb._tcp.local/music" → "MyNAS", "smb://nas.local/x" → "nas". IP addresses and other hosts stay whole.
+    static func serverName(fromRemountURL url: URL) -> String? {
+        guard var host = url.host?.removingPercentEncoding, !host.isEmpty else { return nil }
+        if let service = host.range(of: "._") { host = String(host[..<service.lowerBound]) }
+        if host.hasSuffix(".local") { host.removeLast(".local".count) }
+        return host
+    }
+
+    /// One row per server, in first-seen order.
+    static func serverEntries(from shares: [(server: String, entry: SidebarEntry)]) -> [SidebarEntry] {
+        var names: [String] = []
+        for share in shares where !names.contains(share.server) { names.append(share.server) }
+        return names.map { name in
+            let members = shares.filter { $0.server == name }.map(\.entry)
+            return SidebarEntry(url: members[0].url, name: name, icon: symbol("server.rack"), isEjectable: true, category: .servers, shares: members)
+        }
     }
 
     private static func symbolIcon(for url: URL) -> NSImage {
@@ -177,7 +206,7 @@ final class SidebarViewController: NSViewController {
 
     // MARK: Actions
 
-    /// Sections in display order. 「場所」 stays even when empty: its header menu brings hidden entries back.
+    /// Sections in display order. 「場所」 stays even when empty: its header menu leads to the settings that bring entries back.
     private var sections: [SidebarSection] {
         [favorites, locations] + (workspaceEntries.isEmpty ? [] : [workspaces])
     }
@@ -189,6 +218,10 @@ final class SidebarViewController: NSViewController {
             return
         }
         guard let entry = outlineView.item(atRow: outlineView.clickedRow) as? SidebarEntry else { return }
+        if entry.shares.count > 1 {
+            if outlineView.isItemExpanded(entry) { outlineView.collapseItem(entry) } else { outlineView.expandItem(entry) }
+            return
+        }
         host?.sidebarOpen(entry.url, inNewTab: NSEvent.modifierFlags.contains(.command))
     }
 
@@ -216,17 +249,19 @@ final class SidebarViewController: NSViewController {
     }
 
     @objc private func hideLocation(_ sender: Any?) {
-        if let entry = menuEntry { SidebarStore.shared.setLocation(entry.url, hidden: true) }
+        if let entry = menuEntry { SidebarStore.shared.setLocation(key: entry.hideKey, hidden: true) }
     }
 
-    @objc private func showLocation(_ sender: NSMenuItem) {
-        if let url = sender.representedObject as? URL { SidebarStore.shared.setLocation(url, hidden: false) }
+    @objc private func showSidebarSettings(_ sender: Any?) {
+        (NSApp.delegate as? AppDelegate)?.showSidebarSettings(sender)
     }
 
     @objc private func eject(_ sender: Any?) {
         guard let entry = menuEntry else { return }
         do {
-            try NSWorkspace.shared.unmountAndEjectDevice(at: entry.url)
+            for url in entry.shares.isEmpty ? [entry.url] : entry.shares.map(\.url) {
+                try NSWorkspace.shared.unmountAndEjectDevice(at: url)
+            }
         } catch {
             FileOperations.shared.showError(error, window: view.window)
         }
@@ -266,7 +301,7 @@ extension SidebarViewController: NSMenuDelegate {
             if entry.favoriteIndex != nil {
                 menu.addItem(.separator())
                 add("サイドバーから削除", #selector(removeFromSidebar(_:)))
-            } else {
+            } else if entry.category != nil {
                 menu.addItem(.separator())
                 add("サイドバーで隠す", #selector(hideLocation(_:)))
             }
@@ -278,14 +313,7 @@ extension SidebarViewController: NSMenuDelegate {
             add("Finderのよく使う項目を読み込む（実験的）", #selector(importFromFinder(_:)))
             add("既定の項目に戻す", #selector(resetFavorites(_:)))
         } else if (outlineView.item(atRow: outlineView.clickedRow) as? SidebarSection)?.kind == .locations {
-            if hiddenLocationEntries.isEmpty {
-                menu.addItem(withTitle: "隠している項目はありません", action: nil, keyEquivalent: "").isEnabled = false
-            }
-            for entry in hiddenLocationEntries {
-                let item = menu.addItem(withTitle: "「\(entry.name)」を表示", action: #selector(showLocation(_:)), keyEquivalent: "")
-                item.target = self
-                item.representedObject = entry.url
-            }
+            add("表示する項目を設定…", #selector(showSidebarSettings(_:)))
         }
     }
 }
@@ -295,6 +323,7 @@ extension SidebarViewController: NSOutlineViewDataSource, NSOutlineViewDelegate 
         if let section = item as? SidebarSection {
             return section === workspaces ? workspaceEntries.count : section.entries.count
         }
+        if let entry = item as? SidebarEntry, entry.shares.count > 1 { return entry.shares.count }
         return item == nil ? sections.count : 0
     }
 
@@ -302,10 +331,11 @@ extension SidebarViewController: NSOutlineViewDataSource, NSOutlineViewDelegate 
         if let section = item as? SidebarSection {
             return section === workspaces ? workspaceEntries[index] : section.entries[index]
         }
+        if let entry = item as? SidebarEntry { return entry.shares[index] }
         return sections[index]
     }
 
-    func outlineView(_ outlineView: NSOutlineView, isItemExpandable item: Any) -> Bool { item is SidebarSection }
+    func outlineView(_ outlineView: NSOutlineView, isItemExpandable item: Any) -> Bool { item is SidebarSection || (item as? SidebarEntry)?.shares.count ?? 0 > 1 }
     func outlineView(_ outlineView: NSOutlineView, isGroupItem item: Any) -> Bool { item is SidebarSection }
     func outlineView(_ outlineView: NSOutlineView, shouldSelectItem item: Any) -> Bool { item is SidebarEntry || item is SidebarWorkspaceEntry }
 
@@ -382,7 +412,7 @@ extension SidebarViewController: NSOutlineViewDataSource, NSOutlineViewDelegate 
         let urls = DropPolicy.fileURLs(from: pasteboard)
         guard !urls.isEmpty else { return [] }
         if let entry = item as? SidebarEntry, index == NSOutlineViewDropOnItemIndex {
-            if entry.role == .computer { return [] }
+            if entry.role == .computer || entry.shares.count > 1 { return [] }
             if entry.role == .trash { return .move }
             // Dropping files onto a sidebar folder moves/copies them there, like Finder.
             return DropPolicy.operation(for: info, urls: urls, destination: entry.url)

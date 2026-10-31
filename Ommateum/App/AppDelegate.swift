@@ -135,6 +135,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         settingsWindow?.makeKeyAndOrderFront(nil)
     }
 
+    func showSidebarSettings(_ sender: Any?) {
+        UserDefaults.standard.set(Preferences.SettingsTab.sidebar.rawValue, forKey: Preferences.Key.settingsTab)
+        showSettings(sender)
+    }
+
     // MARK: Workspaces
 
     @objc func saveWorkspaceAs(_ sender: Any?) {
