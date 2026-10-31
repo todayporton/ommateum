@@ -30,6 +30,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         window.isRestorable = false
         window.tabbingMode = .disallowed // Ommateum has its own tabs per pane
         window.titlebarSeparatorStyle = .none
+        window.titlebarAppearsTransparent = true
+        window.backgroundColor = WindowLayout.backgroundColor
         window.toolbarStyle = .unified
         super.init(window: window)
         window.delegate = self

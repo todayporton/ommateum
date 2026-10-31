@@ -4,6 +4,10 @@ import AppKit
 enum WindowLayout {
     static let gap: CGFloat = 6
     static let cornerRadius: CGFloat = 8
+    /// Shows through the gaps and behind the toolbar. Darker than the cards so their edges stand out.
+    static let backgroundColor = NSColor(name: "OmmateumWindowBackground") { appearance in
+        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? NSColor(white: 0.05, alpha: 1) : NSColor(white: 0.78, alpha: 1)
+    }
 }
 
 /// A rounded, thinly outlined panel. Its contents are clipped to the corners.
