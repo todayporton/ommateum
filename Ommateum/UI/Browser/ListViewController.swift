@@ -18,9 +18,10 @@ final class BrowserRowView: NSTableRowView {
 }
 
 final class BrowserOutlineView: NSOutlineView {
-    static let stripeInset: CGFloat = 10
+    static let stripeInset: CGFloat = 6
     /// Keeps row contents inside the rounded bands.
     private static let contentInset: CGFloat = 8
+    private static let trailingContentPadding: CGFloat = 12
     static let stripeRadius: CGFloat = 7
 
     override func frameOfCell(atColumn column: Int, row: Int) -> NSRect {
@@ -29,7 +30,7 @@ final class BrowserOutlineView: NSOutlineView {
             frame.origin.x += Self.contentInset
             frame.size.width -= Self.contentInset
         }
-        if column == numberOfColumns - 1 { frame.size.width -= Self.stripeInset + Self.contentInset }
+        if column == numberOfColumns - 1 { frame.size.width -= Self.stripeInset + Self.trailingContentPadding }
         return frame
     }
 

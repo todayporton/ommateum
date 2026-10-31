@@ -88,6 +88,8 @@ struct MountedShare {
 /// Shares are indented inside their cells (`SidebarCell.shareIndent`).
 private final class SidebarOutlineView: NSOutlineView {
     private let groupNameX: CGFloat = 14
+    /// Moves free space and eject buttons toward the sidebar's right edge.
+    private let trailingExtension: CGFloat = 7
     var onSectionClick: ((SidebarSection) -> Void)?
 
     /// Group names have no disclosure triangle: a click on one folds the group. They are not selectable, so no action is sent for them.
@@ -104,7 +106,7 @@ private final class SidebarOutlineView: NSOutlineView {
 
     override func frameOfCell(atColumn column: Int, row: Int) -> NSRect {
         var frame = super.frameOfCell(atColumn: column, row: row)
-        frame.size.width = frame.maxX - groupNameX
+        frame.size.width = frame.maxX + trailingExtension - groupNameX
         frame.origin.x = groupNameX
         return frame
     }
