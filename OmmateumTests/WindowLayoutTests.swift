@@ -14,11 +14,16 @@ struct WindowLayoutTests {
 
         // Found through the responder chain, as the menu item and toolbar button do.
         #expect(NSApp.target(forAction: #selector(MainWindowController.toggleSidebarPane(_:)), to: controller, from: nil) != nil)
+        // The toggle animates, and under load it can take a while.
+        func waitForCollapsed(_ expected: Bool) async throws {
+            for _ in 0..<60 where item.isCollapsed != expected {
+                try await Task.sleep(for: .seconds(0.05))
+            }
+            #expect(item.isCollapsed == expected)
+        }
         controller.toggleSidebarPane(nil)
-        try await Task.sleep(for: .seconds(0.6)) // the toggle animates
-        #expect(item.isCollapsed)
+        try await waitForCollapsed(true)
         controller.toggleSidebarPane(nil)
-        try await Task.sleep(for: .seconds(0.6))
-        #expect(!item.isCollapsed)
+        try await waitForCollapsed(false)
     }
 }
