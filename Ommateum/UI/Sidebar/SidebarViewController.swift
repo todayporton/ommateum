@@ -84,12 +84,33 @@ struct MountedShare {
     let entry: SidebarEntry
 }
 
+/// Lines every row up with the group names, leaving the disclosure triangle in the margin to their left.
+/// Shares are indented inside their cells (`SidebarCell.shareIndent`).
+private final class SidebarOutlineView: NSOutlineView {
+    /// Where a source list places group row cells; `frameOfCell` does not report it for those rows.
+    private let groupNameX: CGFloat = 14
+
+    override func frameOfCell(atColumn column: Int, row: Int) -> NSRect {
+        var frame = super.frameOfCell(atColumn: column, row: row)
+        guard level(forRow: row) > 0 else { return frame }
+        frame.size.width = frame.maxX - groupNameX
+        frame.origin.x = groupNameX
+        return frame
+    }
+
+    override func frameOfOutlineCell(atRow row: Int) -> NSRect {
+        var frame = super.frameOfOutlineCell(atRow: row)
+        if level(forRow: row) > 0 { frame.origin.x = max(0, groupNameX - frame.width) }
+        return frame
+    }
+}
+
 /// QSpace-style source list: any number of user-named groups, then サーバ (registered servers with their shares),
 /// ドライブ (local volumes) and ワークスペース (saved workspaces).
 final class SidebarViewController: NSViewController {
     weak var host: SidebarHost?
 
-    private let outlineView = NSOutlineView()
+    private let outlineView = SidebarOutlineView()
     private var sections: [SidebarSection] = []
     /// Rows the user collapsed; kept across reloads, which rebuild every row object.
     private var collapsedKeys: Set<String> = []
@@ -619,6 +640,9 @@ private final class SidebarCell: NSTableCellView {
     private let badge = NSTextField(labelWithString: "")
     private let ejectButton = EjectButton()
     private var onEject: (() -> Void)?
+    private var stackLeading: NSLayoutConstraint?
+    /// How far a share sits inside its server row.
+    static let shareIndent: CGFloat = 10
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -641,8 +665,10 @@ private final class SidebarCell: NSTableCellView {
         addSubview(stack)
         imageView = image
         textField = field
+        let leading = stack.leadingAnchor.constraint(equalTo: leadingAnchor)
+        stackLeading = leading
         NSLayoutConstraint.activate([
-            stack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 2),
+            leading,
             stack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -4),
             stack.centerYAnchor.constraint(equalTo: centerYAnchor),
         ])
@@ -650,7 +676,8 @@ private final class SidebarCell: NSTableCellView {
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
-    func configure(name: String, icon: NSImage, tooltip: String?, dimmed: Bool = false, badgeText: String? = nil, onEject: (() -> Void)? = nil) {
+    func configure(name: String, icon: NSImage, tooltip: String?, indent: CGFloat = 0, dimmed: Bool = false, badgeText: String? = nil, onEject: (() -> Void)? = nil) {
+        stackLeading?.constant = indent
         textField?.stringValue = name
         textField?.alphaValue = dimmed ? 0.5 : 1
         imageView?.image = icon
@@ -720,10 +747,10 @@ extension SidebarViewController: NSOutlineViewDataSource, NSOutlineViewDelegate 
         case let workspace as SidebarWorkspaceEntry:
             cell.configure(name: workspace.name, icon: Self.symbol("rectangle.split.2x2"), tooltip: workspace.name)
         case let entry as SidebarEntry:
-            cell.configure(name: entry.name, icon: entry.icon, tooltip: entry.url.path, badgeText: badgeText(for: entry),
+            cell.configure(name: entry.name, icon: entry.icon, tooltip: entry.url.path, indent: outlineView.parent(forItem: entry) is SidebarServerEntry ? SidebarCell.shareIndent : 0, badgeText: badgeText(for: entry),
                            onEject: showsEject(entry) ? { [weak self] in self?.eject([entry.url]) } : nil)
         case let share as SidebarUnmountedShare:
-            cell.configure(name: share.name, icon: Self.symbol("externaldrive.connected.to.line.below"), tooltip: "未接続（クリックで接続）", dimmed: true)
+            cell.configure(name: share.name, icon: Self.symbol("externaldrive.connected.to.line.below"), tooltip: "未接続（クリックで接続）", indent: SidebarCell.shareIndent, dimmed: true)
         case let server as SidebarServerEntry:
             let mounted = server.mountedShares
             cell.configure(name: server.server.name, icon: Self.symbol("server.rack"), tooltip: server.server.url, dimmed: mounted.isEmpty,
