@@ -2,9 +2,8 @@ import AppKit
 
 /// One Ommateum window: toolbar, the single sidebar on the left, and the split workspace.
 final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuItemValidation {
-    private let splitViewController = NSSplitViewController()
     private let sidebar = SidebarViewController()
-    private var sidebarItem: NSSplitViewItem!
+    private let root: WindowRootViewController
     let workspace: WorkspaceViewController
     private var firstResponderObservation: NSKeyValueObservation?
     /// Name of the saved workspace this window was loaded from / saved as (for "上書き保存").
@@ -23,6 +22,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
 
     init(snapshot: WorkspaceSnapshot?) {
         workspace = WorkspaceViewController(snapshot: snapshot)
+        root = WindowRootViewController(sidebar: sidebar)
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1100, height: 680),
                               styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
                               backing: .buffered, defer: false)
@@ -37,19 +37,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         window.delegate = self
 
         sidebar.host = self
-        let splitView = GapSplitView()
-        splitView.isVertical = true
-        splitViewController.splitView = splitView
-        // An ordinary item, not a system sidebar: that one floats in glass with a gap the system decides (docs/feasibility.md §3).
-        sidebarItem = NSSplitViewItem(viewController: sidebar)
-        sidebarItem.holdingPriority = NSLayoutConstraint.Priority(NSLayoutConstraint.Priority.defaultLow.rawValue + 10) // resizing the window resizes the panes
-        sidebarItem.minimumThickness = 170
-        sidebarItem.maximumThickness = 400
-        sidebarItem.canCollapse = true
-        splitViewController.addSplitViewItem(sidebarItem)
         installWorkspace()
-        splitViewController.splitView.autosaveName = nil
-        window.contentViewController = splitViewController
+        root.splitViewController.splitView.autosaveName = nil
+        window.contentViewController = root
 
         let toolbar = NSToolbar(identifier: "MainToolbar")
         toolbar.delegate = self
@@ -70,7 +60,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         workspace.host = self
         let item = NSSplitViewItem(viewController: workspace)
         item.minimumThickness = 300
-        splitViewController.addSplitViewItem(item)
+        root.splitViewController.addSplitViewItem(item)
     }
 
     private func apply(windowState snapshot: WorkspaceSnapshot?) {
@@ -82,9 +72,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
             window.setContentSize(NSSize(width: 1100, height: 680))
             window.center()
         }
-        sidebarItem.isCollapsed = !(snapshot?.sidebarVisible ?? true)
-        splitViewController.splitView.layoutSubtreeIfNeeded()
-        splitViewController.splitView.setPosition(CGFloat(snapshot?.sidebarWidth ?? 230), ofDividerAt: 0)
+        root.setExpandedWidth(CGFloat(snapshot?.sidebarWidth ?? 230))
+        root.setCompact(!(snapshot?.sidebarVisible ?? true))
     }
 
     /// Replaces the whole window state with a saved workspace.
@@ -104,8 +93,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
             layout: state.layout,
             panes: state.panes,
             activePaneID: state.activePaneID,
-            sidebarVisible: !sidebarItem.isCollapsed,
-            sidebarWidth: sidebarItem.isCollapsed ? nil : Double(sidebar.view.frame.width))
+            sidebarVisible: !root.isCompact,
+            sidebarWidth: Double(root.expandedWidth))
     }
 
     var activeBrowser: FileBrowserViewController? { workspace.activeBrowser }
@@ -201,7 +190,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
 
     /// AppKit's toggleSidebar: and its toolbar item only work with a system sidebar item.
     @objc func toggleSidebarPane(_ sender: Any?) {
-        sidebarItem.animator().isCollapsed.toggle()
+        root.setCompact(!root.isCompact)
     }
 
     @objc func toolbarSplit(_ sender: Any?) {

@@ -3,27 +3,38 @@ import Testing
 @testable import Ommateum
 
 struct WindowLayoutTests {
-    @Test func sidebarTogglesAndHasADefaultWidth() async throws {
+    @Test func closedSidebarKeepsAnIconColumnAndWidensOverThePanes() throws {
         let controller = MainWindowController(snapshot: nil)
         let window = try #require(controller.window)
         defer { window.close() }
-        let split = try #require(window.contentViewController as? NSSplitViewController)
-        let item = try #require(split.splitViewItems.first)
-        #expect(item.viewController.view.frame.width == 230)
-        #expect(split.splitView.dividerThickness == WindowLayout.gap)
+        let root = try #require(window.contentViewController as? WindowRootViewController)
+        func layout() { window.contentView?.layoutSubtreeIfNeeded() }
+        layout()
+        #expect(root.sidebar.view.frame.width == 230)
+        #expect(root.splitViewController.splitView.dividerThickness == WindowLayout.gap)
+        let openPanes = controller.workspace.view.frame.width
 
         // Found through the responder chain, as the menu item and toolbar button do.
         #expect(NSApp.target(forAction: #selector(MainWindowController.toggleSidebarPane(_:)), to: controller, from: nil) != nil)
-        // The toggle animates, and under load it can take a while.
-        func waitForCollapsed(_ expected: Bool) async throws {
-            for _ in 0..<60 where item.isCollapsed != expected {
-                try await Task.sleep(for: .seconds(0.05))
-            }
-            #expect(item.isCollapsed == expected)
-        }
         controller.toggleSidebarPane(nil)
-        try await waitForCollapsed(true)
+        layout()
+        #expect(root.isCompact)
+        #expect(root.sidebar.view.frame.width == WindowRootViewController.railWidth)
+        let closedPanes = controller.workspace.view.frame.width
+        #expect(closedPanes == openPanes + 230 - WindowRootViewController.railWidth)
+
+        root.setOverlaying(true, animated: false)
+        layout()
+        #expect(root.sidebar.view.frame.width == 230)
+        #expect(controller.workspace.view.frame.width == closedPanes) // drawn above the panes, which keep their size
+        root.setOverlaying(false, animated: false)
+        #expect(root.sidebar.view.frame.width == WindowRootViewController.railWidth)
+        #expect(controller.snapshot().sidebarVisible == false)
+        #expect(controller.snapshot().sidebarWidth == 230)
+
         controller.toggleSidebarPane(nil)
-        try await waitForCollapsed(false)
+        layout()
+        #expect(!root.isCompact)
+        #expect(root.sidebar.view.frame.width == 230)
     }
 }

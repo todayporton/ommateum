@@ -118,6 +118,14 @@ final class SidebarViewController: NSViewController {
     weak var host: SidebarHost?
 
     private let outlineView = SidebarOutlineView()
+    private let card = CardView(backgroundColor: WindowLayout.backgroundColor, isOutlined: false)
+    private var contentTrailing: NSLayoutConstraint?
+    private var contentWidth: NSLayoutConstraint?
+    private var isCompact = false
+    private var isOverlaying = false
+    private var isMenuOpen = false
+    /// Called when the pointer enters or leaves the closed sidebar.
+    var onHoverChanged: ((Bool) -> Void)?
     private var sections: [SidebarSection] = []
     /// Sections and servers the user folded; kept across reloads, which rebuild every row object.
     /// A folded row simply has no children: NSOutlineView refuses to collapse rows without its own disclosure triangle.
@@ -153,7 +161,6 @@ final class SidebarViewController: NSViewController {
         outlineView.menu?.delegate = self
         outlineView.setAccessibilityLabel("サイドバー")
         scrollView.documentView = outlineView
-        let card = CardView(backgroundColor: WindowLayout.backgroundColor, isOutlined: false)
         card.translatesAutoresizingMaskIntoConstraints = false
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         card.addSubview(scrollView)
@@ -163,12 +170,15 @@ final class SidebarViewController: NSViewController {
             scrollView.topAnchor.constraint(equalTo: card.topAnchor),
             scrollView.bottomAnchor.constraint(equalTo: card.bottomAnchor),
             scrollView.leadingAnchor.constraint(equalTo: card.leadingAnchor),
-            scrollView.trailingAnchor.constraint(equalTo: card.trailingAnchor),
             card.topAnchor.constraint(equalTo: root.safeAreaLayoutGuide.topAnchor),
             card.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -WindowLayout.gap),
             card.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: WindowLayout.gap),
             card.trailingAnchor.constraint(equalTo: root.trailingAnchor),
         ])
+        contentTrailing = scrollView.trailingAnchor.constraint(equalTo: card.trailingAnchor)
+        contentTrailing?.isActive = true
+        contentWidth = scrollView.widthAnchor.constraint(equalToConstant: 0)
+        card.addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect], owner: self))
         view = root
 
         NotificationCenter.default.addObserver(self, selector: #selector(reload), name: .sidebarChanged, object: nil)
@@ -189,6 +199,44 @@ final class SidebarViewController: NSViewController {
         updateAllColors()
     }
 
+    // MARK: Closed sidebar
+
+    /// While closed the rows keep their full width and the card clips them, so widening never reflows anything.
+    func setCompact(_ compact: Bool, contentWidth width: CGFloat) {
+        _ = view
+        isCompact = compact
+        contentTrailing?.isActive = !compact
+        contentWidth?.constant = width
+        contentWidth?.isActive = compact
+        updateAllColors()
+    }
+
+    func setOverlaying(_ overlaying: Bool) {
+        isOverlaying = overlaying
+        card.isOutlined = overlaying
+        if overlaying {
+            let shadow = NSShadow()
+            shadow.shadowBlurRadius = 16
+            shadow.shadowColor = NSColor.black.withAlphaComponent(0.5)
+            shadow.shadowOffset = NSSize(width: 4, height: -2)
+            view.shadow = shadow
+        } else {
+            view.shadow = nil
+        }
+        updateAllColors()
+    }
+
+    /// Icons only: names are clipped by the card, and group names would be cut mid-word.
+    private var showsIconsOnly: Bool { isCompact && !isOverlaying }
+
+    override func mouseEntered(with event: NSEvent) {
+        if isCompact { onHoverChanged?(true) }
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        if isCompact, !isMenuOpen { onHoverChanged?(false) }
+    }
+
     /// Keeps the eject buttons at the sidebar's right edge as it is resized.
     override func viewDidLayout() {
         super.viewDidLayout()
@@ -205,15 +253,18 @@ final class SidebarViewController: NSViewController {
         let cell = outlineView.view(atColumn: 0, row: row, makeIfNecessary: false)
         if let cell = cell as? SidebarCell {
             cell.updateColors(isSelected: outlineView.isRowSelected(row), isActive: isActive)
+            cell.setCompact(showsIconsOnly)
         } else if let cell = cell as? NSTableCellView {
             // As an attributed string: the table overrides the plain text color and font of group rows.
-            let color = WindowLayout.sidebarHeaderColor.withAlphaComponent(isActive ? 1 : WindowLayout.inactiveStrength)
+            let color = showsIconsOnly ? NSColor.clear : WindowLayout.sidebarHeaderColor.withAlphaComponent(isActive ? 1 : WindowLayout.inactiveStrength)
             cell.textField?.attributedStringValue = NSAttributedString(string: cell.textField?.stringValue ?? "", attributes: [
                 .foregroundColor: color,
                 .font: NSFont.systemFont(ofSize: NSFont.smallSystemFontSize, weight: .semibold),
             ])
         }
-        outlineView.rowView(atRow: row, makeIfNecessary: false)?.needsDisplay = true
+        let rowView = outlineView.rowView(atRow: row, makeIfNecessary: false)
+        (rowView as? SidebarRowView)?.isCompact = showsIconsOnly
+        rowView?.needsDisplay = true
     }
 
     @objc private func updateAllColors() {
@@ -594,6 +645,15 @@ final class SidebarViewController: NSViewController {
 }
 
 extension SidebarViewController: NSMenuDelegate {
+    func menuWillOpen(_ menu: NSMenu) { isMenuOpen = true }
+
+    func menuDidClose(_ menu: NSMenu) {
+        isMenuOpen = false
+        guard isCompact, let window = view.window,
+              !card.bounds.contains(card.convert(window.mouseLocationOutsideOfEventStream, from: nil)) else { return }
+        onHoverChanged?(false)
+    }
+
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
         @discardableResult
@@ -649,6 +709,8 @@ extension SidebarViewController: NSMenuDelegate {
 
 /// Keeps the selected row a quiet gray even while the sidebar has focus.
 private final class SidebarRowView: NSTableRowView {
+    var isCompact = false
+
     override var isEmphasized: Bool {
         get { false } // keeps the icon's color
         set {}
@@ -656,7 +718,8 @@ private final class SidebarRowView: NSTableRowView {
 
     override func drawSelection(in dirtyRect: NSRect) {
         NSColor.labelColor.withAlphaComponent(window?.isMainWindow == false ? 0.03 : 0.064).setFill()
-        NSBezierPath(roundedRect: bounds.insetBy(dx: 10, dy: 0), xRadius: 6, yRadius: 6).fill()
+        let rect = isCompact ? NSRect(x: 8, y: 0, width: 34, height: bounds.height) : bounds.insetBy(dx: 10, dy: 0)
+        NSBezierPath(roundedRect: rect, xRadius: 6, yRadius: 6).fill()
     }
 }
 
@@ -693,8 +756,10 @@ private final class RowIconButton: NSButton {
         setSymbol(isOpen ? "chevron.down" : "chevron.right", label: isOpen ? "閉じる" : "開く")
     }
 
+    var normalTint: NSColor = .tertiaryLabelColor { didSet { updateStyle() } }
+
     private func updateStyle() {
-        contentTintColor = isHovered ? .labelColor : .tertiaryLabelColor
+        contentTintColor = isHovered ? .labelColor : normalTint
         needsDisplay = true
     }
 
@@ -788,6 +853,7 @@ private final class SidebarCell: NSTableCellView {
     private var onDisclosure: (() -> Void)?
     private var stackLeading: NSLayoutConstraint?
     private var isDimmed = false
+    private var indent: CGFloat = 0
     /// How far a share sits inside its server row.
     static let shareIndent: CGFloat = 10
 
@@ -825,6 +891,7 @@ private final class SidebarCell: NSTableCellView {
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
     func configure(name: String, icon: NSImage, tooltip: String?, indent: CGFloat = 0, dimmed: Bool = false, badgeText: String? = nil, onEject: (() -> Void)? = nil, disclosure: (isOpen: Bool, action: () -> Void)? = nil) {
+        self.indent = indent
         stackLeading?.constant = indent
         textField?.stringValue = name
         isDimmed = dimmed
@@ -840,11 +907,17 @@ private final class SidebarCell: NSTableCellView {
         disclosureButton.resetHover()
     }
 
+    /// Shares line up with the other icons while the sidebar shows icons only.
+    func setCompact(_ compact: Bool) {
+        stackLeading?.constant = compact ? 0 : indent
+    }
+
     func updateColors(isSelected: Bool, isActive: Bool) {
         let strength = (isActive ? 1 : WindowLayout.inactiveStrength) * (isDimmed ? 0.5 : 1)
         let color = (isSelected ? WindowLayout.sidebarSelectedColor : WindowLayout.sidebarTextColor).withAlphaComponent(strength)
         textField?.textColor = color
         imageView?.contentTintColor = color
+        disclosureButton.normalTint = color
         badge.textColor = NSColor.secondaryLabelColor.withAlphaComponent(isActive ? 0.55 : 0.28)
     }
 

@@ -27,7 +27,7 @@ enum WindowLayout {
 final class CardView: NSView {
     private let cardBackgroundColor: NSColor
 
-    private let isOutlined: Bool
+    var isOutlined: Bool { didSet { needsDisplay = true } }
     /// Marks the active pane with an accent-colored outline.
     var isHighlighted = false { didSet { needsDisplay = true } }
 
