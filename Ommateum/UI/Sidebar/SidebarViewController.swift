@@ -274,6 +274,8 @@ final class SidebarViewController: NSViewController {
         }
         isReloading = false
         highlight(highlightedURL)
+        // Reloading an item keeps its row view, so didAdd does not run and the header would lose its style.
+        updateAllColors()
     }
 
     private static func collapseKey(_ item: Any) -> String {
