@@ -4,6 +4,19 @@ import AppKit
 enum WindowLayout {
     static let gap: CGFloat = 6
     static let cornerRadius: CGFloat = 8
+    /// Sidebar colors measured from Finder on macOS 26. In an inactive window everything is drawn at half strength.
+    static let sidebarTextColor = NSColor(name: "OmmateumSidebarText") { appearance in
+        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? NSColor(white: 0.953, alpha: 1) : NSColor.labelColor
+    }
+    static let sidebarHeaderColor = NSColor(name: "OmmateumSidebarHeader") { appearance in
+        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? NSColor(white: 0.57, alpha: 1) : NSColor.secondaryLabelColor
+    }
+    static let inactiveStrength: CGFloat = 0.5
+    /// Finder draws the selected row a little lighter than the plain accent color.
+    static var sidebarSelectedColor: NSColor {
+        guard let accent = NSColor.controlAccentColor.usingColorSpace(.sRGB) else { return .controlAccentColor }
+        return NSColor(hue: accent.hueComponent, saturation: accent.saturationComponent * 0.9, brightness: min(accent.brightnessComponent * 1.05, 1), alpha: 1)
+    }
     /// Shows through the gaps and behind the toolbar. Darker than the cards so their edges stand out.
     static let backgroundColor = NSColor(name: "OmmateumWindowBackground") { appearance in
         appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? NSColor(white: 0.08, alpha: 1) : NSColor(white: 0.78, alpha: 1)

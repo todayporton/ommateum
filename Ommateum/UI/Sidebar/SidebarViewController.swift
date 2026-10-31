@@ -187,6 +187,14 @@ final class SidebarViewController: NSViewController {
         reload()
     }
 
+    override func viewWillAppear() {
+        super.viewWillAppear()
+        for name in [NSWindow.didBecomeMainNotification, NSWindow.didResignMainNotification] {
+            NotificationCenter.default.addObserver(self, selector: #selector(updateAllColors), name: name, object: view.window)
+        }
+        updateAllColors()
+    }
+
     /// Keeps the eject buttons at the sidebar's right edge as it is resized.
     override func viewDidLayout() {
         super.viewDidLayout()
@@ -196,6 +204,26 @@ final class SidebarViewController: NSViewController {
     isolated deinit {
         NotificationCenter.default.removeObserver(self)
         NSWorkspace.shared.notificationCenter.removeObserver(self)
+    }
+
+    private func updateColors(ofRow row: Int) {
+        let isActive = view.window?.isMainWindow ?? true
+        let cell = outlineView.view(atColumn: 0, row: row, makeIfNecessary: false)
+        if let cell = cell as? SidebarCell {
+            cell.updateColors(isSelected: outlineView.isRowSelected(row), isActive: isActive)
+        } else if let cell = cell as? NSTableCellView {
+            // As an attributed string: the table overrides the plain text color and font of group rows.
+            let color = WindowLayout.sidebarHeaderColor.withAlphaComponent(isActive ? 1 : WindowLayout.inactiveStrength)
+            cell.textField?.attributedStringValue = NSAttributedString(string: cell.textField?.stringValue ?? "", attributes: [
+                .foregroundColor: color,
+                .font: NSFont.systemFont(ofSize: NSFont.smallSystemFontSize, weight: .semibold),
+            ])
+        }
+        outlineView.rowView(atRow: row, makeIfNecessary: false)?.needsDisplay = true
+    }
+
+    @objc private func updateAllColors() {
+        for row in 0..<outlineView.numberOfRows { updateColors(ofRow: row) }
     }
 
     @objc private func reload() {
@@ -637,7 +665,7 @@ private final class SidebarRowView: NSTableRowView {
     }
 
     override func drawSelection(in dirtyRect: NSRect) {
-        NSColor.labelColor.withAlphaComponent(0.09).setFill()
+        NSColor.labelColor.withAlphaComponent(window?.isMainWindow == false ? 0.03 : 0.064).setFill()
         NSBezierPath(roundedRect: bounds.insetBy(dx: 10, dy: 0), xRadius: 6, yRadius: 6).fill()
     }
 }
@@ -700,13 +728,13 @@ private final class SidebarCell: NSTableCellView {
     private let ejectButton = EjectButton()
     private var onEject: (() -> Void)?
     private var stackLeading: NSLayoutConstraint?
+    private var isDimmed = false
     /// How far a share sits inside its server row.
     static let shareIndent: CGFloat = 10
 
     override init(frame: NSRect) {
         super.init(frame: frame)
         let image = NSImageView()
-        image.contentTintColor = .controlAccentColor
         image.symbolConfiguration = .init(pointSize: 15, weight: .regular)
         image.widthAnchor.constraint(equalToConstant: 22).isActive = true
         let field = NSTextField(labelWithString: "")
@@ -714,7 +742,6 @@ private final class SidebarCell: NSTableCellView {
         field.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         field.setContentHuggingPriority(.defaultLow, for: .horizontal)
         badge.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
-        badge.textColor = .secondaryLabelColor
         badge.setContentCompressionResistancePriority(.required, for: .horizontal)
         ejectButton.target = self
         ejectButton.action = #selector(ejectPressed(_:))
@@ -739,14 +766,21 @@ private final class SidebarCell: NSTableCellView {
     func configure(name: String, icon: NSImage, tooltip: String?, indent: CGFloat = 0, dimmed: Bool = false, badgeText: String? = nil, onEject: (() -> Void)? = nil) {
         stackLeading?.constant = indent
         textField?.stringValue = name
-        textField?.alphaValue = dimmed ? 0.5 : 1
+        isDimmed = dimmed
         imageView?.image = icon
-        imageView?.alphaValue = dimmed ? 0.5 : 1
         toolTip = tooltip
         setBadge(badgeText)
         self.onEject = onEject
         ejectButton.isHidden = onEject == nil
         ejectButton.resetHover()
+    }
+
+    func updateColors(isSelected: Bool, isActive: Bool) {
+        let strength = (isActive ? 1 : WindowLayout.inactiveStrength) * (isDimmed ? 0.5 : 1)
+        let color = (isSelected ? WindowLayout.sidebarSelectedColor : WindowLayout.sidebarTextColor).withAlphaComponent(strength)
+        textField?.textColor = color
+        imageView?.contentTintColor = color
+        badge.textColor = NSColor.secondaryLabelColor.withAlphaComponent(isActive ? 0.55 : 0.28)
     }
 
     func setBadge(_ text: String?) {
@@ -789,6 +823,10 @@ extension SidebarViewController: NSOutlineViewDataSource, NSOutlineViewDelegate 
     /// Measured from Finder on macOS 26: 32pt rows and 19pt group names (the table adds the space above a group).
     func outlineView(_ outlineView: NSOutlineView, heightOfRowByItem item: Any) -> CGFloat { item is SidebarSection ? 19 : 32 }
 
+    func outlineView(_ outlineView: NSOutlineView, didAdd rowView: NSTableRowView, forRow row: Int) { updateColors(ofRow: row) }
+
+    func outlineViewSelectionDidChange(_ notification: Notification) { updateAllColors() }
+
     func outlineViewItemDidCollapse(_ notification: Notification) {
         if !isReloading, let item = notification.userInfo?["NSObject"] { collapsedKeys.insert(Self.collapseKey(item)) }
     }
@@ -802,9 +840,6 @@ extension SidebarViewController: NSOutlineViewDataSource, NSOutlineViewDelegate 
             let id = NSUserInterfaceItemIdentifier("header")
             let cell = outlineView.makeView(withIdentifier: id, owner: nil) as? NSTableCellView ?? makeHeaderCell(id: id)
             cell.textField?.stringValue = section.title
-            // Set on every use: the table restyles group rows when they are reloaded without children.
-            cell.textField?.font = .systemFont(ofSize: NSFont.smallSystemFontSize, weight: .semibold)
-            cell.textField?.textColor = .secondaryLabelColor
             return cell
         }
         let id = NSUserInterfaceItemIdentifier("entry")
