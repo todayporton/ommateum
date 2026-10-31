@@ -4,6 +4,10 @@ import AppKit
 enum WindowLayout {
     static let gap: CGFloat = 6
     static let cornerRadius: CGFloat = 8
+    /// A step darker than the panes, while still lighter than the gaps.
+    static let sidebarBackgroundColor = NSColor(name: "OmmateumSidebarBackground") { appearance in
+        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? NSColor(white: 0.095, alpha: 1) : NSColor(white: 0.95, alpha: 1)
+    }
     /// Shows through the gaps and behind the toolbar. Darker than the cards so their edges stand out.
     static let backgroundColor = NSColor(name: "OmmateumWindowBackground") { appearance in
         appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? NSColor(white: 0.08, alpha: 1) : NSColor(white: 0.78, alpha: 1)
@@ -12,8 +16,11 @@ enum WindowLayout {
 
 /// A rounded, thinly outlined panel. Its contents are clipped to the corners.
 final class CardView: NSView {
-    override init(frame: NSRect) {
-        super.init(frame: frame)
+    private let cardBackgroundColor: NSColor
+
+    init(backgroundColor: NSColor = .controlBackgroundColor) {
+        cardBackgroundColor = backgroundColor
+        super.init(frame: .zero)
         wantsLayer = true
         layer?.cornerRadius = WindowLayout.cornerRadius
         layer?.cornerCurve = .continuous
@@ -27,7 +34,7 @@ final class CardView: NSView {
 
     // Colors are resolved here so they follow light/dark mode changes.
     override func updateLayer() {
-        layer?.backgroundColor = NSColor.controlBackgroundColor.cgColor
+        layer?.backgroundColor = cardBackgroundColor.cgColor
         layer?.borderColor = NSColor.separatorColor.cgColor
     }
 }

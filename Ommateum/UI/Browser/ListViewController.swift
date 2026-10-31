@@ -1,7 +1,44 @@
 import AppKit
 
 /// Outline view with Finder-like keyboard and mouse handling.
+/// A selected row, rounded to match the stripes; neighbouring selected rows join up.
+final class BrowserRowView: NSTableRowView {
+    // The table draws the stripes behind its rows.
+    override var isOpaque: Bool { false }
+    override func drawBackground(in dirtyRect: NSRect) {}
+
+    override func drawSelection(in dirtyRect: NSRect) {
+        var rect = bounds.insetBy(dx: BrowserOutlineView.stripeInset, dy: 0)
+        let radius = BrowserOutlineView.stripeRadius
+        if isPreviousRowSelected { rect.origin.y -= radius; rect.size.height += radius }
+        if isNextRowSelected { rect.size.height += radius }
+        (isEmphasized ? NSColor.selectedContentBackgroundColor : NSColor.unemphasizedSelectedContentBackgroundColor).setFill()
+        NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius).fill()
+    }
+}
+
 final class BrowserOutlineView: NSOutlineView {
+    static let stripeInset: CGFloat = 4
+    static let stripeRadius: CGFloat = 7
+
+    /// Draws every other row, including the empty area below the last one, as a rounded band.
+    override func drawBackground(inClipRect clipRect: NSRect) {
+        super.drawBackground(inClipRect: clipRect)
+        NSColor.alternatingContentBackgroundColors.last?.setFill()
+        func fill(_ rect: NSRect) {
+            NSBezierPath(roundedRect: rect.insetBy(dx: Self.stripeInset, dy: 0), xRadius: Self.stripeRadius, yRadius: Self.stripeRadius).fill()
+        }
+        var y: CGFloat = 0
+        var row = 0
+        let width = max(bounds.width, visibleRect.width)
+        while y < clipRect.maxY {
+            let height = row < numberOfRows ? rect(ofRow: row).height : rowHeight + intercellSpacing.height
+            if row % 2 == 1 { fill(NSRect(x: 0, y: y, width: width, height: height)) }
+            y += height
+            row += 1
+        }
+    }
+
     var onEmptyDoubleClick: (() -> Void)?
     var onOpen: ((_ newTab: Bool) -> Void)?
     var onRename: (() -> Void)?
@@ -115,7 +152,6 @@ final class ListViewController: NSViewController, BrowserContent {
         scrollView.borderType = .noBorder
 
         outlineView.style = .fullWidth
-        outlineView.usesAlternatingRowBackgroundColors = true
         outlineView.allowsMultipleSelection = true
         outlineView.allowsEmptySelection = true
         outlineView.columnAutoresizingStyle = .firstColumnOnlyAutoresizingStyle
@@ -312,6 +348,8 @@ extension ListViewController: NSOutlineViewDataSource, NSOutlineViewDelegate, NS
         childMonitors[node.item.url] = nil
         node.children = nil
     }
+
+    func outlineView(_ outlineView: NSOutlineView, rowViewForItem item: Any) -> NSTableRowView? { BrowserRowView() }
 
     func outlineView(_ outlineView: NSOutlineView, viewFor tableColumn: NSTableColumn?, item: Any) -> NSView? {
         if let group = item as? ListGroupNode {

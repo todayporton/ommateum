@@ -97,6 +97,8 @@ private final class SidebarOutlineView: NSOutlineView {
             onSectionClick?(section)
             return
         }
+        // The highlight marks the current folder, so clicking empty space must not clear it.
+        if row < 0 { return }
         super.mouseDown(with: event)
     }
 
@@ -155,7 +157,7 @@ final class SidebarViewController: NSViewController {
         outlineView.menu?.delegate = self
         outlineView.setAccessibilityLabel("サイドバー")
         scrollView.documentView = outlineView
-        let card = CardView()
+        let card = CardView(backgroundColor: WindowLayout.sidebarBackgroundColor)
         card.translatesAutoresizingMaskIntoConstraints = false
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         card.addSubview(scrollView)
@@ -628,8 +630,13 @@ extension SidebarViewController: NSMenuDelegate {
 /// Keeps the selected row a quiet gray even while the sidebar has focus.
 private final class SidebarRowView: NSTableRowView {
     override var isEmphasized: Bool {
-        get { false }
+        get { false } // keeps the icon's color
         set {}
+    }
+
+    override func drawSelection(in dirtyRect: NSRect) {
+        NSColor.labelColor.withAlphaComponent(0.09).setFill()
+        NSBezierPath(roundedRect: bounds.insetBy(dx: 10, dy: 0), xRadius: 6, yRadius: 6).fill()
     }
 }
 
