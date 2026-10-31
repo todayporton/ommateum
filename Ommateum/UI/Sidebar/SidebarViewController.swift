@@ -562,10 +562,60 @@ extension SidebarViewController: NSMenuDelegate {
     }
 }
 
+/// The small eject button of a sidebar row, with a rounded background while hovered or pressed.
+private final class EjectButton: NSButton {
+    private var isHovered = false {
+        didSet {
+            if isHovered != oldValue { updateStyle() }
+        }
+    }
+
+    init() {
+        super.init(frame: .zero)
+        isBordered = false
+        imagePosition = .imageOnly
+        image = NSImage(systemSymbolName: "eject.fill", accessibilityDescription: "取り出す")?
+            .withSymbolConfiguration(.init(pointSize: 9, weight: .medium))
+        toolTip = "取り出す"
+        setAccessibilityLabel("取り出す")
+        setContentCompressionResistancePriority(.required, for: .horizontal)
+        setContentHuggingPriority(.required, for: .horizontal)
+        NSLayoutConstraint.activate([widthAnchor.constraint(equalToConstant: 18), heightAnchor.constraint(equalToConstant: 18)])
+        updateStyle()
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    private func updateStyle() {
+        contentTintColor = isHovered ? .labelColor : .tertiaryLabelColor
+        needsDisplay = true
+    }
+
+    /// Cells are reused and hidden without a mouse-exited event.
+    func resetHover() { isHovered = false }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        trackingAreas.forEach(removeTrackingArea)
+        addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect], owner: self))
+    }
+
+    override func mouseEntered(with event: NSEvent) { isHovered = true }
+    override func mouseExited(with event: NSEvent) { isHovered = false }
+
+    override func draw(_ dirtyRect: NSRect) {
+        if isHovered {
+            (isHighlighted ? NSColor.tertiaryLabelColor : NSColor.quaternaryLabelColor).setFill()
+            NSBezierPath(roundedRect: bounds, xRadius: 4, yRadius: 4).fill()
+        }
+        super.draw(dirtyRect)
+    }
+}
+
 /// A sidebar row: icon, name, free-space badge and eject button.
 private final class SidebarCell: NSTableCellView {
     private let badge = NSTextField(labelWithString: "")
-    private let ejectButton = NSButton()
+    private let ejectButton = EjectButton()
     private var onEject: (() -> Void)?
 
     override init(frame: NSRect) {
@@ -580,14 +630,8 @@ private final class SidebarCell: NSTableCellView {
         badge.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
         badge.textColor = .secondaryLabelColor
         badge.setContentCompressionResistancePriority(.required, for: .horizontal)
-        ejectButton.isBordered = false
-        ejectButton.image = NSImage(systemSymbolName: "eject.fill", accessibilityDescription: "取り出す")
-        ejectButton.contentTintColor = .secondaryLabelColor
-        ejectButton.setAccessibilityLabel("取り出す")
         ejectButton.target = self
         ejectButton.action = #selector(ejectPressed(_:))
-        ejectButton.setContentCompressionResistancePriority(.required, for: .horizontal)
-        ejectButton.setContentHuggingPriority(.required, for: .horizontal)
         let stack = NSStackView(views: [image, field, badge, ejectButton])
         stack.distribution = .fill
         stack.spacing = 6
@@ -613,6 +657,7 @@ private final class SidebarCell: NSTableCellView {
         setBadge(badgeText)
         self.onEject = onEject
         ejectButton.isHidden = onEject == nil
+        ejectButton.resetHover()
     }
 
     func setBadge(_ text: String?) {
