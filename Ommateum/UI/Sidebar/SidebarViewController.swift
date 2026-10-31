@@ -147,7 +147,7 @@ final class SidebarViewController: NSViewController {
         outlineView.style = .inset
         outlineView.backgroundColor = .clear
         outlineView.floatsGroupRows = false
-        outlineView.rowSizeStyle = .default
+        outlineView.rowSizeStyle = .custom
         outlineView.onSectionClick = { [weak self] in self?.toggleFolding($0) }
         outlineView.dataSource = self
         outlineView.delegate = self
@@ -707,7 +707,8 @@ private final class SidebarCell: NSTableCellView {
         super.init(frame: frame)
         let image = NSImageView()
         image.contentTintColor = .controlAccentColor
-        image.widthAnchor.constraint(equalToConstant: 18).isActive = true
+        image.symbolConfiguration = .init(pointSize: 15, weight: .regular)
+        image.widthAnchor.constraint(equalToConstant: 22).isActive = true
         let field = NSTextField(labelWithString: "")
         field.lineBreakMode = .byTruncatingTail
         field.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
@@ -719,7 +720,7 @@ private final class SidebarCell: NSTableCellView {
         ejectButton.action = #selector(ejectPressed(_:))
         let stack = NSStackView(views: [image, field, badge, ejectButton])
         stack.distribution = .fill
-        stack.spacing = 6
+        stack.spacing = 8
         stack.translatesAutoresizingMaskIntoConstraints = false
         addSubview(stack)
         imageView = image
@@ -785,6 +786,9 @@ extension SidebarViewController: NSOutlineViewDataSource, NSOutlineViewDelegate 
 
     func outlineView(_ outlineView: NSOutlineView, rowViewForItem item: Any) -> NSTableRowView? { SidebarRowView() }
 
+    /// Measured from Finder on macOS 26: 32pt rows and 19pt group names (the table adds the space above a group).
+    func outlineView(_ outlineView: NSOutlineView, heightOfRowByItem item: Any) -> CGFloat { item is SidebarSection ? 19 : 32 }
+
     func outlineViewItemDidCollapse(_ notification: Notification) {
         if !isReloading, let item = notification.userInfo?["NSObject"] { collapsedKeys.insert(Self.collapseKey(item)) }
     }
@@ -798,6 +802,9 @@ extension SidebarViewController: NSOutlineViewDataSource, NSOutlineViewDelegate 
             let id = NSUserInterfaceItemIdentifier("header")
             let cell = outlineView.makeView(withIdentifier: id, owner: nil) as? NSTableCellView ?? makeHeaderCell(id: id)
             cell.textField?.stringValue = section.title
+            // Set on every use: the table restyles group rows when they are reloaded without children.
+            cell.textField?.font = .systemFont(ofSize: NSFont.smallSystemFontSize, weight: .semibold)
+            cell.textField?.textColor = .secondaryLabelColor
             return cell
         }
         let id = NSUserInterfaceItemIdentifier("entry")
@@ -841,7 +848,7 @@ extension SidebarViewController: NSOutlineViewDataSource, NSOutlineViewDelegate 
         NSLayoutConstraint.activate([
             field.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 2),
             field.trailingAnchor.constraint(lessThanOrEqualTo: cell.trailingAnchor, constant: -2),
-            field.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
+            field.bottomAnchor.constraint(equalTo: cell.bottomAnchor, constant: -3),
         ])
         return cell
     }
