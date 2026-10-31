@@ -104,7 +104,7 @@ enum MainMenu {
         menu.addItem(BrowserMenus.sortSubmenu(target: nil))
         menu.addItem(BrowserMenus.groupSubmenu(target: nil))
         menu.addItem(.separator())
-        add(menu, "サイドバーを表示/非表示", #selector(NSSplitViewController.toggleSidebar(_:)), "s", [.command, .control])
+        add(menu, "サイドバーを表示/非表示", #selector(MainWindowController.toggleSidebarPane(_:)), "s", [.command, .control])
         add(menu, "隠しファイルを表示", #selector(AppDelegate.toggleHiddenFiles(_:)), ".", [.command, .shift])
         return menu
     }

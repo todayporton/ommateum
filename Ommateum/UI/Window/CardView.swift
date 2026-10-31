@@ -33,18 +33,3 @@ class GapSplitView: NSSplitView {
     override var dividerThickness: CGFloat { WindowLayout.gap }
     override func drawDivider(in rect: NSRect) {}
 }
-
-/// Hosts the sidebar as an ordinary pane. A system sidebar item floats in glass with a gap the system decides,
-/// which cannot be matched to the panes (docs/feasibility.md §3).
-final class WindowSplitViewController: NSSplitViewController {
-    weak var sidebarItem: NSSplitViewItem?
-
-    override func toggleSidebar(_ sender: Any?) {
-        guard let sidebarItem else { return }
-        sidebarItem.animator().isCollapsed.toggle()
-    }
-
-    override func validateUserInterfaceItem(_ item: any NSValidatedUserInterfaceItem) -> Bool {
-        item.action == #selector(toggleSidebar(_:)) ? sidebarItem != nil : super.validateUserInterfaceItem(item)
-    }
-}

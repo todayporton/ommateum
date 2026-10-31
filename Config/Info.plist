@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Keeps the pre-Liquid Glass window look: small window corners with a toolbar. See docs/feasibility.md §3. -->
+	<key>UIDesignRequiresCompatibility</key>
+	<true/>
+</dict>
+</plist>

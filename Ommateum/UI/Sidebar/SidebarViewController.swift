@@ -87,12 +87,21 @@ struct MountedShare {
 /// Lines every row up with the group names, leaving the disclosure triangle in the margin to their left.
 /// Shares are indented inside their cells (`SidebarCell.shareIndent`).
 private final class SidebarOutlineView: NSOutlineView {
-    /// Where a source list places group row cells; `frameOfCell` does not report it for those rows.
     private let groupNameX: CGFloat = 14
+    var onSectionClick: ((SidebarSection) -> Void)?
+
+    /// Group names have no disclosure triangle: a click on one folds the group. They are not selectable, so no action is sent for them.
+    override func mouseDown(with event: NSEvent) {
+        let row = row(at: convert(event.locationInWindow, from: nil))
+        if row >= 0, let section = item(atRow: row) as? SidebarSection {
+            onSectionClick?(section)
+            return
+        }
+        super.mouseDown(with: event)
+    }
 
     override func frameOfCell(atColumn column: Int, row: Int) -> NSRect {
         var frame = super.frameOfCell(atColumn: column, row: row)
-        guard level(forRow: row) > 0 else { return frame }
         frame.size.width = frame.maxX - groupNameX
         frame.origin.x = groupNameX
         return frame
@@ -100,7 +109,7 @@ private final class SidebarOutlineView: NSOutlineView {
 
     override func frameOfOutlineCell(atRow row: Int) -> NSRect {
         var frame = super.frameOfOutlineCell(atRow: row)
-        if level(forRow: row) > 0 { frame.origin.x = max(0, groupNameX - frame.width) }
+        frame.origin.x = max(0, groupNameX - frame.width)
         return frame
     }
 }
@@ -112,7 +121,7 @@ final class SidebarViewController: NSViewController {
 
     private let outlineView = SidebarOutlineView()
     private var sections: [SidebarSection] = []
-    /// Rows the user collapsed; kept across reloads, which rebuild every row object.
+    /// Sections and servers the user folded; kept across reloads, which rebuild every row object.
     private var collapsedKeys: Set<String> = []
     private var isReloading = false
     private var highlightedURL: URL?
@@ -130,9 +139,12 @@ final class SidebarViewController: NSViewController {
         outlineView.columnAutoresizingStyle = .firstColumnOnlyAutoresizingStyle
         outlineView.outlineTableColumn = column
         outlineView.headerView = nil
-        outlineView.style = .sourceList
+        // Not .sourceList: it draws a light translucent material over the card while the window is active.
+        outlineView.style = .inset
+        outlineView.backgroundColor = .clear
         outlineView.floatsGroupRows = false
         outlineView.rowSizeStyle = .default
+        outlineView.onSectionClick = { [weak self] in self?.toggleFolding($0) }
         outlineView.dataSource = self
         outlineView.delegate = self
         outlineView.target = self
@@ -208,7 +220,7 @@ final class SidebarViewController: NSViewController {
         isReloading = true
         outlineView.reloadData()
         for section in sections {
-            if !collapsedKeys.contains(Self.collapseKey(section)) { outlineView.expandItem(section) }
+            outlineView.expandItem(section)
             for case let server as SidebarServerEntry in section.children where !collapsedKeys.contains(Self.collapseKey(server)) {
                 outlineView.expandItem(server)
             }
@@ -216,6 +228,20 @@ final class SidebarViewController: NSViewController {
         isReloading = false
         highlight(highlightedURL)
         refreshCapacities()
+    }
+
+    /// A folded section simply has no children: NSOutlineView refuses to collapse rows without a disclosure triangle.
+    private func toggleFolding(_ section: SidebarSection) {
+        let key = Self.collapseKey(section)
+        if collapsedKeys.remove(key) == nil { collapsedKeys.insert(key) }
+        isReloading = true
+        outlineView.reloadItem(section, reloadChildren: true)
+        outlineView.expandItem(section)
+        for case let server as SidebarServerEntry in section.children where !collapsedKeys.contains(Self.collapseKey(server)) {
+            outlineView.expandItem(server)
+        }
+        isReloading = false
+        highlight(highlightedURL)
     }
 
     private static func collapseKey(_ item: Any) -> String {
@@ -599,6 +625,14 @@ extension SidebarViewController: NSMenuDelegate {
     }
 }
 
+/// Keeps the selected row a quiet gray even while the sidebar has focus.
+private final class SidebarRowView: NSTableRowView {
+    override var isEmphasized: Bool {
+        get { false }
+        set {}
+    }
+}
+
 /// The small eject button of a sidebar row, with a rounded background while hovered or pressed.
 private final class EjectButton: NSButton {
     private var isHovered = false {
@@ -717,7 +751,7 @@ extension SidebarViewController: NSOutlineViewDataSource, NSOutlineViewDelegate 
     func outlineView(_ outlineView: NSOutlineView, numberOfChildrenOfItem item: Any?) -> Int {
         switch item {
         case nil: sections.count
-        case let section as SidebarSection: section.children.count
+        case let section as SidebarSection: collapsedKeys.contains(Self.collapseKey(section)) ? 0 : section.children.count
         case let server as SidebarServerEntry: server.shares.count
         default: 0
         }
@@ -736,7 +770,11 @@ extension SidebarViewController: NSOutlineViewDataSource, NSOutlineViewDelegate 
     }
 
     func outlineView(_ outlineView: NSOutlineView, isGroupItem item: Any) -> Bool { item is SidebarSection }
+    /// Group names stay flush with their items; clicking a name folds the group.
+    func outlineView(_ outlineView: NSOutlineView, shouldShowOutlineCellForItem item: Any) -> Bool { !(item is SidebarSection) }
     func outlineView(_ outlineView: NSOutlineView, shouldSelectItem item: Any) -> Bool { item is SidebarEntry || item is SidebarWorkspaceEntry }
+
+    func outlineView(_ outlineView: NSOutlineView, rowViewForItem item: Any) -> NSTableRowView? { SidebarRowView() }
 
     func outlineViewItemDidCollapse(_ notification: Notification) {
         if !isReloading, let item = notification.userInfo?["NSObject"] { collapsedKeys.insert(Self.collapseKey(item)) }

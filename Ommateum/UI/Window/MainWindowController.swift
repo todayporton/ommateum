@@ -2,7 +2,7 @@ import AppKit
 
 /// One Ommateum window: toolbar, the single sidebar on the left, and the split workspace.
 final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuItemValidation {
-    private let splitViewController = WindowSplitViewController()
+    private let splitViewController = NSSplitViewController()
     private let sidebar = SidebarViewController()
     private var sidebarItem: NSSplitViewItem!
     let workspace: WorkspaceViewController
@@ -15,6 +15,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         static let navigation = NSToolbarItem.Identifier("navigation")
         static let viewMode = NSToolbarItem.Identifier("viewMode")
         static let split = NSToolbarItem.Identifier("split")
+        static let sidebar = NSToolbarItem.Identifier("sidebar")
     }
 
     private var viewModeControl: NSSegmentedControl?
@@ -37,9 +38,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         let splitView = GapSplitView()
         splitView.isVertical = true
         splitViewController.splitView = splitView
+        // An ordinary item, not a system sidebar: that one floats in glass with a gap the system decides (docs/feasibility.md §3).
         sidebarItem = NSSplitViewItem(viewController: sidebar)
         sidebarItem.holdingPriority = NSLayoutConstraint.Priority(NSLayoutConstraint.Priority.defaultLow.rawValue + 10) // resizing the window resizes the panes
-        splitViewController.sidebarItem = sidebarItem
         sidebarItem.minimumThickness = 170
         sidebarItem.maximumThickness = 400
         sidebarItem.canCollapse = true
@@ -196,6 +197,11 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         activeBrowser?.setViewMode(ViewMode.allCases[sender.selectedSegment])
     }
 
+    /// AppKit's toggleSidebar: and its toolbar item only work with a system sidebar item.
+    @objc func toggleSidebarPane(_ sender: Any?) {
+        sidebarItem.animator().isCollapsed.toggle()
+    }
+
     @objc func toolbarSplit(_ sender: Any?) {
         // ⌥-click splits downward.
         workspace.split(NSEvent.modifierFlags.contains(.option) ? .bottom : .right)
@@ -245,7 +251,7 @@ extension MainWindowController: WorkspaceHost, SidebarHost {
 
 extension MainWindowController: NSToolbarDelegate {
     func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-        [.toggleSidebar, .sidebarTrackingSeparator, ToolbarID.navigation, .flexibleSpace, ToolbarID.viewMode, ToolbarID.split]
+        [ToolbarID.sidebar, ToolbarID.navigation, .flexibleSpace, ToolbarID.viewMode, ToolbarID.split]
     }
 
     func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
@@ -277,6 +283,16 @@ extension MainWindowController: NSToolbarDelegate {
             let item = NSToolbarItem(itemIdentifier: itemIdentifier)
             item.view = control
             item.label = "表示"
+            return item
+        case ToolbarID.sidebar:
+            let item = NSToolbarItem(itemIdentifier: itemIdentifier)
+            item.image = NSImage(systemSymbolName: "sidebar.left", accessibilityDescription: "サイドバー")
+            item.label = "サイドバー"
+            item.toolTip = "サイドバーを表示/非表示"
+            item.target = self
+            item.action = #selector(toggleSidebarPane(_:))
+            item.isNavigational = true // stays on the left, next to 戻る/進む
+            item.isBordered = true
             return item
         case ToolbarID.split:
             let item = NSToolbarItem(itemIdentifier: itemIdentifier)
