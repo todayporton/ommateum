@@ -17,7 +17,7 @@ final class WindowRootViewController: NSViewController {
     /// The sidebar's width while it is wider than its slot, or changing.
     private var overlayWidth: CGFloat?
     private var animationTimer: Timer?
-    private static let animationDuration: TimeInterval = 0.18
+    static let animationDuration: TimeInterval = 0.18
 
     init(sidebar: SidebarViewController) {
         self.sidebar = sidebar
@@ -33,6 +33,7 @@ final class WindowRootViewController: NSViewController {
         slotItem.maximumThickness = Self.maximumWidth
         splitViewController.addSplitViewItem(slotItem)
         sidebar.onHoverChanged = { [weak self] hovering in self?.setOverlaying(hovering, animated: true) }
+        sidebar.onOverlayResize = { [weak self] width in self?.resizeOverlay(to: width) }
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
@@ -79,11 +80,21 @@ final class WindowRootViewController: NSViewController {
         if !isCompact { splitViewController.splitView.setPosition(expandedWidth, ofDividerAt: 0) }
     }
 
+    private func resizeOverlay(to width: CGFloat) {
+        guard isOverlaying else { return }
+        cancelAnimation()
+        expandedWidth = min(max(width, Self.minimumWidth), Self.maximumWidth)
+        overlayWidth = expandedWidth
+        sidebar.setCompact(true, contentWidth: expandedWidth - WindowLayout.gap)
+        sidebar.view.frame = sidebarFrame
+    }
+
     /// Closed: the panes take all the room except one icon column.
     func setCompact(_ compact: Bool, animated: Bool = false) {
         setOverlaying(false, animated: false)
         cancelAnimation()
         isCompact = compact
+        sidebar.setHeadersVisible(!compact, animated: animated && view.window != nil)
         let slotWidth = slotItem.viewController.view.frame.width
         let finish: @MainActor @Sendable () -> Void = { [self] in
             slotItem.minimumThickness = compact ? Self.railWidth : Self.minimumWidth
@@ -111,6 +122,7 @@ final class WindowRootViewController: NSViewController {
         isOverlaying = overlaying
         cancelAnimation()
         if overlaying { sidebar.setOverlaying(true) }
+        sidebar.setHeadersVisible(overlaying, animated: animated && view.window != nil)
         let target = overlaying ? expandedWidth : Self.railWidth
         let finish: @MainActor @Sendable () -> Void = { [self] in
             overlayWidth = overlaying ? expandedWidth : nil

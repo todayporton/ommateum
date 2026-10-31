@@ -136,19 +136,30 @@ final class SidebarViewController: NSViewController {
 
     private let outlineView = SidebarOutlineView()
     private let card = CardView(backgroundColor: WindowLayout.backgroundColor, isOutlined: false)
-    private let dragTrigger = SidebarDragTrigger()
+    private let dragForwarder = SidebarDragForwarder()
+    /// The row files would land in. Drawn here: the table's own feedback can stay off after it has rejected a row.
+    private var dropTarget: SidebarEntry? {
+        didSet {
+            guard dropTarget !== oldValue else { return }
+            for entry in [oldValue, dropTarget].compactMap({ $0 }) {
+                let row = outlineView.row(forItem: entry)
+                guard row >= 0 else { continue }
+                (outlineView.rowView(atRow: row, makeIfNecessary: false) as? SidebarRowView)?.isDropHighlighted = entry === dropTarget
+            }
+        }
+    }
     private var contentTrailing: NSLayoutConstraint?
     private var contentWidth: NSLayoutConstraint?
     private var isCompact = false
     private var isOverlaying = false
     private var isMenuOpen = false
+    private var isResizing = false
+    private var headersVisible = true
+    private let resizeHandle = SidebarResizeHandle()
+    /// Asks for a new width while the overlaid sidebar's right edge is dragged.
+    var onOverlayResize: ((CGFloat) -> Void)?
     /// Keeps group names and indents while the width animates.
-    var keepsLabels = false {
-        didSet {
-            dragTrigger.isHidden = !showsIconsOnly
-            updateAllColors()
-        }
-    }
+    var keepsLabels = false { didSet { updateAllColors() } }
     /// Called when the pointer enters or leaves the closed sidebar.
     var onHoverChanged: ((Bool) -> Void)?
     private var sections: [SidebarSection] = []
@@ -176,19 +187,17 @@ final class SidebarViewController: NSViewController {
         outlineView.floatsGroupRows = false
         outlineView.rowSizeStyle = .custom
         outlineView.onSectionClick = { [weak self] in self?.toggleFolding($0) }
-        let dragStateChanged: (Bool) -> Void = { [weak self] isOver in
-            guard let self, self.isCompact else { return }
-            self.onHoverChanged?(isOver || self.isPointerOverCard)
+        outlineView.onDragStateChanged = { [weak self] isOver in
+            guard let self else { return }
+            if !isOver { self.dropTarget = nil }
+            if self.isCompact { self.onHoverChanged?(isOver || self.isPointerOverCard) }
         }
-        outlineView.onDragStateChanged = dragStateChanged
-        dragTrigger.onDragStateChanged = dragStateChanged
-        dragTrigger.registerForDraggedTypes([.fileURL, Self.itemDragType])
-        dragTrigger.isHidden = true
+        dragForwarder.table = outlineView
+        dragForwarder.registerForDraggedTypes([.fileURL, Self.itemDragType])
         outlineView.dataSource = self
         outlineView.delegate = self
         outlineView.target = self
         outlineView.action = #selector(clicked(_:))
-        outlineView.registerForDraggedTypes([.fileURL, Self.itemDragType])
         outlineView.setDraggingSourceOperationMask([.copy, .move, .generic], forLocal: true)
         outlineView.menu = NSMenu()
         outlineView.menu?.delegate = self
@@ -197,9 +206,25 @@ final class SidebarViewController: NSViewController {
         card.translatesAutoresizingMaskIntoConstraints = false
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         card.addSubview(scrollView)
-        dragTrigger.frame = card.bounds
-        dragTrigger.autoresizingMask = [.width, .height]
-        card.addSubview(dragTrigger)
+        dragForwarder.frame = card.bounds
+        dragForwarder.autoresizingMask = [.width, .height]
+        card.addSubview(dragForwarder)
+        resizeHandle.translatesAutoresizingMaskIntoConstraints = false
+        resizeHandle.isHidden = true
+        resizeHandle.onResize = { [weak self] width in self?.onOverlayResize?(width) }
+        resizeHandle.widthProvider = { [weak self] in self?.view.frame.width ?? 0 }
+        resizeHandle.onTrackingChanged = { [weak self] tracking in
+            guard let self else { return }
+            self.isResizing = tracking
+            if !tracking, self.isCompact, !self.isPointerOverCard { self.onHoverChanged?(false) }
+        }
+        card.addSubview(resizeHandle)
+        NSLayoutConstraint.activate([
+            resizeHandle.topAnchor.constraint(equalTo: card.topAnchor),
+            resizeHandle.bottomAnchor.constraint(equalTo: card.bottomAnchor),
+            resizeHandle.trailingAnchor.constraint(equalTo: card.trailingAnchor),
+            resizeHandle.widthAnchor.constraint(equalToConstant: 6),
+        ])
         let root = NSView()
         root.addSubview(card)
         NSLayoutConstraint.activate([
@@ -237,6 +262,23 @@ final class SidebarViewController: NSViewController {
 
     // MARK: Closed sidebar
 
+    /// Group names would be cut mid-word at icon width, so they fade with the width change.
+    func setHeadersVisible(_ visible: Bool, animated: Bool) {
+        _ = view
+        headersVisible = visible
+        let fields = (0..<outlineView.numberOfRows).compactMap { row in
+            outlineView.item(atRow: row) is SidebarSection ? (outlineView.view(atColumn: 0, row: row, makeIfNecessary: false) as? NSTableCellView)?.textField : nil
+        }
+        guard animated else {
+            fields.forEach { $0.alphaValue = visible ? 1 : 0 }
+            return
+        }
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = WindowRootViewController.animationDuration
+            fields.forEach { $0.animator().alphaValue = visible ? 1 : 0 }
+        }
+    }
+
     /// While closed the rows keep their full width and the card clips them, so widening never reflows anything.
     func setCompact(_ compact: Bool, contentWidth width: CGFloat) {
         _ = view
@@ -244,13 +286,13 @@ final class SidebarViewController: NSViewController {
         contentTrailing?.isActive = !compact
         contentWidth?.constant = width
         contentWidth?.isActive = compact
-        dragTrigger.isHidden = !showsIconsOnly
         updateAllColors()
     }
 
     func setOverlaying(_ overlaying: Bool) {
         isOverlaying = overlaying
         card.isOutlined = overlaying
+        resizeHandle.isHidden = !overlaying
         if overlaying {
             let shadow = NSShadow()
             shadow.shadowBlurRadius = 16
@@ -260,7 +302,6 @@ final class SidebarViewController: NSViewController {
         } else {
             view.shadow = nil
         }
-        dragTrigger.isHidden = !showsIconsOnly
         updateAllColors()
     }
 
@@ -277,7 +318,7 @@ final class SidebarViewController: NSViewController {
     }
 
     override func mouseExited(with event: NSEvent) {
-        if isCompact, !isMenuOpen { onHoverChanged?(false) }
+        if isCompact, !isMenuOpen, !isResizing { onHoverChanged?(false) }
     }
 
     /// Keeps the eject buttons at the sidebar's right edge as it is resized.
@@ -299,7 +340,7 @@ final class SidebarViewController: NSViewController {
             cell.setCompact(showsIconsOnly)
         } else if let cell = cell as? NSTableCellView {
             // As an attributed string: the table overrides the plain text color and font of group rows.
-            let color = showsIconsOnly ? NSColor.clear : WindowLayout.sidebarHeaderColor.withAlphaComponent(isActive ? 1 : WindowLayout.inactiveStrength)
+            let color = WindowLayout.sidebarHeaderColor.withAlphaComponent(isActive ? 1 : WindowLayout.inactiveStrength)
             cell.textField?.attributedStringValue = NSAttributedString(string: cell.textField?.stringValue ?? "", attributes: [
                 .foregroundColor: color,
                 .font: NSFont.systemFont(ofSize: NSFont.smallSystemFontSize, weight: .semibold),
@@ -748,23 +789,54 @@ extension SidebarViewController: NSMenuDelegate {
     }
 }
 
-/// Covers the closed sidebar to notice drags: the clipped table does not receive them. It only widens the sidebar,
-/// then hides itself so the table takes over.
-private final class SidebarDragTrigger: NSView {
-    var onDragStateChanged: ((_ isOver: Bool) -> Void)?
+/// The right edge of the overlaid sidebar, dragged to change its width.
+private final class SidebarResizeHandle: NSView {
+    var onResize: ((CGFloat) -> Void)?
+    var onTrackingChanged: ((Bool) -> Void)?
+    var widthProvider: (() -> CGFloat)?
+    private var startX: CGFloat = 0
+    private var startWidth: CGFloat = 0
 
-    override func draggingEntered(_ sender: any NSDraggingInfo) -> NSDragOperation {
-        onDragStateChanged?(true)
-        return []
+    override func resetCursorRects() { addCursorRect(bounds, cursor: .resizeLeftRight) }
+
+    override func mouseDown(with event: NSEvent) {
+        startX = event.locationInWindow.x
+        startWidth = widthProvider?() ?? 0
+        onTrackingChanged?(true)
     }
 
-    override func draggingExited(_ sender: (any NSDraggingInfo)?) { onDragStateChanged?(false) }
-    override func draggingEnded(_ sender: any NSDraggingInfo) { onDragStateChanged?(false) }
+    override func mouseDragged(with event: NSEvent) { onResize?(startWidth + event.locationInWindow.x - startX) }
+    override func mouseUp(with event: NSEvent) { onTrackingChanged?(false) }
+}
+
+/// Lies over the table and hands it every drag. Dragging over the clipped table of the closed sidebar reaches nothing,
+/// and this also lets the table respond at once, without waiting for the pointer to move again after the sidebar widens.
+private final class SidebarDragForwarder: NSView {
+    weak var table: SidebarOutlineView?
+
+    // Mouse events go to the table underneath; only drags stop here.
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+    override func draggingEntered(_ sender: any NSDraggingInfo) -> NSDragOperation { table?.draggingEntered(sender) ?? [] }
+    override func draggingUpdated(_ sender: any NSDraggingInfo) -> NSDragOperation { table?.draggingUpdated(sender) ?? [] }
+    override func draggingExited(_ sender: (any NSDraggingInfo)?) { table?.draggingExited(sender) }
+    override func draggingEnded(_ sender: any NSDraggingInfo) { table?.draggingEnded(sender) }
+    override func prepareForDragOperation(_ sender: any NSDraggingInfo) -> Bool { table?.prepareForDragOperation(sender) ?? false }
+    override func performDragOperation(_ sender: any NSDraggingInfo) -> Bool { table?.performDragOperation(sender) ?? false }
+    override func concludeDragOperation(_ sender: (any NSDraggingInfo)?) { table?.concludeDragOperation(sender) }
 }
 
 /// Keeps the selected row a quiet gray even while the sidebar has focus.
 private final class SidebarRowView: NSTableRowView {
     var isCompact = false
+
+    var isDropHighlighted = false { didSet { needsDisplay = true } }
+
+    override func drawBackground(in dirtyRect: NSRect) {
+        guard isDropHighlighted else { return }
+        NSColor.controlAccentColor.withAlphaComponent(0.35).setFill()
+        NSBezierPath(roundedRect: bounds.insetBy(dx: 10, dy: 0), xRadius: 6, yRadius: 6).fill()
+    }
 
     override var isEmphasized: Bool {
         get { false } // keeps the icon's color
@@ -772,6 +844,7 @@ private final class SidebarRowView: NSTableRowView {
     }
 
     override func drawSelection(in dirtyRect: NSRect) {
+        guard !isTargetForDropOperation || isSelected else { return } // drop targets draw in drawBackground
         NSColor.labelColor.withAlphaComponent(window?.isMainWindow == false ? 0.03 : 0.064).setFill()
         let rect = isCompact ? NSRect(x: 8, y: 0, width: 34, height: bounds.height) : bounds.insetBy(dx: 10, dy: 0)
         NSBezierPath(roundedRect: rect, xRadius: 6, yRadius: 6).fill()
@@ -1030,6 +1103,7 @@ extension SidebarViewController: NSOutlineViewDataSource, NSOutlineViewDelegate 
                 return cell
             }()
             cell.configure(title: section.title, isOpen: !isFolded(section)) { [weak self] in self?.toggleFolding(section) }
+            cell.textField?.alphaValue = headersVisible ? 1 : 0
             return cell
         }
         let id = NSUserInterfaceItemIdentifier("entry")
@@ -1066,6 +1140,12 @@ extension SidebarViewController: NSOutlineViewDataSource, NSOutlineViewDelegate 
     }
 
     func outlineView(_ outlineView: NSOutlineView, validateDrop info: NSDraggingInfo, proposedItem item: Any?, proposedChildIndex index: Int) -> NSDragOperation {
+        let operation = dropOperation(info, proposedItem: item, proposedChildIndex: index)
+        if operation.isEmpty { dropTarget = nil }
+        return operation
+    }
+
+    private func dropOperation(_ info: NSDraggingInfo, proposedItem item: Any?, proposedChildIndex index: Int) -> NSDragOperation {
         let pasteboard = info.draggingPasteboard
         let group = (item as? SidebarSection)?.groupID
         if pasteboard.availableType(from: [Self.itemDragType]) != nil {
@@ -1074,15 +1154,36 @@ extension SidebarViewController: NSOutlineViewDataSource, NSOutlineViewDelegate 
         }
         let urls = DropPolicy.fileURLs(from: pasteboard)
         guard !urls.isEmpty else { return [] }
-        if let entry = item as? SidebarEntry, index == NSOutlineViewDropOnItemIndex {
-            if entry.isTrash { return .move }
-            // Dropping files onto a sidebar folder moves/copies them there, like Finder.
-            return DropPolicy.operation(for: info, urls: urls, destination: entry.url)
+        // Near a row's edge the table proposes inserting between rows. Only folders can be inserted into a group;
+        // anything else goes into the row under the cursor, so it highlights across the row's whole height.
+        var item = item
+        var index = index
+        let isInsertion = group != nil && index != NSOutlineViewDropOnItemIndex && urls.allSatisfy(FileSystem.isDirectory)
+        if !isInsertion, let entry = rowItem(at: info) as? SidebarEntry {
+            outlineView.setDropItem(entry, dropChildIndex: NSOutlineViewDropOnItemIndex)
+            item = entry
+            index = NSOutlineViewDropOnItemIndex
+        } else if !isInsertion, item is SidebarEntry {
+            // Over a group or server name the table still proposes the nearest row, which is not what the cursor is on.
+            dropTarget = nil
+            return []
         }
+        if let entry = item as? SidebarEntry, index == NSOutlineViewDropOnItemIndex {
+            // Dropping files onto a sidebar folder moves/copies them there, like Finder.
+            let operation: NSDragOperation = entry.isTrash ? .move : DropPolicy.operation(for: info, urls: urls, destination: entry.url)
+            dropTarget = operation.isEmpty ? nil : entry
+            return operation
+        }
+        dropTarget = nil
         if group != nil, urls.allSatisfy(FileSystem.isDirectory) {
             return .link
         }
         return []
+    }
+
+    private func rowItem(at info: NSDraggingInfo) -> Any? {
+        let row = outlineView.row(at: outlineView.convert(info.draggingLocation, from: nil))
+        return row >= 0 ? outlineView.item(atRow: row) : nil
     }
 
     func outlineView(_ outlineView: NSOutlineView, acceptDrop info: NSDraggingInfo, item: Any?, childIndex index: Int) -> Bool {
