@@ -274,20 +274,25 @@ final class SidebarViewController: NSViewController {
 
     // MARK: Closed sidebar
 
-    /// Group names would be cut mid-word at icon width, so they fade with the width change.
+    /// Group names would be cut mid-word at icon width, so they fade with the width change, and shares slide into the icon column.
     func setHeadersVisible(_ visible: Bool, animated: Bool) {
         _ = view
         headersVisible = visible
-        let fields = (0..<outlineView.numberOfRows).compactMap { row in
-            outlineView.item(atRow: row) is SidebarSection ? (outlineView.view(atColumn: 0, row: row, makeIfNecessary: false) as? NSTableCellView)?.textField : nil
+        let cells = (0..<outlineView.numberOfRows).compactMap { outlineView.view(atColumn: 0, row: $0, makeIfNecessary: false) }
+        let apply = { (animated: Bool) in
+            for cell in cells {
+                if let cell = cell as? SidebarCell {
+                    cell.setCompact(!visible, animated: animated)
+                } else if let field = (cell as? NSTableCellView)?.textField {
+                    (animated ? field.animator() : field).alphaValue = visible ? 1 : 0
+                }
+            }
         }
-        guard animated else {
-            fields.forEach { $0.alphaValue = visible ? 1 : 0 }
-            return
-        }
+        guard animated else { return apply(false) }
         NSAnimationContext.runAnimationGroup { context in
             context.duration = WindowRootViewController.animationDuration
-            fields.forEach { $0.animator().alphaValue = visible ? 1 : 0 }
+            context.allowsImplicitAnimation = true
+            apply(true)
         }
     }
 
@@ -349,7 +354,6 @@ final class SidebarViewController: NSViewController {
         let cell = outlineView.view(atColumn: 0, row: row, makeIfNecessary: false)
         if let cell = cell as? SidebarCell {
             cell.updateColors(isSelected: outlineView.isRowSelected(row), isActive: isActive)
-            cell.setCompact(showsIconsOnly)
         } else if let cell = cell as? NSTableCellView {
             // As an attributed string: the table overrides the plain text color and font of group rows.
             let color = WindowLayout.sidebarHeaderColor.withAlphaComponent(isActive ? 1 : WindowLayout.inactiveStrength)
@@ -1048,8 +1052,9 @@ private final class SidebarCell: NSTableCellView {
     }
 
     /// Shares line up with the other icons while the sidebar shows icons only.
-    func setCompact(_ compact: Bool) {
-        stackLeading?.constant = compact ? 0 : indent
+    func setCompact(_ compact: Bool, animated: Bool = false) {
+        let target = compact ? 0 : indent
+        if animated { stackLeading?.animator().constant = target } else { stackLeading?.constant = target }
     }
 
     func updateColors(isSelected: Bool, isActive: Bool) {
@@ -1139,6 +1144,7 @@ extension SidebarViewController: NSOutlineViewDataSource, NSOutlineViewDelegate 
         default:
             return nil
         }
+        cell.setCompact(!headersVisible)
         return cell
     }
 
