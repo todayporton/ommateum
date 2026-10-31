@@ -606,7 +606,9 @@ private final class EjectButton: NSButton {
     override func draw(_ dirtyRect: NSRect) {
         if isHovered {
             (isHighlighted ? NSColor.tertiaryLabelColor : NSColor.quaternaryLabelColor).setFill()
-            NSBezierPath(roundedRect: bounds, xRadius: 4, yRadius: 4).fill()
+            // Bounds are taller than the 18pt layout size because of the button's alignment insets.
+            let background = NSRect(x: bounds.midX - 9, y: bounds.midY - 9, width: 18, height: 18)
+            NSBezierPath(roundedRect: background, xRadius: 4, yRadius: 4).fill()
         }
         super.draw(dirtyRect)
     }
