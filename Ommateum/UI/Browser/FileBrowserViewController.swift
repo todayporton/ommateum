@@ -9,6 +9,19 @@ protocol FileBrowserHost: AnyObject {
     func browserDidBecomeActive(_ browser: FileBrowserViewController)
 }
 
+/// The side buttons of a mouse. Drivers that remap them to ⌘[ / ⌘] reach the menu items instead.
+enum MouseNavigation {
+    case back, forward
+
+    init?(_ event: NSEvent) {
+        switch event.buttonNumber {
+        case 3: self = .back
+        case 4: self = .forward
+        default: return nil
+        }
+    }
+}
+
 /// One tab: a folder shown in one view mode, with its own back/forward history.
 final class FileBrowserViewController: NSViewController, NSMenuItemValidation {
     let id: UUID
@@ -189,6 +202,21 @@ final class FileBrowserViewController: NSViewController, NSMenuItemValidation {
         guard let next = popExisting(&forwardHistory) else { NSSound.beep(); return }
         backHistory.append(currentURL)
         navigate(to: next, recordHistory: false)
+    }
+
+    /// The mouse's side buttons act on the pane under the cursor, which also becomes the active one.
+    override func otherMouseDown(with event: NSEvent) {
+        guard MouseNavigation(event) != nil else { return super.otherMouseDown(with: event) }
+        host?.browserDidBecomeActive(self)
+        performNavigation(with: event)
+    }
+
+    func performNavigation(with event: NSEvent) {
+        switch MouseNavigation(event) {
+        case .back: goBack(event)
+        case .forward: goForward(event)
+        case nil: break
+        }
     }
 
     /// Pops history entries until one still exists (folders may have been deleted meanwhile).

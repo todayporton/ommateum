@@ -129,6 +129,12 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         return super.supplementalTarget(forAction: action, sender: sender)
     }
 
+    /// Side buttons pressed outside a browser (sidebar, tab bar) act on the active tab.
+    override func otherMouseDown(with event: NSEvent) {
+        guard MouseNavigation(event) != nil else { return super.otherMouseDown(with: event) }
+        activeBrowser?.performNavigation(with: event)
+    }
+
     @objc func newTab(_ sender: Any?) { workspace.newTab() }
 
     @objc func closeTab(_ sender: Any?) {
