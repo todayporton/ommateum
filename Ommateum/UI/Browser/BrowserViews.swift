@@ -104,6 +104,7 @@ enum BrowserMenus {
             let item = NSMenuItem(title: title, action: action, keyEquivalent: key)
             item.keyEquivalentModifierMask = modifiers
             item.target = browser
+            KeyboardShortcuts.shared.apply(to: item)
             menu.addItem(item)
         }
 

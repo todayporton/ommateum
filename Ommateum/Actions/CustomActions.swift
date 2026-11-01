@@ -93,6 +93,14 @@ final class CustomActionsProvider: FileActionProvider {
         }
     }
 
+    /// Every action's shortcut, whatever the selection, for the settings list.
+    func shortcuts() -> [(title: String, combo: KeyCombo)] {
+        guard case .success(let definitions) = definitions() else { return [] }
+        return definitions.compactMap { definition in
+            definition.shortcut.flatMap(KeyCombo.init).map { (definition.title, $0) }
+        }
+    }
+
     /// Re-reads the file only when its modification date changes, so edits apply on the next menu open.
     private func definitions() -> Result<[CustomAction], Error> {
         // Not URL.resourceValues: URL caches them, so later edits would go unnoticed.

@@ -2,6 +2,7 @@ import AppKit
 
 /// One Ommateum window: toolbar, the single sidebar on the left, and the split workspace.
 final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuItemValidation {
+    private var fieldEditor: TextInputFieldEditor?
     private let sidebar = SidebarViewController()
     private let root: WindowRootViewController
     let workspace: WorkspaceViewController
@@ -196,6 +197,12 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
     @objc func toolbarSplit(_ sender: Any?) {
         // ⌥-click splits downward.
         workspace.split(NSEvent.modifierFlags.contains(.option) ? .bottom : .right)
+    }
+
+    func windowWillReturnFieldEditor(_ sender: NSWindow, to client: Any?) -> Any? {
+        guard client is NSTextField else { return nil }
+        if fieldEditor == nil { fieldEditor = TextInputFieldEditor(frame: .zero) }
+        return fieldEditor
     }
 
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {

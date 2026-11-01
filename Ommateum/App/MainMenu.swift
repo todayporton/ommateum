@@ -3,7 +3,7 @@ import AppKit
 /// Builds the main menu in code. Shortcuts follow Finder where an equivalent exists.
 enum MainMenu {
     static func build(workspaceMenu: NSMenu, delegate: AppDelegate) -> NSMenu {
-        let main = NSMenu()
+        let main = MainMenuBar()
         main.addItem(submenu(appMenu()))
         main.addItem(submenu(fileMenu()))
         main.addItem(submenu(editMenu()))
@@ -17,6 +17,8 @@ enum MainMenu {
         let help = NSMenu(title: "ヘルプ")
         main.addItem(submenu(help))
         NSApp.helpMenu = help
+        // The workspace menu adopts itself when it is rebuilt.
+        main.items.compactMap(\.submenu).forEach(KeyboardShortcuts.shared.adopt)
         return main
     }
 
@@ -155,6 +157,79 @@ enum MainMenu {
         add(menu, "すべてのウインドウを結合", #selector(AppDelegate.mergeWindowsIntoFront(_:)))
         add(menu, "すべてを手前に移動", #selector(NSApplication.arrangeInFront(_:)))
         return menu
+    }
+}
+
+/// The menu bar sees key presses before the first responder does, so ⌘⌫ in a name field would trash the selected
+/// file. While text is being edited, only text commands and the app menu may act on a shortcut. Declining the
+/// rest hands the key to the editor, which gives ⌘⌫ its usual meaning of deleting to the start of the line.
+nonisolated final class MainMenuBar: NSMenu {
+    private static let textCommands: Set<Selector> = [
+        #selector(NSText.cut(_:)), #selector(NSText.copy(_:)), #selector(NSText.paste(_:)), #selector(NSText.selectAll(_:)),
+        Selector(("undo:")), Selector(("redo:")),
+    ]
+
+    nonisolated(unsafe) var isEditingText: @MainActor () -> Bool = {
+        (NSApp.keyWindow?.firstResponder as? NSTextView)?.isEditable == true
+    }
+
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        // AppKit calls this on the main thread, though NSMenu does not declare it.
+        nonisolated(unsafe) let menu = self
+        nonisolated(unsafe) let keyEvent = event
+        let allowed = MainActor.assumeIsolated { !menu.isEditingText() || menu.allowsWhileEditing(keyEvent) }
+        return allowed && super.performKeyEquivalent(with: event)
+    }
+
+    @MainActor private func allowsWhileEditing(_ event: NSEvent) -> Bool {
+        guard let shortcut = KeyShortcut(event: event) else { return false }
+        for (index, top) in items.enumerated() {
+            for item in top.submenu?.items ?? [] where !item.keyEquivalent.isEmpty
+                && KeyShortcut(key: item.keyEquivalent, modifiers: item.keyEquivalentModifierMask) == shortcut {
+                return index == 0 || item.action.map(Self.textCommands.contains) == true
+            }
+        }
+        return false
+    }
+}
+
+/// A field editor with its own undo history. On the window's shared one, ⌘Z while renaming would go on to undo
+/// file operations once the typing is undone.
+final class TextInputFieldEditor: NSTextView {
+    private let textUndoManager = UndoManager()
+
+    override var undoManager: UndoManager? { textUndoManager }
+
+    // init(frame:) builds the text system and then calls the initializer below.
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+    }
+
+    override init(frame: NSRect, textContainer: NSTextContainer?) {
+        super.init(frame: frame, textContainer: textContainer)
+        isFieldEditor = true
+        allowsUndo = true
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    // The window's undo: would use the shared history.
+    @objc func undo(_ sender: Any?) { textUndoManager.undo() }
+    @objc func redo(_ sender: Any?) { textUndoManager.redo() }
+
+    override func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        switch menuItem.action {
+        case Selector(("undo:")): return textUndoManager.canUndo
+        case Selector(("redo:")): return textUndoManager.canRedo
+        default: return super.validateMenuItem(menuItem)
+        }
+    }
+
+    // This editor is reused for the next field, where the old text no longer exists.
+    override func resignFirstResponder() -> Bool {
+        let resigned = super.resignFirstResponder()
+        if resigned { textUndoManager.removeAllActions() }
+        return resigned
     }
 }
 

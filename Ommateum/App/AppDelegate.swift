@@ -127,7 +127,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         if settingsWindow == nil {
             let window = NSWindow(contentViewController: NSHostingController(rootView: SettingsView()))
             window.title = "設定"
-            window.styleMask = [.titled, .closable]
+            window.styleMask = [.titled, .closable, .resizable]
+            window.setContentSize(NSSize(width: 700, height: 520))
             window.isReleasedWhenClosed = false
             settingsWindow = window
         }
@@ -236,7 +237,7 @@ extension AppDelegate: NSMenuDelegate {
         rebuildWorkspaceMenu()
     }
 
-    /// Also called whenever saved workspaces change, so their ⌃⌘1… shortcuts work before the menu is ever opened.
+    /// Also called at launch, so the settings can list this menu's commands before it is ever opened.
     @objc func rebuildWorkspaceMenu() {
         let menu = workspaceMenu
         menu.removeAllItems()
@@ -246,18 +247,19 @@ extension AppDelegate: NSMenuDelegate {
         let names = WorkspaceStore.shared.names
         if !names.isEmpty { menu.addItem(.separator()) }
         let current = keyWindowController?.workspaceName
-        for (index, name) in names.enumerated() {
-            let item = NSMenuItem(title: name, action: #selector(openWorkspace(_:)), keyEquivalent: index < 9 ? "\(index + 1)" : "")
-            item.keyEquivalentModifierMask = [.command, .control]
+        for name in names {
+            let item = NSMenuItem(title: name, action: #selector(openWorkspace(_:)), keyEquivalent: "")
+            item.keyEquivalentModifierMask = []
             item.representedObject = name
             item.state = name == current ? .on : .off
             menu.addItem(item)
             // ⌥ shows the alternate "open in new window".
-            let alternate = NSMenuItem(title: "\(name)（新規ウインドウ）", action: #selector(openWorkspace(_:)), keyEquivalent: item.keyEquivalent)
-            alternate.keyEquivalentModifierMask = [.command, .control, .option]
+            let alternate = NSMenuItem(title: "\(name)（新規ウインドウ）", action: #selector(openWorkspace(_:)), keyEquivalent: "")
+            alternate.keyEquivalentModifierMask = .option
             alternate.isAlternate = true
             alternate.representedObject = name
             menu.addItem(alternate)
         }
+        KeyboardShortcuts.shared.adopt(menu)
     }
 }
