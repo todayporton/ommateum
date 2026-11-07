@@ -341,12 +341,13 @@ final class FileOperations {
         if let error = result.error { showError(error, window: window) }
     }
 
-    /// System sounds, by path under SystemSounds. macOS has no sound for a finished copy, so that one is borrowed.
+    /// System sounds, by path under SystemSounds.
     enum Sound: String {
         /// The Finder's sound for moving to the Trash, also played for deleting without it.
         case trash = "finder/move to trash.aif"
-        /// Copy, move and duplicate, when every item made it.
-        case transferDone = "system/acknowledgment_sent.caf"
+        /// Copy, move and duplicate, when every item made it. The Finder plays this file when a move finishes
+        /// (found in the system sound server's log; the name is misleading).
+        case transferDone = "system/Volume Mount.aif"
     }
 
     static func playSound(_ sound: Sound) {
