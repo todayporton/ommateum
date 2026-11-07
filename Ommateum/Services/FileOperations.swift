@@ -268,7 +268,7 @@ final class FileOperations {
             }.value
             outcome.value = result.moved
             if !result.moved.isEmpty {
-                NSSound(contentsOfFile: "/System/Library/Components/CoreAudio.component/Contents/SharedSupport/SystemSounds/finder/move to trash.aif", byReference: true)?.play()
+                Self.playTrashSound()
             }
             if let error = result.error {
                 showError(error, window: window)
@@ -324,15 +324,25 @@ final class FileOperations {
             response = alert.runModal()
         }
         guard response == .alertFirstButtonReturn else { return }
-        let error = await Task.detached(priority: .userInitiated) { () -> Error? in
+        let result = await Task.detached(priority: .userInitiated) { () -> (deleted: Int, error: Error?) in
+            var deleted = 0
             do {
-                for url in urls { try FileManager.default.removeItem(at: url) }
-                return nil
+                for url in urls {
+                    try FileManager.default.removeItem(at: url)
+                    deleted += 1
+                }
+                return (deleted, nil)
             } catch {
-                return error
+                return (deleted, error)
             }
         }.value
-        if let error { showError(error, window: window) }
+        if result.deleted > 0 { Self.playTrashSound() }
+        if let error = result.error { showError(error, window: window) }
+    }
+
+    /// The Finder's sound for moving to the Trash, also played for deleting without it.
+    private static func playTrashSound() {
+        NSSound(contentsOfFile: "/System/Library/Components/CoreAudio.component/Contents/SharedSupport/SystemSounds/finder/move to trash.aif", byReference: true)?.play()
     }
 
     /// Undo of "move to Trash": moves items back to where they were. Redo trashes them again.
