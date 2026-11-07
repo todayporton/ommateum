@@ -64,6 +64,23 @@ struct FileItemTests {
         #expect(!item.matches(query: "invoice"))
     }
 
+    @Test func listThumbnailsOnlyForPicturesAndMovies() throws {
+        let dir = try makeTempDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        func item(_ name: String) throws -> FileItem {
+            let url = dir.appendingPathComponent(name)
+            try Data("x".utf8).write(to: url)
+            return FileItem(url: url)
+        }
+        #expect(try item("a.jpg").showsListThumbnail)
+        #expect(try item("b.mov").showsListThumbnail)
+        #expect(try !item("c.txt").showsListThumbnail)
+        #expect(try !item("d.pdf").showsListThumbnail)
+        let folder = dir.appendingPathComponent("e.png", isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: false)
+        #expect(!FileItem(url: folder).showsListThumbnail)
+    }
+
     @Test func groupsByDateAndKindKeepingOrder() throws {
         let dir = try makeTempDir()
         defer { try? FileManager.default.removeItem(at: dir) }

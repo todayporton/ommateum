@@ -21,11 +21,19 @@ struct FileItem: Hashable, Sendable {
     let dateCreated: Date?
     let kind: String
     let tags: [String]
+    let contentType: UTType?
     /// `true` for cloud placeholders that are not downloaded locally (File Provider / iCloud Drive).
     let isCloudOnly: Bool
 
     /// Folders that the user navigates into (packages such as .app behave like files, as in Finder).
     var isNavigable: Bool { isDirectory && !isPackage }
+
+    /// Whether the list view shows a thumbnail instead of the icon. Like Finder, only for pictures and movies:
+    /// at 16 points a document's thumbnail is a blank page.
+    var showsListThumbnail: Bool {
+        guard let contentType, !isDirectory else { return false }
+        return contentType.conforms(to: .image) || contentType.conforms(to: .movie)
+    }
 
     /// - Parameter directory: The folder that was listed. The item's URL is rebuilt from it so that every URL in a
     ///   listing uses the same spelling as the folder URL (the system may return `/private/tmp/…` for `/tmp/…`).
@@ -42,6 +50,7 @@ struct FileItem: Hashable, Sendable {
         dateCreated = values?.creationDate
         kind = values?.localizedTypeDescription ?? ""
         tags = values?.tagNames ?? []
+        contentType = values?.contentType
         if values?.isUbiquitousItem == true, let status = values?.ubiquitousItemDownloadingStatus {
             isCloudOnly = status == .notDownloaded
         } else {
