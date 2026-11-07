@@ -244,7 +244,7 @@ final class FileOperations {
             if let error = result.error {
                 showError(error, window: window)
             } else if !result.noTrash.isEmpty {
-                await deleteAfterConfirming(result.noTrash, reason: "ゴミ箱がない場所にあるため、ゴミ箱に入れられません。", window: window)
+                await deleteAfterConfirming(result.noTrash, window: window)
             }
         }
     }
@@ -266,16 +266,16 @@ final class FileOperations {
     /// Deletes items without the Trash after the user confirms. It can't be undone.
     func deleteImmediately(_ urls: [URL], window: NSWindow?) {
         guard !urls.isEmpty else { return }
-        Task { await deleteAfterConfirming(urls, reason: nil, window: window) }
+        Task { await deleteAfterConfirming(urls, window: window) }
     }
 
-    private func deleteAfterConfirming(_ urls: [URL], reason: String?, window: NSWindow?) async {
+    private func deleteAfterConfirming(_ urls: [URL], window: NSWindow?) async {
         let alert = NSAlert()
         alert.alertStyle = .warning
-        alert.messageText = urls.count == 1
-            ? "「\(urls[0].lastPathComponent)」をゴミ箱に入れずに削除しますか？"
-            : "\(urls.count)項目をゴミ箱に入れずに削除しますか？"
-        alert.informativeText = [reason, "この操作は取り消せません。"].compactMap { $0 }.joined(separator: "\n")
+        alert.messageText = urls.count == 1 ? "“\(urls[0].lastPathComponent)”を削除しますか？" : "\(urls.count)項目を削除しますか？"
+        alert.informativeText = urls.count == 1
+            ? "この項目はすぐに削除されます。この操作は取り消せません。"
+            : "これらの項目はすぐに削除されます。この操作は取り消せません。"
         alert.addButton(withTitle: "削除")
         alert.addButton(withTitle: "キャンセル")
         alert.buttons[0].hasDestructiveAction = true
