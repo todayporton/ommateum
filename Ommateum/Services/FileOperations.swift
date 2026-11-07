@@ -82,6 +82,7 @@ final class FileOperations {
             let result = await Self.perform(plan, mode: mode, progress: progress)
             TransferProgressPanel.shared.finish(progress)
             outcome.value = result.completed
+            if result.error == nil, !progress.isCancelled, !result.completed.isEmpty { Self.playSound(.transferDone) }
             if let error = result.error { showError(error, window: window) }
             if !result.completed.isEmpty { completion?(result.completed.map(\.transfer.destination)) }
         }
@@ -268,7 +269,7 @@ final class FileOperations {
             }.value
             outcome.value = result.moved
             if !result.moved.isEmpty {
-                Self.playTrashSound()
+                Self.playSound(.trash)
             }
             if let error = result.error {
                 showError(error, window: window)
@@ -336,13 +337,20 @@ final class FileOperations {
                 return (deleted, error)
             }
         }.value
-        if result.deleted > 0 { Self.playTrashSound() }
+        if result.deleted > 0 { Self.playSound(.trash) }
         if let error = result.error { showError(error, window: window) }
     }
 
-    /// The Finder's sound for moving to the Trash, also played for deleting without it.
-    private static func playTrashSound() {
-        NSSound(contentsOfFile: "/System/Library/Components/CoreAudio.component/Contents/SharedSupport/SystemSounds/finder/move to trash.aif", byReference: true)?.play()
+    /// System sounds, by path under SystemSounds. macOS has no sound for a finished copy, so that one is borrowed.
+    enum Sound: String {
+        /// The Finder's sound for moving to the Trash, also played for deleting without it.
+        case trash = "finder/move to trash.aif"
+        /// Copy, move and duplicate, when every item made it.
+        case transferDone = "system/acknowledgment_sent.caf"
+    }
+
+    static func playSound(_ sound: Sound) {
+        NSSound(contentsOfFile: "/System/Library/Components/CoreAudio.component/Contents/SharedSupport/SystemSounds/" + sound.rawValue, byReference: true)?.play()
     }
 
     /// Undo of "move to Trash": moves items back to where they were. Redo trashes them again.
