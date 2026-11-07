@@ -1,4 +1,5 @@
 import AppKit
+import QuickLookThumbnailing
 
 /// Callbacks from a view-mode controller (list / icon / column) to its owning `FileBrowserViewController`.
 protocol BrowserContentDelegate: AnyObject {
@@ -116,6 +117,50 @@ final class IconCache {
     }
 
     func invalidate(_ url: URL) { cache.removeObject(forKey: url.path as NSString) }
+}
+
+/// Small thumbnails of pictures and movies for the list and column views, which show them in place of the icon.
+final class SmallThumbnailCache {
+    static let shared = SmallThumbnailCache()
+    static let size: CGFloat = 16
+    private let cache = NSCache<NSString, NSImage>()
+    private var waiting: [String: [(NSImage) -> Void]] = [:]
+    /// Files Quick Look could not make a thumbnail of, so redrawing them does not ask again.
+    private var failed: Set<String> = []
+
+    /// Keyed by path and modification date, so an edited file gets a fresh thumbnail.
+    private static func key(_ item: FileItem) -> String {
+        "\(item.url.path)\u{0}\(item.dateModified?.timeIntervalSinceReferenceDate ?? 0)"
+    }
+
+    /// The thumbnail if it is ready. Otherwise starts making it and calls `ready` on the main thread when done;
+    /// nothing is called for an item that gets no thumbnail.
+    func thumbnail(for item: FileItem, scale: CGFloat, ready: @escaping (NSImage) -> Void) -> NSImage? {
+        // Never trigger downloads of cloud placeholders just to draw a thumbnail.
+        guard item.showsListThumbnail, !item.isCloudOnly else { return nil }
+        let key = Self.key(item)
+        if let image = cache.object(forKey: key as NSString) { return image }
+        if failed.contains(key) { return nil }
+        if waiting[key] != nil {
+            waiting[key]?.append(ready)
+            return nil
+        }
+        waiting[key] = [ready]
+        let request = QLThumbnailGenerator.Request(fileAt: item.url, size: CGSize(width: Self.size, height: Self.size), scale: scale, representationTypes: .thumbnail)
+        QLThumbnailGenerator.shared.generateBestRepresentation(for: request) { representation, _ in
+            let image = representation?.nsImage
+            DispatchQueue.main.async {
+                let callbacks = self.waiting.removeValue(forKey: key) ?? []
+                guard let image else {
+                    self.failed.insert(key)
+                    return
+                }
+                self.cache.setObject(image, forKey: key as NSString)
+                callbacks.forEach { $0(image) }
+            }
+        }
+        return nil
+    }
 }
 
 /// Clip view that reports double-clicks on its empty area (outside the document view).

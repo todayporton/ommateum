@@ -1,5 +1,4 @@
 import AppKit
-import QuickLookThumbnailing
 
 /// Outline view with Finder-like keyboard and mouse handling.
 /// A selected row, rounded to match the stripes; neighbouring selected rows join up.
@@ -142,9 +141,6 @@ final class ListViewController: NSViewController, BrowserContent {
     private var directory: URL?
     private var sort = SortSpec()
     private var childMonitors: [URL: DirectoryMonitor] = [:]
-    /// Keyed by path and modification date, so an edited file gets a fresh thumbnail.
-    private var thumbnails: [String: NSImage] = [:]
-    private var pendingThumbnails: Set<String> = []
     /// Folders to reopen and items to reselect once their parents have loaded. Children load asynchronously,
     /// so anything inside an expanded folder is missing right after a reload.
     private var pendingExpansion: Set<String> = []
@@ -252,10 +248,7 @@ final class ListViewController: NSViewController, BrowserContent {
         let sameDirectory = self.directory?.path == directory.path
         let keepSelection = sameDirectory ? Set(selectedItems.map(\.url)) : []
         pendingExpansion = sameDirectory ? Set(expandedNodes().map(\.item.url.path)) : []
-        if !sameDirectory {
-            childMonitors.removeAll()
-            thumbnails.removeAll()
-        }
+        if !sameDirectory { childMonitors.removeAll() }
         self.directory = directory
         self.sort = sort
         outlineView.sortDescriptors = [NSSortDescriptor(key: sort.key.rawValue, ascending: sort.ascending)]
@@ -426,8 +419,7 @@ extension ListViewController: NSOutlineViewDataSource, NSOutlineViewDelegate, NS
         switch id {
         case Column.name:
             cell.textField?.stringValue = text(of: fileItem, in: id)
-            cell.imageView?.image = thumbnails[Self.thumbnailKey(fileItem)] ?? IconCache.shared.icon(for: fileItem)
-            requestThumbnail(for: fileItem)
+            cell.imageView?.image = thumbnail(for: fileItem) ?? IconCache.shared.icon(for: fileItem)
             cell.imageView?.alphaValue = fileItem.isHidden ? 0.5 : 1
             cell.setBadges(tags: fileItem.tags, cloudOnly: fileItem.isCloudOnly)
             cell.toolTip = fileItem.isCloudOnly ? "クラウド上のみ（未ダウンロード）" : nil
@@ -444,37 +436,18 @@ extension ListViewController: NSOutlineViewDataSource, NSOutlineViewDelegate, NS
 
     // MARK: Thumbnails
 
-    private static func thumbnailKey(_ item: FileItem) -> String {
-        "\(item.url.path)\u{0}\(item.dateModified?.timeIntervalSinceReferenceDate ?? 0)"
-    }
-
-    private func requestThumbnail(for fileItem: FileItem) {
-        // Never trigger downloads of cloud placeholders just to draw a thumbnail.
-        guard fileItem.showsListThumbnail, !fileItem.isCloudOnly else { return }
-        let key = Self.thumbnailKey(fileItem)
-        guard thumbnails[key] == nil, !pendingThumbnails.contains(key) else { return }
-        pendingThumbnails.insert(key)
-        let size = ListCellView.imageWidth
-        let scale = view.window?.backingScaleFactor ?? 2
-        let request = QLThumbnailGenerator.Request(fileAt: fileItem.url, size: CGSize(width: size, height: size), scale: scale, representationTypes: .thumbnail)
-        QLThumbnailGenerator.shared.generateBestRepresentation(for: request) { [weak self] representation, _ in
-            let image = representation?.nsImage
-            DispatchQueue.main.async {
-                guard let self else { return }
-                self.pendingThumbnails.remove(key)
-                guard let image else { return }
-                self.thumbnails[key] = image
-                self.showThumbnail(image, forKey: key)
-            }
+    private func thumbnail(for item: FileItem) -> NSImage? {
+        SmallThumbnailCache.shared.thumbnail(for: item, scale: view.window?.backingScaleFactor ?? 2) { [weak self] image in
+            self?.showThumbnail(image, for: item.url)
         }
     }
 
-    /// Rows are rebuilt on every refresh, so find the visible row by key rather than holding on to a node.
-    private func showThumbnail(_ image: NSImage, forKey key: String) {
+    /// Rows are rebuilt on every refresh, so find the visible row by URL rather than holding on to a node.
+    private func showThumbnail(_ image: NSImage, for url: URL) {
         let rows = outlineView.rows(in: outlineView.visibleRect)
         guard let nameColumn = outlineView.tableColumns.firstIndex(where: { $0.identifier == Column.name }) else { return }
         for row in rows.lowerBound..<rows.upperBound {
-            guard let node = outlineView.item(atRow: row) as? ListNode, Self.thumbnailKey(node.item) == key,
+            guard let node = outlineView.item(atRow: row) as? ListNode, node.item.url.path == url.path,
                   let cell = outlineView.view(atColumn: nameColumn, row: row, makeIfNecessary: false) as? ListCellView else { continue }
             cell.imageView?.image = image
         }
@@ -587,7 +560,7 @@ extension ListViewController: NSOutlineViewDataSource, NSOutlineViewDelegate, NS
 /// Table cell with optional icon, tag dots and a cloud badge.
 final class ListCellView: NSTableCellView {
     private static let textLeading: CGFloat = 2
-    static let imageWidth: CGFloat = 16
+    private static let imageWidth: CGFloat = 16
     private static let imageGap: CGFloat = 5
     private static let badgeGap: CGFloat = 4
     private static let trailing: CGFloat = 2

@@ -316,10 +316,27 @@ extension ColumnViewController: NSBrowserDelegate {
               let parent = parentNode(inColumn: column),
               let children = parent.children, children.indices.contains(row),
               let item = children[row].item else { return }
-        let icon = IconCache.shared.icon(for: item).copy() as? NSImage
-        icon?.size = NSSize(width: 16, height: 16)
+        let image = thumbnail(for: item) ?? IconCache.shared.icon(for: item)
+        let icon = image.copy() as? NSImage
+        icon?.size = NSSize(width: SmallThumbnailCache.size, height: SmallThumbnailCache.size)
         cell.image = icon
         cell.isLeaf = !item.isNavigable
+    }
+
+    private func thumbnail(for item: FileItem) -> NSImage? {
+        SmallThumbnailCache.shared.thumbnail(for: item, scale: view.window?.backingScaleFactor ?? 2) { [weak self] _ in
+            self?.redrawCells(for: item.url)
+        }
+    }
+
+    /// Columns are rebuilt on refresh, so look the item up again. Reloading the row calls `willDisplayCell`,
+    /// which picks up the cached thumbnail.
+    private func redrawCells(for url: URL) {
+        guard browser.lastColumn >= 0 else { return }
+        for column in 0...browser.lastColumn {
+            guard let row = parentNode(inColumn: column)?.children?.firstIndex(where: { $0.url.path == url.path }) else { continue }
+            browser.reloadData(forRowIndexes: IndexSet(integer: row), inColumn: column)
+        }
     }
 
     func browser(_ browser: NSBrowser, shouldEditItem item: Any?) -> Bool { false }
