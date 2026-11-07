@@ -14,6 +14,34 @@ protocol TabBarDelegate: AnyObject {
     /// A tab drag ended outside every window: move the tab to a new window.
     func tabBar(_ tabBar: TabBarView, detachTab tabID: UUID, at screenPoint: NSPoint)
     func tabBar(_ tabBar: TabBarView, menuFor index: Int) -> NSMenu?
+    /// The folder that files dropped on the tab at `index` go into.
+    func tabBar(_ tabBar: TabBarView, dropDirectoryFor index: Int) -> URL?
+    func tabBar(_ tabBar: TabBarView, acceptFiles urls: [URL], operation: NSDragOperation, at index: Int) -> Bool
+}
+
+/// Where tabs go while a dragged tab hovers over the bar. The gap comes from the cursor alone, not from the tabs' current
+/// frames, so tabs sliding out of the way can't change the answer and make the gap flicker.
+enum TabBarLayout {
+    static func tabWidth(available: CGFloat, count: Int) -> CGFloat {
+        max(available / CGFloat(max(count, 1)), 60)
+    }
+
+    /// The slot for the dragged tab among the `otherCount` tabs that stay in the bar.
+    static func gapSlot(atX x: CGFloat, available: CGFloat, otherCount: Int) -> Int {
+        let width = tabWidth(available: available, count: otherCount + 1)
+        return min(max(Int(x / width), 0), otherCount)
+    }
+
+    /// The slot a tab takes, given its position among the other tabs.
+    static func slot(ofOther position: Int, gap: Int) -> Int {
+        position < gap ? position : position + 1
+    }
+
+    /// Converts a gap into the index `acceptTab` expects, which counts the dragged tab if it's already in this bar.
+    static func insertionIndex(gap: Int, sourceIndex: Int?) -> Int {
+        if let sourceIndex, gap >= sourceIndex { return gap + 1 }
+        return gap
+    }
 }
 
 /// Finder-like tab bar: equal-width tabs, close button on hover, "+" at the end.
@@ -34,18 +62,32 @@ final class TabBarView: NSView {
 
     private var buttons: [TabButton] = []
     private let addButton = NSButton()
-    private var dropIndex: Int? { didSet { needsDisplay = true } }
+    private let dropSlot = TabDropSlotView()
+    private struct DropTarget: Equatable {
+        let tabID: UUID
+        let gap: Int
+    }
+    private var dropTarget: DropTarget?
+    /// The tab that files being dragged would go into.
+    private var fileDropIndex: Int? {
+        didSet {
+            guard fileDropIndex != oldValue else { return }
+            for (index, button) in buttons.enumerated() { button.isFileDropTarget = index == fileDropIndex }
+        }
+    }
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         wantsLayer = true
-        registerForDraggedTypes([.ommateumTab])
+        registerForDraggedTypes([.ommateumTab, .fileURL])
         addButton.image = NSImage(systemSymbolName: "plus", accessibilityDescription: "新規タブ")
         addButton.isBordered = false
         addButton.target = self
         addButton.action = #selector(addClicked)
         addButton.toolTip = "新規タブ"
         addSubview(addButton)
+        dropSlot.isHidden = true
+        addSubview(dropSlot)
         setAccessibilityRole(.tabGroup)
         setAccessibilityLabel("タブ")
     }
@@ -53,7 +95,7 @@ final class TabBarView: NSView {
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
     override var intrinsicContentSize: NSSize { NSSize(width: NSView.noIntrinsicMetric, height: Self.height) }
-    override var isFlipped: Bool { true }
+    nonisolated override var isFlipped: Bool { true }
 
     private func rebuild() {
         // Update in place when only titles/icons changed: replacing the buttons would cancel a drag that has
@@ -76,14 +118,53 @@ final class TabBarView: NSView {
 
     override func layout() {
         super.layout()
-        let addWidth: CGFloat = 28
-        addButton.frame = NSRect(x: bounds.width - addWidth, y: 0, width: addWidth, height: bounds.height)
-        guard !buttons.isEmpty else { return }
-        let available = bounds.width - addWidth
-        let width = max(available / CGFloat(buttons.count), 60)
+        addButton.frame = NSRect(x: bounds.width - Self.addWidth, y: 0, width: Self.addWidth, height: bounds.height)
+        placeTabs(animated: false)
+    }
+
+    private static let addWidth: CGFloat = 28
+    private var availableWidth: CGFloat { bounds.width - Self.addWidth }
+
+    /// Lays out the tabs, leaving a gap for a hovering tab. A tab dragged from this bar is hidden in that gap,
+    /// so it's already in the right place if the drag leaves the bar and the tab comes back.
+    private func placeTabs(animated: Bool) {
+        let target = dropTarget
+        let slotCount = target.map { target in buttons.count(where: { $0.tab.id != target.tabID }) + 1 } ?? buttons.count
+        let width = TabBarLayout.tabWidth(available: availableWidth, count: slotCount)
+        func frame(slot: Int) -> NSRect { NSRect(x: CGFloat(slot) * width, y: 0, width: width, height: bounds.height) }
+
+        var frames: [NSRect] = []
+        var position = 0
         for (index, button) in buttons.enumerated() {
-            button.frame = NSRect(x: CGFloat(index) * width, y: 0, width: width, height: bounds.height)
+            if let target, button.tab.id == target.tabID {
+                frames.append(frame(slot: target.gap))
+            } else {
+                frames.append(frame(slot: target.map { TabBarLayout.slot(ofOther: position, gap: $0.gap) } ?? index))
+                position += 1
+            }
         }
+        for button in buttons { button.isHidden = button.tab.id == target?.tabID }
+
+        // A slot that's just appearing starts in place; only a moving one slides.
+        if let target, dropSlot.isHidden { dropSlot.frame = frame(slot: target.gap) }
+        dropSlot.isHidden = target == nil
+        guard animated else {
+            zip(buttons, frames).forEach { $0.frame = $1 }
+            if let target { dropSlot.frame = frame(slot: target.gap) }
+            return
+        }
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.15
+            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            zip(buttons, frames).forEach { $0.animator().frame = $1 }
+            if let target { dropSlot.animator().frame = frame(slot: target.gap) }
+        }
+    }
+
+    private func setDropTarget(_ target: DropTarget?) {
+        guard target != dropTarget else { return }
+        dropTarget = target
+        placeTabs(animated: true)
     }
 
     private func updateAppearance() {
@@ -100,11 +181,6 @@ final class TabBarView: NSView {
         bounds.fill()
         NSColor.separatorColor.setFill()
         NSRect(x: 0, y: bounds.height - 1, width: bounds.width, height: 1).fill()
-        if let dropIndex {
-            let x = insertionX(for: dropIndex)
-            NSColor.controlAccentColor.setFill()
-            NSRect(x: x - 1, y: 3, width: 2, height: bounds.height - 6).fill()
-        }
     }
 
     @objc private func addClicked() { delegate?.tabBarDidRequestNewTab(self) }
@@ -115,35 +191,56 @@ final class TabBarView: NSView {
 
     // MARK: Drop (tab bar = move tab here / reorder)
 
-    private func insertionIndex(at point: NSPoint) -> Int {
-        for (index, button) in buttons.enumerated() where point.x < button.frame.midX {
-            return index
-        }
-        return buttons.count
+    private func dropTarget(for sender: NSDraggingInfo) -> DropTarget? {
+        guard let id = TabDragContext.tabID(from: sender.draggingPasteboard) else { return nil }
+        let otherCount = buttons.count(where: { $0.tab.id != id })
+        let x = convert(sender.draggingLocation, from: nil).x
+        return DropTarget(tabID: id, gap: TabBarLayout.gapSlot(atX: x, available: availableWidth, otherCount: otherCount))
     }
 
-    private func insertionX(for index: Int) -> CGFloat {
-        if index < buttons.count { return buttons[index].frame.minX + 1 }
-        return buttons.last?.frame.maxX ?? 0
+    /// Files go into the folder of the tab under the cursor, as when dropped on a folder.
+    private func fileDrop(for sender: NSDraggingInfo) -> (index: Int, urls: [URL], operation: NSDragOperation)? {
+        let urls = DropPolicy.fileURLs(from: sender.draggingPasteboard)
+        let point = convert(sender.draggingLocation, from: nil)
+        guard !urls.isEmpty, let index = buttons.firstIndex(where: { $0.frame.contains(point) }),
+              let directory = delegate?.tabBar(self, dropDirectoryFor: index) else { return nil }
+        let operation = DropPolicy.operation(for: sender, urls: urls, destination: directory)
+        return operation.isEmpty ? nil : (index, urls, operation)
     }
 
     override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation { draggingUpdated(sender) }
 
     override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
-        guard TabDragContext.tabID(from: sender.draggingPasteboard) != nil else { return [] }
-        dropIndex = insertionIndex(at: convert(sender.draggingLocation, from: nil))
-        return .move
+        if let target = dropTarget(for: sender) {
+            setDropTarget(target)
+            return .move
+        }
+        let drop = fileDrop(for: sender)
+        fileDropIndex = drop?.index
+        return drop?.operation ?? []
     }
 
-    override func draggingExited(_ sender: NSDraggingInfo?) { dropIndex = nil }
+    override func draggingExited(_ sender: NSDraggingInfo?) {
+        setDropTarget(nil)
+        fileDropIndex = nil
+    }
 
     override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
-        defer { dropIndex = nil }
-        guard let id = TabDragContext.tabID(from: sender.draggingPasteboard) else { return false }
-        return delegate?.tabBar(self, acceptTab: id, at: insertionIndex(at: convert(sender.draggingLocation, from: nil))) ?? false
+        fileDropIndex = nil
+        let target = dropTarget(for: sender)
+        setDropTarget(nil)
+        guard let target else {
+            guard let drop = fileDrop(for: sender) else { return false }
+            return delegate?.tabBar(self, acceptFiles: drop.urls, operation: drop.operation, at: drop.index) ?? false
+        }
+        let source = buttons.firstIndex { $0.tab.id == target.tabID }
+        return delegate?.tabBar(self, acceptTab: target.tabID, at: TabBarLayout.insertionIndex(gap: target.gap, sourceIndex: source)) ?? false
     }
 
-    override func concludeDragOperation(_ sender: NSDraggingInfo?) { dropIndex = nil }
+    override func concludeDragOperation(_ sender: NSDraggingInfo?) {
+        setDropTarget(nil)
+        fileDropIndex = nil
+    }
 
     // MARK: Drag source
 
@@ -180,6 +277,16 @@ enum TabDragContext {
     }
 }
 
+/// Marks the space a dragged tab will take.
+private final class TabDropSlotView: NSView {
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+    override func draw(_ dirtyRect: NSRect) {
+        NSColor.controlAccentColor.withAlphaComponent(0.18).setFill()
+        NSBezierPath(roundedRect: bounds.insetBy(dx: 2, dy: 3), xRadius: 5, yRadius: 5).fill()
+    }
+}
+
 /// One tab in the bar.
 private final class TabButton: NSView {
     private(set) var tab: TabBarView.Tab
@@ -187,6 +294,7 @@ private final class TabButton: NSView {
     var isSelected = false { didSet { updateColors() } }
     var isActivePane = true { didSet { updateColors() } }
     var showsSeparator = false { didSet { needsDisplay = true } }
+    var isFileDropTarget = false { didSet { needsDisplay = true } }
 
     private weak var owner: TabBarView?
     private let label = NSTextField(labelWithString: "")
@@ -255,7 +363,7 @@ private final class TabButton: NSView {
         setAccessibilityLabel(tab.title)
     }
 
-    override var isFlipped: Bool { true }
+    nonisolated override var isFlipped: Bool { true }
 
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
@@ -303,7 +411,10 @@ private final class TabButton: NSView {
     }
 
     override func draw(_ dirtyRect: NSRect) {
-        if isSelected {
+        if isFileDropTarget {
+            NSColor.controlAccentColor.withAlphaComponent(0.25).setFill()
+            bounds.fill()
+        } else if isSelected {
             NSColor.controlBackgroundColor.setFill()
             bounds.fill()
             NSColor.separatorColor.setFill()

@@ -155,6 +155,8 @@ final class ListViewController: NSViewController, BrowserContent {
     }
     private var deferredShow: (items: [FileItem], directory: URL, sort: SortSpec)?
 
+    private static let sortIndicatorWidth: CGFloat = 16
+
     private enum Column {
         static let name = NSUserInterfaceItemIdentifier("name")
         static let date = NSUserInterfaceItemIdentifier("dateModified")
@@ -403,22 +405,46 @@ extension ListViewController: NSOutlineViewDataSource, NSOutlineViewDelegate, NS
         let fileItem = node.item
         switch id {
         case Column.name:
-            cell.textField?.stringValue = fileItem.name
+            cell.textField?.stringValue = text(of: fileItem, in: id)
             cell.imageView?.image = IconCache.shared.icon(for: fileItem)
             cell.imageView?.alphaValue = fileItem.isHidden ? 0.5 : 1
             cell.setBadges(tags: fileItem.tags, cloudOnly: fileItem.isCloudOnly)
             cell.toolTip = fileItem.isCloudOnly ? "クラウド上のみ（未ダウンロード）" : nil
-        case Column.date:
-            cell.textField?.stringValue = fileItem.dateModified.map(Formatters.date.string(from:)) ?? "--"
         case Column.size:
-            cell.textField?.stringValue = Formatters.size(fileItem)
+            cell.textField?.stringValue = text(of: fileItem, in: id)
             cell.textField?.alignment = .right
         default:
-            cell.textField?.stringValue = fileItem.kind
+            cell.textField?.stringValue = text(of: fileItem, in: id)
         }
         let secondary = id != Column.name
         cell.textField?.textColor = secondary ? .secondaryLabelColor : .labelColor
         return cell
+    }
+
+    private func text(of item: FileItem, in column: NSUserInterfaceItemIdentifier) -> String {
+        switch column {
+        case Column.name: item.name
+        case Column.date: item.dateModified.map(Formatters.date.string(from:)) ?? "--"
+        case Column.size: Formatters.size(item)
+        default: item.kind
+        }
+    }
+
+    /// Double-clicking a column's right edge in the header. Measures text rather than laying out a cell per row,
+    /// because a folder can have tens of thousands of rows. Collapsed children and group titles don't count.
+    func outlineView(_ outlineView: NSOutlineView, sizeToFitWidthOfColumn column: Int) -> CGFloat {
+        let tableColumn = outlineView.tableColumns[column]
+        let id = tableColumn.identifier
+        let measure = ListCellView(identifier: id, hasImage: id == Column.name)
+        var width = tableColumn.headerCell.cellSize.width + Self.sortIndicatorWidth
+        for row in 0..<outlineView.numberOfRows {
+            guard let node = outlineView.item(atRow: row) as? ListNode else { continue }
+            // Whatever the table takes from the column on this row: indentation and insets.
+            let inset = tableColumn.width - outlineView.frameOfCell(atColumn: column, row: row).width
+            let badges = id == Column.name ? (tags: node.item.tags, cloudOnly: node.item.isCloudOnly) : (tags: [], cloudOnly: false)
+            width = max(width, inset + measure.fittingWidth(text: text(of: node.item, in: id), tags: badges.tags, cloudOnly: badges.cloudOnly))
+        }
+        return ceil(max(width, tableColumn.minWidth))
     }
 
     func outlineView(_ outlineView: NSOutlineView, typeSelectStringFor tableColumn: NSTableColumn?, item: Any) -> String? {
@@ -501,6 +527,12 @@ extension ListViewController: NSOutlineViewDataSource, NSOutlineViewDelegate, NS
 
 /// Table cell with optional icon, tag dots and a cloud badge.
 final class ListCellView: NSTableCellView {
+    private static let textLeading: CGFloat = 2
+    private static let imageWidth: CGFloat = 16
+    private static let imageGap: CGFloat = 5
+    private static let badgeGap: CGFloat = 4
+    private static let trailing: CGFloat = 2
+
     private let badges = NSStackView()
 
     init(identifier: NSUserInterfaceItemIdentifier, hasImage: Bool) {
@@ -524,24 +556,36 @@ final class ListCellView: NSTableCellView {
             addSubview(image)
             imageView = image
             NSLayoutConstraint.activate([
-                image.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 2),
+                image.leadingAnchor.constraint(equalTo: leadingAnchor, constant: Self.textLeading),
                 image.centerYAnchor.constraint(equalTo: centerYAnchor),
-                image.widthAnchor.constraint(equalToConstant: 16),
-                image.heightAnchor.constraint(equalToConstant: 16),
-                field.leadingAnchor.constraint(equalTo: image.trailingAnchor, constant: 5),
+                image.widthAnchor.constraint(equalToConstant: Self.imageWidth),
+                image.heightAnchor.constraint(equalToConstant: Self.imageWidth),
+                field.leadingAnchor.constraint(equalTo: image.trailingAnchor, constant: Self.imageGap),
             ])
         } else {
-            field.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 2).isActive = true
+            field.leadingAnchor.constraint(equalTo: leadingAnchor, constant: Self.textLeading).isActive = true
         }
         NSLayoutConstraint.activate([
             field.centerYAnchor.constraint(equalTo: centerYAnchor),
-            badges.leadingAnchor.constraint(equalTo: field.trailingAnchor, constant: 4),
-            badges.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -2),
+            badges.leadingAnchor.constraint(equalTo: field.trailingAnchor, constant: Self.badgeGap),
+            badges.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -Self.trailing),
             badges.centerYAnchor.constraint(equalTo: centerYAnchor),
         ])
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    /// The width this cell needs to show the text and badges in full. The text's own cell includes its padding.
+    func fittingWidth(text: String, tags: [String], cloudOnly: Bool) -> CGFloat {
+        textField?.stringValue = text
+        var width = (textField?.cell?.cellSize.width ?? 0) + Self.textLeading + Self.badgeGap + Self.trailing
+        if imageView != nil { width += Self.imageWidth + Self.imageGap }
+        if !tags.isEmpty || cloudOnly {
+            setBadges(tags: tags, cloudOnly: cloudOnly)
+            width += badges.fittingSize.width
+        }
+        return width
+    }
 
     func setBadges(tags: [String], cloudOnly: Bool) {
         badges.arrangedSubviews.forEach { $0.removeFromSuperview() }

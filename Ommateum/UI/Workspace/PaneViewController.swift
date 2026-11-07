@@ -275,6 +275,15 @@ extension PaneViewController: TabBarDelegate {
         return host?.pane(self, acceptTab: tabID, at: index, edge: nil) ?? false
     }
 
+    func tabBar(_ tabBar: TabBarView, dropDirectoryFor index: Int) -> URL? {
+        tabs.indices.contains(index) ? tabs[index].targetDirectory : nil
+    }
+
+    func tabBar(_ tabBar: TabBarView, acceptFiles urls: [URL], operation: NSDragOperation, at index: Int) -> Bool {
+        guard tabs.indices.contains(index), let directory = tabs[index].targetDirectory else { return false }
+        return tabs[index].contentAcceptDrop(urls, into: directory, operation: operation)
+    }
+
     func tabBar(_ tabBar: TabBarView, detachTab tabID: UUID, at screenPoint: NSPoint) {
         host?.pane(self, detachTab: tabID, at: screenPoint)
     }
@@ -346,7 +355,7 @@ final class PaneDropView: NSView {
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
-    override var isFlipped: Bool { true }
+    nonisolated override var isFlipped: Bool { true }
 
     override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation { draggingUpdated(sender) }
 
@@ -394,7 +403,7 @@ final class DropOverlayView: NSView {
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
-    override var isFlipped: Bool { true }
+    nonisolated override var isFlipped: Bool { true }
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
 
     func show(rect: NSRect) {
