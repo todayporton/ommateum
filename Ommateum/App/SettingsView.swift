@@ -59,6 +59,7 @@ private struct GeneralSettingsView: View {
     @AppStorage(Preferences.Key.doubleClickEmptyAreaGoesUp) private var doubleClickGoesUp = true
     @AppStorage(Preferences.Key.restoreSession) private var restoreSession = true
     @AppStorage(Preferences.Key.defaultViewMode) private var defaultViewMode = ViewMode.list.rawValue
+    @AppStorage(Preferences.Key.listRowHeight) private var listRowHeight = ListRowHeight.standard.rawValue
 
     var body: some View {
         Form {
@@ -67,6 +68,11 @@ private struct GeneralSettingsView: View {
             Picker("新規タブの表示方法", selection: $defaultViewMode) {
                 ForEach(ViewMode.allCases, id: \.rawValue) { mode in
                     Text(mode.title).tag(mode.rawValue)
+                }
+            }
+            Picker("リストの行の高さ", selection: $listRowHeight) {
+                ForEach(ListRowHeight.allCases, id: \.rawValue) { height in
+                    Text(height.title).tag(height.rawValue)
                 }
             }
         }

@@ -178,7 +178,10 @@ final class ListViewController: NSViewController, BrowserContent {
         outlineView.allowsMultipleSelection = true
         outlineView.allowsEmptySelection = true
         outlineView.columnAutoresizingStyle = .firstColumnOnlyAutoresizingStyle
-        outlineView.rowSizeStyle = .default
+        outlineView.rowSizeStyle = .custom
+        outlineView.rowHeight = Preferences.listRowHeight.points
+        // The settings view writes through @AppStorage, which posts no notification of its own.
+        NotificationCenter.default.addObserver(self, selector: #selector(defaultsChanged), name: UserDefaults.didChangeNotification, object: nil)
         outlineView.autosaveExpandedItems = false
         outlineView.indentationPerLevel = 14
         outlineView.dataSource = self
@@ -211,6 +214,16 @@ final class ListViewController: NSViewController, BrowserContent {
 
         scrollView.documentView = outlineView
         view = scrollView
+    }
+
+    /// Posted on whichever thread wrote a default, so hop to the main actor.
+    @objc nonisolated private func defaultsChanged() {
+        Task { @MainActor [weak self] in self?.applyRowHeight() }
+    }
+
+    private func applyRowHeight() {
+        let height = Preferences.listRowHeight.points
+        if outlineView.rowHeight != height { outlineView.rowHeight = height }
     }
 
     private func addColumn(_ id: NSUserInterfaceItemIdentifier, title: String, width: CGFloat, sortKey: SortKey) {

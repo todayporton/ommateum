@@ -7,6 +7,7 @@ enum Preferences {
         static let restoreSession = "restoreSession"
         static let showHiddenFiles = "showHiddenFiles"
         static let defaultViewMode = "defaultViewMode"
+        static let listRowHeight = "listRowHeight"
     }
 
     static func registerDefaults() {
@@ -15,6 +16,7 @@ enum Preferences {
             Key.restoreSession: true,
             Key.showHiddenFiles: false,
             Key.defaultViewMode: ViewMode.list.rawValue,
+            Key.listRowHeight: ListRowHeight.standard.rawValue,
             // We restore windows ourselves from the saved session; avoid AppKit's own window restoration.
             "NSQuitAlwaysKeepsWindows": false,
         ])
@@ -33,6 +35,31 @@ enum Preferences {
 
     static var defaultViewMode: ViewMode {
         ViewMode(rawValue: UserDefaults.standard.string(forKey: Key.defaultViewMode) ?? "") ?? .list
+    }
+
+    static var listRowHeight: ListRowHeight {
+        ListRowHeight(rawValue: UserDefaults.standard.string(forKey: Key.listRowHeight) ?? "") ?? .standard
+    }
+}
+
+/// Row height of the list view. `standard` is what AppKit gives a full-width outline view by default.
+enum ListRowHeight: String, CaseIterable {
+    case compact, standard, large
+
+    var title: String {
+        switch self {
+        case .compact: return "小（Finder と同じ）"
+        case .standard: return "標準"
+        case .large: return "大"
+        }
+    }
+
+    var points: CGFloat {
+        switch self {
+        case .compact: return 20
+        case .standard: return 24
+        case .large: return 28
+        }
     }
 }
 
