@@ -4,7 +4,8 @@ import AppKit
 ///
 /// - The actual I/O runs off the main thread; conflicts are resolved with the user *before* any I/O starts.
 /// - Replacing an existing item moves the old one to the Trash instead of deleting it (safer than Finder),
-///   and undoing the operation puts it back.
+///   and undoing the operation puts it back. Where there is no Trash (network shares) it is deleted, and the
+///   conflict alert says so.
 /// - Undo actions are registered synchronously when an operation starts and filled in when it finishes:
 ///   registering after an `await` would put the inverse of an undo on the undo stack instead of the redo stack.
 final class FileOperations {
@@ -25,15 +26,17 @@ final class FileOperations {
     }
 
     /// A planned transfer of one item, after conflict resolution.
-    private struct Transfer {
+    struct Transfer {
         let source: URL
         let destination: URL
         /// Existing item at `destination` to move to the Trash first.
         let replacing: URL?
+        /// The destination has no Trash: `replacing` is deleted once the transfer succeeded.
+        var deletesReplacement = false
     }
 
     /// A transfer that was carried out.
-    private struct Done {
+    struct Done {
         let transfer: Transfer
         /// Where the replaced item ended up in the Trash.
         let trashedReplacement: URL?
@@ -94,24 +97,37 @@ final class FileOperations {
         }
         undoManager?.setActionName(actionName)
         Task {
-            let error = await Task.detached(priority: .userInitiated) { () -> Error? in
+            let result = await Task.detached(priority: .userInitiated) { () -> (noTrash: [URL], error: Error?) in
                 let fm = FileManager.default
+                var noTrash: [URL] = []
                 do {
                     for item in done.reversed() {
                         switch mode {
-                        case .copy: try fm.trashItem(at: item.transfer.destination, resultingItemURL: nil)
+                        case .copy:
+                            do {
+                                try fm.trashItem(at: item.transfer.destination, resultingItemURL: nil)
+                            } catch where !Self.hasTrash(for: item.transfer.destination) {
+                                noTrash.append(item.transfer.destination)
+                                continue // nothing was trashed in its place on such a volume
+                            }
                         case .move: try fm.moveItem(at: item.transfer.destination, to: item.transfer.source)
                         }
                         if let trashed = item.trashedReplacement {
                             try fm.moveItem(at: trashed, to: item.transfer.destination)
                         }
                     }
-                    return nil
+                    return (noTrash, nil)
                 } catch {
-                    return error
+                    return (noTrash, error)
                 }
             }.value
-            if let error { showError(error, window: window) } else if mode == .move { postRestored(done.map(\.transfer.source)) }
+            if let error = result.error {
+                showError(error, window: window)
+            } else if mode == .move {
+                postRestored(done.map(\.transfer.source))
+            } else if !result.noTrash.isEmpty {
+                await deleteAfterConfirming(result.noTrash.reversed(), window: window)
+            }
         }
     }
 
@@ -119,6 +135,7 @@ final class FileOperations {
     private func plan(_ sources: [URL], into directory: URL, mode: Mode, window: NSWindow?) -> [Transfer]? {
         var result: [Transfer] = []
         var applyToAll: NSApplication.ModalResponse?
+        let noTrash = Self.isWithoutTrash(directory)
         for source in sources {
             let target = directory.appendingPathComponent(source.lastPathComponent)
             if source.deletingLastPathComponent().standardizedFileURL.path == directory.path {
@@ -132,12 +149,12 @@ final class FileOperations {
                 result.append(Transfer(source: source, destination: target, replacing: nil))
                 continue
             }
-            let response = applyToAll ?? askConflict(name: source.lastPathComponent, window: window, multiple: sources.count > 1, applyToAll: &applyToAll)
+            let response = applyToAll ?? askConflict(name: source.lastPathComponent, window: window, multiple: sources.count > 1, deletes: noTrash, applyToAll: &applyToAll)
             switch response {
             case .alertFirstButtonReturn: // 両方とも残す
                 result.append(Transfer(source: source, destination: Self.availableURL(for: source.lastPathComponent, in: directory, copySuffix: false), replacing: nil))
             case .alertSecondButtonReturn: // 置き換える
-                result.append(Transfer(source: source, destination: target, replacing: target))
+                result.append(Transfer(source: source, destination: target, replacing: target, deletesReplacement: noTrash))
             case .alertThirdButtonReturn: // スキップ
                 continue
             default: // 停止
@@ -147,10 +164,12 @@ final class FileOperations {
         return result
     }
 
-    private func askConflict(name: String, window: NSWindow?, multiple: Bool, applyToAll: inout NSApplication.ModalResponse?) -> NSApplication.ModalResponse {
+    private func askConflict(name: String, window: NSWindow?, multiple: Bool, deletes: Bool, applyToAll: inout NSApplication.ModalResponse?) -> NSApplication.ModalResponse {
         let alert = NSAlert()
         alert.messageText = "「\(name)」という名前の項目がすでにこの場所にあります。"
-        alert.informativeText = "置き換えると、既存の項目はゴミ箱に移動されます。"
+        alert.informativeText = deletes
+            ? "置き換えると、既存の項目はすぐに削除されます。この操作は取り消せません。"
+            : "置き換えると、既存の項目はゴミ箱に移動されます。"
         alert.addButton(withTitle: "両方とも残す")
         alert.addButton(withTitle: "置き換える")
         alert.addButton(withTitle: "スキップ")
@@ -167,7 +186,7 @@ final class FileOperations {
         return response
     }
 
-    private nonisolated static func perform(_ plan: [Transfer], mode: Mode, progress: TransferProgress) async -> (completed: [Done], error: Error?) {
+    nonisolated static func perform(_ plan: [Transfer], mode: Mode, progress: TransferProgress) async -> (completed: [Done], error: Error?) {
         await Task.detached(priority: .userInitiated) {
             var done: [Done] = []
             let fm = FileManager.default
@@ -177,9 +196,17 @@ final class FileOperations {
                 if progress.isCancelled { break }
                 progress.setCurrent(transfer.source.lastPathComponent)
                 var trashed: NSURL?
+                var setAside: URL?
                 do {
                     if let replacing = transfer.replacing {
-                        try fm.trashItem(at: replacing, resultingItemURL: &trashed)
+                        if transfer.deletesReplacement {
+                            // Kept under a hidden name until the new item is in place, so a failed copy loses nothing.
+                            let aside = replacing.deletingLastPathComponent().appendingPathComponent(".\(replacing.lastPathComponent).ommateum-replaced-\(UUID().uuidString)")
+                            try fm.moveItem(at: replacing, to: aside)
+                            setAside = aside
+                        } else {
+                            try fm.trashItem(at: replacing, resultingItemURL: &trashed)
+                        }
                     }
                     switch mode {
                     case .copy:
@@ -191,10 +218,12 @@ final class FileOperations {
                         try FileCopier.copy(from: transfer.source, to: transfer.destination, progress: progress)
                         try fm.removeItem(at: transfer.source)
                     }
+                    if let setAside { try? fm.removeItem(at: setAside) }
                     done.append(Done(transfer: transfer, trashedReplacement: trashed as URL?))
                 } catch {
                     // Nothing took the replaced item's place, so put it back.
                     if let trashed, let url = trashed as URL? { try? fm.moveItem(at: url, to: transfer.destination) }
+                    if let setAside { try? fm.moveItem(at: setAside, to: transfer.destination) }
                     return (done, error is CancellationError ? nil : error)
                 }
             }
@@ -259,6 +288,13 @@ final class FileOperations {
             let error = error as NSError
             return !(error.domain == NSCocoaErrorDomain && error.code == NSFeatureUnsupportedError)
         }
+    }
+
+    /// Whether items in `directory` can't go to the Trash, decided before trying. A local volume that has never
+    /// had anything trashed looks the same as a network share to `hasTrash`, so only network volumes count.
+    nonisolated static func isWithoutTrash(_ directory: URL) -> Bool {
+        let isLocal = (try? directory.resourceValues(forKeys: [.volumeIsLocalKey]))?.volumeIsLocal ?? true
+        return !isLocal && !hasTrash(for: directory)
     }
 
     // MARK: Delete

@@ -113,4 +113,43 @@ struct FileTransferTests {
         #expect(FileOperations.hasTrash(for: dir))
         #expect(FileOperations.hasTrash(for: FileManager.default.homeDirectoryForCurrentUser))
     }
+
+    /// Where there is no Trash, the replaced item is deleted, and only after the new one is in place.
+    @Test func replacingWithoutTrashDeletesTheOldItem() async throws {
+        let dir = try makeTempDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let source = dir.appendingPathComponent("new.txt")
+        try Data("new".utf8).write(to: source)
+        let target = dir.appendingPathComponent("sub/new.txt")
+        try FileManager.default.createDirectory(at: target.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data("old".utf8).write(to: target)
+
+        let plan = [FileOperations.Transfer(source: source, destination: target, replacing: target, deletesReplacement: true)]
+        let result = await FileOperations.perform(plan, mode: .copy, progress: TransferProgress())
+        #expect(result.error == nil)
+        #expect(result.completed.first?.trashedReplacement == nil)
+        #expect(try String(contentsOf: target, encoding: .utf8) == "new")
+        #expect(try FileManager.default.contentsOfDirectory(atPath: target.deletingLastPathComponent().path) == ["new.txt"])
+    }
+
+    @Test func failedReplaceWithoutTrashKeepsTheOldItem() async throws {
+        let dir = try makeTempDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let target = dir.appendingPathComponent("sub/new.txt")
+        try FileManager.default.createDirectory(at: target.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data("old".utf8).write(to: target)
+
+        let missing = dir.appendingPathComponent("missing.txt")
+        let plan = [FileOperations.Transfer(source: missing, destination: target, replacing: target, deletesReplacement: true)]
+        let result = await FileOperations.perform(plan, mode: .copy, progress: TransferProgress())
+        #expect(result.error != nil)
+        #expect(try String(contentsOf: target, encoding: .utf8) == "old")
+        #expect(try FileManager.default.contentsOfDirectory(atPath: target.deletingLastPathComponent().path) == ["new.txt"])
+    }
+
+    @Test func localFoldersAreNotTreatedAsWithoutTrash() throws {
+        let dir = try makeTempDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        #expect(!FileOperations.isWithoutTrash(dir))
+    }
 }
