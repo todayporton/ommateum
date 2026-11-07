@@ -580,11 +580,16 @@ final class SidebarViewController: NSViewController {
     }
 
     private func eject(_ urls: [URL]) {
+        var ejected = 0
         do {
-            for url in urls { try NSWorkspace.shared.unmountAndEjectDevice(at: url) }
+            for url in urls {
+                try NSWorkspace.shared.unmountAndEjectDevice(at: url)
+                ejected += 1
+            }
         } catch {
             FileOperations.shared.showError(error, window: view.window)
         }
+        if ejected > 0 { FileOperations.playSound(.eject) }
     }
 
     /// Asks for one line of text in a sheet.

@@ -348,6 +348,8 @@ final class FileOperations {
         /// Copy, move and duplicate, when every item made it. The Finder plays this file when a move finishes
         /// (found in the system sound server's log; the name is misleading).
         case transferDone = "system/Volume Mount.aif"
+        /// Ejecting from the sidebar; the pair of `transferDone`.
+        case eject = "system/Volume Unmount.aif"
     }
 
     static func playSound(_ sound: Sound) {
