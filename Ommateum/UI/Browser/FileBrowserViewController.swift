@@ -472,6 +472,10 @@ final class FileBrowserViewController: NSViewController, NSMenuItemValidation {
         FileOperations.shared.trash(selectedItems.map(\.url), window: view.window, undoManager: undoManager)
     }
 
+    @objc func deleteImmediately(_ sender: Any?) {
+        FileOperations.shared.deleteImmediately(selectedItems.map(\.url), window: view.window)
+    }
+
     @objc func makeAlias(_ sender: Any?) {
         let created = FileOperations.shared.makeAliases(selectedItems.map(\.url), window: view.window, undoManager: undoManager)
         guard !created.isEmpty else { return }
@@ -576,7 +580,7 @@ final class FileBrowserViewController: NSViewController, NSMenuItemValidation {
         case #selector(goBack(_:)): return canGoBack
         case #selector(goForward(_:)): return canGoForward
         case #selector(goToEnclosingFolder(_:)): return canGoUp
-        case #selector(openSelection(_:)), #selector(duplicate(_:)), #selector(moveToTrash(_:)), #selector(copy(_:)), #selector(makeAlias(_:)):
+        case #selector(openSelection(_:)), #selector(duplicate(_:)), #selector(moveToTrash(_:)), #selector(deleteImmediately(_:)), #selector(copy(_:)), #selector(makeAlias(_:)):
             return hasSelection
         case #selector(renameSelection(_:)): return selectedItems.count == 1
         case #selector(paste(_:)), #selector(pasteAndMove(_:)):

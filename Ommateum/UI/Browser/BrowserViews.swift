@@ -134,6 +134,7 @@ enum BrowserMenus {
         }
         menu.addItem(.separator())
         add("ゴミ箱に入れる", #selector(FileBrowserViewController.moveToTrash(_:)), key: "\u{8}")
+        menu.addItem(deleteAlternate(for: menu.items[menu.items.count - 1], target: browser))
         menu.addItem(.separator())
         if items.count == 1 { add("名前を変更", #selector(FileBrowserViewController.renameSelection(_:)), key: "") }
         add("複製", #selector(FileBrowserViewController.duplicate(_:)), key: "d")
@@ -153,6 +154,16 @@ enum BrowserMenus {
             add("サイドバーに追加", #selector(FileBrowserViewController.addToSidebar(_:)), key: "t", modifiers: [.command, .control])
         }
         return menu
+    }
+
+    /// Shown in place of `trashItem` while ⌥ is held. AppKit pairs alternates by key, so it takes the trash
+    /// item's key (as customized in settings) with ⌥ added; that key only works while the menu is open.
+    private static func deleteAlternate(for trashItem: NSMenuItem, target: AnyObject) -> NSMenuItem {
+        let item = NSMenuItem(title: "ゴミ箱に入れずに削除", action: #selector(FileBrowserViewController.deleteImmediately(_:)), keyEquivalent: trashItem.keyEquivalent)
+        item.keyEquivalentModifierMask = trashItem.keyEquivalentModifierMask.union(.option)
+        item.isAlternate = true
+        item.target = target
+        return item
     }
 
     static func tagSubmenu(target: AnyObject?) -> NSMenuItem {

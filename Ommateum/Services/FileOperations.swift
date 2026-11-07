@@ -212,6 +212,8 @@ final class FileOperations {
 
     // MARK: Trash
 
+    /// Items on a volume without a Trash (SMB shares and the like) can't be trashed; after the rest are trashed,
+    /// those are deleted once the user confirms.
     func trash(_ urls: [URL], window: NSWindow?, undoManager: UndoManager?) {
         guard !urls.isEmpty else { return }
         let outcome = Outcome<[(original: URL, trashed: URL)]>([])
@@ -220,25 +222,81 @@ final class FileOperations {
         }
         undoManager?.setActionName("ゴミ箱に入れる")
         Task {
-            let result = await Task.detached(priority: .userInitiated) { () -> (moved: [(original: URL, trashed: URL)], error: Error?) in
+            let result = await Task.detached(priority: .userInitiated) { () -> (moved: [(original: URL, trashed: URL)], noTrash: [URL], error: Error?) in
                 var moved: [(original: URL, trashed: URL)] = []
+                var noTrash: [URL] = []
                 for url in urls {
                     do {
                         var trashed: NSURL?
                         try FileManager.default.trashItem(at: url, resultingItemURL: &trashed)
                         if let trashed { moved.append((url, trashed as URL)) }
                     } catch {
-                        return (moved, error)
+                        guard !Self.hasTrash(for: url) else { return (moved, noTrash, error) }
+                        noTrash.append(url)
                     }
                 }
-                return (moved, nil)
+                return (moved, noTrash, nil)
             }.value
             outcome.value = result.moved
-            if let error = result.error { showError(error, window: window) }
             if !result.moved.isEmpty {
                 NSSound(contentsOfFile: "/System/Library/Components/CoreAudio.component/Contents/SharedSupport/SystemSounds/finder/move to trash.aif", byReference: true)?.play()
             }
+            if let error = result.error {
+                showError(error, window: window)
+            } else if !result.noTrash.isEmpty {
+                await deleteAfterConfirming(result.noTrash, reason: "ゴミ箱がない場所にあるため、ゴミ箱に入れられません。", window: window)
+            }
         }
+    }
+
+    /// Whether `url`'s volume has a Trash. Only asked after trashing failed: a local volume that has never had
+    /// anything trashed answers the same as a network share until the Trash folder is created.
+    nonisolated static func hasTrash(for url: URL) -> Bool {
+        do {
+            _ = try FileManager.default.url(for: .trashDirectory, in: .userDomainMask, appropriateFor: url, create: false)
+            return true
+        } catch {
+            let error = error as NSError
+            return !(error.domain == NSCocoaErrorDomain && error.code == NSFeatureUnsupportedError)
+        }
+    }
+
+    // MARK: Delete
+
+    /// Deletes items without the Trash after the user confirms. It can't be undone.
+    func deleteImmediately(_ urls: [URL], window: NSWindow?) {
+        guard !urls.isEmpty else { return }
+        Task { await deleteAfterConfirming(urls, reason: nil, window: window) }
+    }
+
+    private func deleteAfterConfirming(_ urls: [URL], reason: String?, window: NSWindow?) async {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = urls.count == 1
+            ? "「\(urls[0].lastPathComponent)」をゴミ箱に入れずに削除しますか？"
+            : "\(urls.count)項目をゴミ箱に入れずに削除しますか？"
+        alert.informativeText = [reason, "この操作は取り消せません。"].compactMap { $0 }.joined(separator: "\n")
+        alert.addButton(withTitle: "削除")
+        alert.addButton(withTitle: "キャンセル")
+        alert.buttons[0].hasDestructiveAction = true
+        alert.buttons[0].keyEquivalent = "" // a destructive default stays off Return, as in Finder
+        alert.buttons[1].keyEquivalent = "\r"
+        let response: NSApplication.ModalResponse
+        if let window, window.attachedSheet == nil {
+            response = await alert.beginSheetModal(for: window)
+        } else {
+            response = alert.runModal()
+        }
+        guard response == .alertFirstButtonReturn else { return }
+        let error = await Task.detached(priority: .userInitiated) { () -> Error? in
+            do {
+                for url in urls { try FileManager.default.removeItem(at: url) }
+                return nil
+            } catch {
+                return error
+            }
+        }.value
+        if let error { showError(error, window: window) }
     }
 
     /// Undo of "move to Trash": moves items back to where they were. Redo trashes them again.

@@ -105,4 +105,12 @@ struct FileTransferTests {
         undo.undo()
         #expect(FileOperations.tags(of: file).isEmpty)
     }
+
+    /// Only an "unsupported" answer means no Trash, so a fresh local volume without a Trash folder still gets trashed.
+    @Test func localFoldersHaveATrash() throws {
+        let dir = try makeTempDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        #expect(FileOperations.hasTrash(for: dir))
+        #expect(FileOperations.hasTrash(for: FileManager.default.homeDirectoryForCurrentUser))
+    }
 }
