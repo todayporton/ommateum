@@ -1,5 +1,7 @@
 # Ommateum
 
+English | [日本語](README.ja.md)
+
 A native macOS file manager for looking at several folders at once.
 It keeps the feel of Finder as much as possible and adds three things:
 
@@ -52,6 +54,24 @@ The environment variable `OMMATEUM_SUPPORT_DIR` points the app at another locati
 | Save workspace / save as | ⌘S / ⇧⌘S; open one from the menu (hold ⌥ to open it in a new window) |
 | Show hidden files | ⇧⌘. |
 | Dropbox "Send a Copy" | Context menu / File ▸ Actions |
+
+## Windows and workspaces
+
+- **Dock menu**: lists the open windows as `[workspace] - folder | folder` (one folder per pane), then the saved workspaces, then New Window. Choosing a workspace that is already open brings its window to the front.
+- **New windows** (Settings ▸ General ▸ New Windows): a new window copies either the last window (the front one, or the last one closed) or a window you saved. Choose which parts it takes (layout, position, size, display) and which display it opens on when the display is not taken (the one with the pointer or the one with the front window).
+- **Workspaces** (Workspace ▸ Manage Workspaces…): for each workspace, choose whether opening it restores the saved position, size and display, and which display it opens on otherwise.
+
+## URL scheme
+
+Launchers, Shortcuts and links can open Ommateum with these URLs:
+
+| URL | Opens |
+| --- | --- |
+| `ommateum://open` | A new window, as set in Settings ▸ General ▸ New Windows |
+| `ommateum://open?path=~/Documents` | The folder in a new window. A file opens its folder with the file selected |
+| `ommateum://workspace?name=Work` | The window showing the workspace, or the workspace in a new window |
+
+Copy URL in the context menu of a folder or a sidebar workspace copies its URL.
 
 ## Localization
 
