@@ -30,6 +30,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
                               backing: .buffered, defer: false)
         window.minSize = NSSize(width: 520, height: 320)
         window.isRestorable = false
+        window.isExcludedFromWindowsMenu = true // listed by AppDelegate.windowListItems instead
         window.tabbingMode = .disallowed // Ommateum has its own tabs per pane
         window.titlebarSeparatorStyle = .none
         window.titlebarAppearsTransparent = true

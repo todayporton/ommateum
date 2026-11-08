@@ -13,6 +13,7 @@ enum MainMenu {
         main.addItem(submenu(workspaceMenu))
         let window = windowMenu()
         main.addItem(submenu(window))
+        window.delegate = delegate // appends the open windows; see AppDelegate.windowListItems
         NSApp.windowsMenu = window
         let help = NSMenu(title: "ヘルプ")
         main.addItem(submenu(help))

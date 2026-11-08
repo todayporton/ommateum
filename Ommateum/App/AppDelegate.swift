@@ -229,12 +229,102 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     }
 }
 
+// MARK: - Dock menu
+
+extension AppDelegate {
+    func applicationDockMenu(_ sender: NSApplication) -> NSMenu? {
+        let menu = NSMenu()
+        menu.autoenablesItems = false
+        windowListItems().forEach(menu.addItem)
+        let names = WorkspaceStore.shared.names
+        if !names.isEmpty {
+            if !menu.items.isEmpty { menu.addItem(.separator()) }
+            for name in names {
+                let item = NSMenuItem(title: name, action: #selector(openWorkspaceFromDock(_:)), keyEquivalent: "")
+                item.target = self
+                item.representedObject = name
+                menu.addItem(item)
+            }
+        }
+        if !menu.items.isEmpty { menu.addItem(.separator()) }
+        let newWindow = NSMenuItem(title: "新規ウインドウ", action: #selector(newWindowFromDock(_:)), keyEquivalent: "")
+        newWindow.target = self
+        menu.addItem(newWindow)
+        return menu
+    }
+
+    /// One item per open window. Ommateum's windows are excluded from AppKit's window list (it would repeat them in
+    /// the Dock menu under the plain window title), so the Dock and ウインドウ menus both use these instead.
+    func windowListItems() -> [NSMenuItem] {
+        let key = keyWindowController
+        return windowControllers.map { controller in
+            let item = NSMenuItem(title: dockTitle(for: controller), action: #selector(bringWindowToFront(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = controller
+            item.state = controller === key ? .on : .off
+            return item
+        }
+    }
+
+    /// 「【ワークスペース名】ペイン1|ペイン2」. Windows not loaded from a workspace show only the panes.
+    private func dockTitle(for controller: MainWindowController) -> String {
+        let panes = controller.workspace.paneTitles.joined(separator: "|")
+        guard let name = controller.workspaceName else { return panes }
+        return "【\(name)】\(panes)"
+    }
+
+    private func bringToFront(_ controller: MainWindowController) {
+        guard let window = controller.window else { return }
+        if window.isMiniaturized { window.deminiaturize(nil) }
+        NSApp.activate()
+        window.makeKeyAndOrderFront(nil)
+    }
+
+    @objc private func bringWindowToFront(_ sender: NSMenuItem) {
+        guard let controller = sender.representedObject as? MainWindowController,
+              windowControllers.contains(where: { $0 === controller }) else { return }
+        bringToFront(controller)
+    }
+
+    @objc private func newWindowFromDock(_ sender: Any?) {
+        NSApp.activate()
+        newWindow(sender)
+    }
+
+    /// Switches to the window already showing the workspace; otherwise opens it in a new window
+    /// so the window the user was working in is not replaced.
+    @objc private func openWorkspaceFromDock(_ sender: NSMenuItem) {
+        guard let name = sender.representedObject as? String else { return }
+        if let open = windowControllers.first(where: { $0.workspaceName == name }) {
+            bringToFront(open)
+            return
+        }
+        guard let snapshot = WorkspaceStore.shared.workspace(named: name) else { return }
+        NSApp.activate()
+        loadWorkspace(snapshot, inNewWindow: true)
+    }
+}
+
 // MARK: - Workspace menu
 
 extension AppDelegate: NSMenuDelegate {
+    private static let windowListTag = 0x0DEC
+
     func menuNeedsUpdate(_ menu: NSMenu) {
-        guard menu === workspaceMenu else { return }
-        rebuildWorkspaceMenu()
+        if menu === workspaceMenu {
+            rebuildWorkspaceMenu()
+        } else if menu === NSApp.windowsMenu {
+            menu.items.filter { $0.tag == Self.windowListTag }.forEach(menu.removeItem)
+            let items = windowListItems()
+            guard !items.isEmpty else { return }
+            let separator = NSMenuItem.separator()
+            separator.tag = Self.windowListTag
+            menu.addItem(separator)
+            for item in items {
+                item.tag = Self.windowListTag
+                menu.addItem(item)
+            }
+        }
     }
 
     /// Also called at launch, so the settings can list this menu's commands before it is ever opened.

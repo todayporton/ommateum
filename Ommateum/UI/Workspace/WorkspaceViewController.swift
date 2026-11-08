@@ -71,6 +71,8 @@ final class WorkspaceViewController: NSViewController {
     var activePane: PaneViewController? { panes[activePaneID] }
     var activeBrowser: FileBrowserViewController? { activePane?.activeTab }
     var paneCount: Int { panes.count }
+    /// Folder name of each pane's active tab, in layout order (left to right, top to bottom).
+    var paneTitles: [String] { tree.leaves.compactMap { panes[$0]?.activeTab?.displayTitle } }
 
     // MARK: Snapshot
 
