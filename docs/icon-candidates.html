@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="ja">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- アプリアイコンの候補を見比べるページ。アイコンは scripts/make-icon.swift と同じ座標の SVG で描いている。 -->
+<title>Ommateum アイコン候補</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: 見出し → Dock 風の比較帯 → 候補カード 2 列（狭い画面では 1 列） */
+:root{
+  --bg:#eef1f5; --surface:#ffffff; --fg:#1b2230; --muted:#5d6878; --line:#d7dde6;
+  --dock:rgba(255,255,255,.55); --dock-line:rgba(20,30,50,.10);
+  --tile-light:#f6f7f9; --tile-dark:#1e2229; --accent:#2f6fd6;
+  --f-display:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+  --f-body:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#14171d; --surface:#1c2028; --fg:#e7ebf2; --muted:#9aa5b5; --line:#2c323d;
+  --dock:rgba(255,255,255,.07); --dock-line:rgba(255,255,255,.10); --accent:#7aa8f5; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#14171d; --surface:#1c2028; --fg:#e7ebf2; --muted:#9aa5b5; --line:#2c323d;
+  --dock:rgba(255,255,255,.07); --dock-line:rgba(255,255,255,.10); --accent:#7aa8f5; color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);line-height:1.7}
+.wrap{max-width:1080px;margin:0 auto;padding-block:40px 64px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  display:flex;flex-direction:column;gap:32px}
+header h1{font-family:var(--f-display);font-weight:700;font-size:28px;margin:0;text-wrap:balance;letter-spacing:.01em}
+header p{margin:6px 0 0;color:var(--muted);max-width:62ch}
+.dock{align-self:center;display:flex;gap:18px;padding:12px 18px;border-radius:26px;background:var(--dock);
+  border:1px solid var(--dock-line);backdrop-filter:blur(10px);flex-wrap:wrap;justify-content:center}
+.dock figure{margin:0;display:flex;flex-direction:column;align-items:center;gap:2px}
+.dock figcaption{font-family:var(--f-mono);font-size:11px;color:var(--muted)}
+.dock svg{width:64px;height:64px;display:block}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}
+@media (max-width:760px){.grid{grid-template-columns:1fr}}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px;display:flex;flex-direction:column;gap:16px;min-width:0}
+.top{display:flex;gap:20px;align-items:center}
+.big{width:180px;height:180px;flex:none;max-width:45%}
+.big svg{width:100%;height:100%;display:block}
+.info{min-width:0}
+.tag{font-family:var(--f-mono);font-size:12px;color:var(--accent);letter-spacing:.08em}
+.info h2{font-family:var(--f-display);font-size:20px;margin:2px 0 6px;font-weight:700}
+.info p{margin:0;color:var(--muted);font-size:13.5px}
+.sizes{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.strip{display:flex;align-items:flex-end;gap:14px;padding:12px 14px;border-radius:10px;overflow-x:auto}
+.strip.l{background:var(--tile-light)} .strip.d{background:var(--tile-dark)}
+.strip .s{display:flex;flex-direction:column;align-items:center;gap:4px}
+.strip span{font-family:var(--f-mono);font-size:10px;color:#8a93a1}
+.strip svg{display:block}
+@media (max-width:460px){.top{flex-direction:column;align-items:flex-start}.big{max-width:100%}.sizes{grid-template-columns:1fr}}
+footer{color:var(--muted);font-size:13px}
+.sim{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px;display:flex;flex-direction:column;gap:14px}
+.simhead{display:flex;flex-wrap:wrap;align-items:center;gap:12px 28px}
+.simhead h2{font-family:var(--f-display);font-size:18px;margin:0;font-weight:700}
+.opts{border:0;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.opts legend{float:left;font-size:12px;color:var(--muted);margin-right:6px}
+.opts label{position:relative;cursor:pointer}
+.opts input{position:absolute;opacity:0;inset:0;margin:0;cursor:pointer}
+.opts span{display:inline-block;font-family:var(--f-mono);font-size:12.5px;padding:5px 12px;border-radius:999px;border:1px solid var(--line);color:var(--fg)}
+.opts input:checked+span{background:var(--accent);border-color:var(--accent);color:var(--surface)}
+.opts input:focus-visible+span{outline:2px solid var(--accent);outline-offset:2px}
+.note{margin:0;color:var(--muted);font-size:12.5px}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Ommateum アイコン候補</h1>
+    <p>複眼（個眼の集まり）と「複数のディレクトリを同時に見渡す」を手がかりに、六角形の格子柄を使った2案と、その色違いです。各カードの下段は 128・64・32・16px での見え方です。</p>
+  </header>
+  <div class="grid" id="grid"></div>
+  <footer>どの案も方向性のたたき台です。気になる案の記号と、色や形の調整の希望を教えてください。</footer>
+</div>
+
+<script>
+let uid=0;
+const TAU=Math.PI*2;
+function squircle(x,y,s,n){n=n||5;const a=s/2,cx=x+a,cy=y+a,p=[];
+  for(let i=0;i<240;i++){const t=i/240*TAU,c=Math.cos(t),sn=Math.sin(t);
+    p.push((cx+a*Math.sign(c)*Math.pow(Math.abs(c),2/n)).toFixed(1)+' '+(cy+a*Math.sign(sn)*Math.pow(Math.abs(sn),2/n)).toFixed(1));}
+  return 'M'+p.join('L')+'Z';}
+const BODY=squircle(100,100,824);
+function poly(pts){return pts.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ');}
+function hexPts(cx,cy,r,flat){const o=flat?0:-Math.PI/2,a=[];for(let i=0;i<6;i++){const t=o+i*Math.PI/3;a.push([cx+r*Math.cos(t),cy+r*Math.sin(t)]);}return a;}
+function lerp(a,b,k){return [a[0]+(b[0]-a[0])*k,a[1]+(b[1]-a[1])*k];}
+function hsl(h,s,l){return `hsl(${h.toFixed(1)} ${s}% ${l.toFixed(1)}%)`;}
+
+function frame(defs,bg,content){
+  const id='i'+(uid++);
+  const d=defs(id),b=bg(id),c=content(id);
+  return `<svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" role="img">
+  <defs><clipPath id="${id}clip"><path d="${BODY}"/></clipPath>
+  <filter id="${id}sh" x="-10%" y="-10%" width="120%" height="125%"><feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#000" flood-opacity=".25"/></filter>${d}</defs>
+  <path d="${BODY}" fill="${b}" filter="url(#${id}sh)"/>
+  <g clip-path="url(#${id}clip)">${c}</g>
+  <path d="${BODY}" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="3"/></svg>`;}
+
+/* A 個眼ドーム */
+function iconA(){return frame(
+  id=>`<linearGradient id="${id}bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#22355c"/><stop offset="1" stop-color="#0b1226"/></linearGradient>
+  <radialGradient id="${id}hl" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#fff" stop-opacity=".55"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+  <radialGradient id="${id}sh2" cx=".5" cy=".42" r=".55"><stop offset=".7" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".45"/></radialGradient>
+  <clipPath id="${id}dome"><circle cx="512" cy="524" r="320"/></clipPath>`,
+  id=>`url(#${id}bg)`,
+  id=>{const R=320,cx=512,cy=524,r=64,dx=1.5*r,dy=Math.sqrt(3)*r;let s='';
+    for(let i=-8;i<=8;i++)for(let j=-8;j<=8;j++){const x=cx+i*dx,y=cy+j*dy+(i&1?dy/2:0),d=Math.hypot(x-cx,y-cy);
+      if(d>R+r)continue;const t=Math.min(d/R,1),ang=Math.atan2(y-cy,x-cx);
+      const h=172+48*t+18*Math.sin(ang*2)*t,l=66-38*t;s+=`<polygon points="${poly(hexPts(x,y,r*.86,true))}" fill="${hsl(h,72,l)}"/>`;}
+    return `<circle cx="${cx}" cy="${cy}" r="${R+14}" fill="#060a16"/>
+    <g clip-path="url(#${id}dome)"><circle cx="${cx}" cy="${cy}" r="${R}" fill="#0a1424"/>${s}<circle cx="${cx}" cy="${cy}" r="${R}" fill="url(#${id}sh2)"/></g>
+    <ellipse cx="405" cy="395" rx="150" ry="85" transform="rotate(-35 405 395)" fill="url(#${id}hl)"/>`;});}
+
+/* B 分割ペイン */
+function iconB(){return frame(
+  id=>`<linearGradient id="${id}bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fbfcfe"/><stop offset="1" stop-color="#d9e0ea"/></linearGradient>`,
+  id=>`url(#${id}bg)`,
+  id=>{const panes=[[208,250,286,524,'#3b7ff0'],[506,250,310,250,'#17a39c'],[506,512,148,262,'#f0a12a'],[666,512,150,262,'#8b5cf6']];
+    let s=`<rect x="190" y="232" width="644" height="560" rx="44" fill="#fff" stroke="#c3ccd8" stroke-width="4"/>`;
+    for(const [x,y,w,h,c] of panes){s+=`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="26" fill="${c}"/>`;
+      const rows=Math.floor((h-70)/52);for(let k=0;k<rows;k++){const yy=y+62+k*52,ww=(w-60)*(k%3===1?.62:k%3===2?.78:.9);
+        s+=`<rect x="${x+30}" y="${yy}" width="${ww}" height="18" rx="9" fill="#fff" fill-opacity=".82"/>`;}
+      s+=`<rect x="${x+30}" y="${y+22}" width="${Math.min(110,w-60)}" height="22" rx="11" fill="#fff"/>`;}
+    return s;});}
+
+/* Finder のアイコンから拾った配色：青は上から 3 段、白い面は上が白く下が淡い青 */
+const FINDER_BLUE=['#00c2ff','#339cfa','#3173f6'],FACE0=['#fbfefe','#c8e6fd'],FACE1=['#eef8fe','#b0d4fb'];
+function stops(c){return c.map((v,i)=>`<stop offset="${i/(c.length-1)}" stop-color="${v}"/>`).join('');}
+
+/* C 複眼フォルダ */
+// finder=true: フォルダを Finder のアイコン左側のような明るい空色にする
+// pal: {fr:[上,下], bk:後ろ, bg:[上,下]} で色だけ差し替える
+function iconC(dark,finder,pal){let BG=dark?['#22355c','#0b1226']:['#eef4fb','#cddcee'];
+  let FR=finder?FINDER_BLUE:['#78b6f7','#3b80d9'],BK=finder?'#2479ee':'#3d7fd4';
+  if(pal){FR=pal.fr;BK=pal.bk;BG=pal.bg;}return frame(
+  id=>`<linearGradient id="${id}bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${BG[0]}"/><stop offset="1" stop-color="${BG[1]}"/></linearGradient>
+  <linearGradient id="${id}fr" x1="0" y1="0" x2="0" y2="1">${stops(FR)}</linearGradient>
+  <linearGradient id="${id}w0" x1="0" y1="0" x2="0" y2="1">${stops(FACE0)}</linearGradient><linearGradient id="${id}w1" x1="0" y1="0" x2="0" y2="1">${stops(FACE1)}</linearGradient>
+  <clipPath id="${id}fc"><rect x="196" y="372" width="632" height="430" rx="46"/></clipPath>`,
+  id=>`url(#${id}bg)`,
+  id=>{let s=`<path d="M236 262h170c22 0 34 8 46 26l22 32h314c26 0 44 18 44 44v300H192V306c0-26 18-44 44-44z" fill="${BK}"/>
+    <rect x="196" y="372" width="632" height="430" rx="46" fill="url(#${id}fr)"/>`;
+    const r=54,dx=Math.sqrt(3)*r,dy=1.5*r,cx=512,cy=590;let g='';
+    for(let j=-5;j<=5;j++)for(let i=-8;i<=8;i++){const x=cx+i*dx+(j&1?dx/2:0),y=cy+j*dy,d=Math.hypot(x-cx,y-cy);
+      const near=d<dx*1.05;g+=`<polygon points="${poly(hexPts(x,y,r*.9,false))}" fill="${near?(finder&&!pal?`url(#${id}w${d<1?0:1})`:'#fff'):'none'}" fill-opacity="${near?(finder&&!pal?1:(d<1?.95:.75)):0}" stroke="#fff" stroke-opacity="${near?0:.22}" stroke-width="4"/>`;}
+    s+=`<g clip-path="url(#${id}fc)">${g}</g><rect x="196" y="372" width="632" height="6" fill="#fff" fill-opacity=".35"/>`;return s;});}
+
+/* D 七つの個眼 */
+function iconD(){const lenses=[[512,512,165]];for(let k=0;k<6;k++){const t=-Math.PI/2+k*Math.PI/3;lenses.push([512+250*Math.cos(t),512+250*Math.sin(t),130+k*25]);}
+  return frame(
+  id=>lenses.map((L,i)=>`<radialGradient id="${id}l${i}" cx=".36" cy=".3" r=".75"><stop offset="0" stop-color="${hsl(L[2],80,82)}"/><stop offset=".45" stop-color="${hsl(L[2],70,52)}"/><stop offset="1" stop-color="${hsl(L[2]+20,70,22)}"/></radialGradient>`).join('')+
+    `<linearGradient id="${id}bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2b3c86"/><stop offset="1" stop-color="#141c4a"/></linearGradient>`,
+  id=>`url(#${id}bg)`,
+  id=>lenses.map((L,i)=>`<circle cx="${L[0]}" cy="${L[1]}" r="116" fill="#0b1030" fill-opacity=".5"/><circle cx="${L[0]}" cy="${L[1]}" r="108" fill="url(#${id}l${i})"/><ellipse cx="${L[0]-36}" cy="${L[1]-44}" rx="30" ry="18" transform="rotate(-30 ${L[0]-36} ${L[1]-44})" fill="#fff" fill-opacity=".7"/>`).join(''));}
+
+/* AC 個眼フォルダ（A の色柄 × C の形） */
+function iconAC(){return frame(
+  id=>`<linearGradient id="${id}bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#22355c"/><stop offset="1" stop-color="#0b1226"/></linearGradient>
+  <linearGradient id="${id}bk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a6f8a"/><stop offset="1" stop-color="#16294f"/></linearGradient>
+  <radialGradient id="${id}hl" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#fff" stop-opacity=".45"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+  <radialGradient id="${id}vg" cx=".5" cy=".45" r=".7"><stop offset=".6" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".4"/></radialGradient>
+  <clipPath id="${id}fc"><rect x="196" y="372" width="632" height="430" rx="46"/></clipPath>`,
+  id=>`url(#${id}bg)`,
+  id=>{let s=`<path d="M236 262h170c22 0 34 8 46 26l22 32h314c26 0 44 18 44 44v300H192V306c0-26 18-44 44-44z" fill="url(#${id}bk)"/>
+    <rect x="196" y="372" width="632" height="430" rx="46" fill="#060a16"/>`;
+    const cx=512,cy=587,r=64,dx=1.5*r,dy=Math.sqrt(3)*r;let g='';
+    for(let i=-6;i<=6;i++)for(let j=-4;j<=4;j++){const x=cx+i*dx,y=cy+j*dy+(i&1?dy/2:0);
+      const t=Math.min(Math.hypot((x-cx)/330,(y-cy)/240),1),ang=Math.atan2(y-cy,x-cx);
+      const h=172+48*t+18*Math.sin(ang*2)*t,l=66-38*t;g+=`<polygon points="${poly(hexPts(x,y,r*.86,true))}" fill="${hsl(h,72,l)}"/>`;}
+    s+=`<g clip-path="url(#${id}fc)">${g}<rect x="196" y="372" width="632" height="430" fill="url(#${id}vg)"/></g>
+    <rect x="196" y="372" width="632" height="430" rx="46" fill="none" stroke="#fff" stroke-opacity=".18" stroke-width="4"/>`;return s;});}
+
+/* G 二色の格子（左水色・右白のベタ塗り） */
+function iconG(){return frame(
+  id=>'',
+  id=>'#ffffff',
+  id=>{const r=86,dx=Math.sqrt(3)*r,dy=1.5*r,cx=512,cy=512;let s='';
+    // 尖り上の六角形。偶数行は辺が x=512 に来るよう、奇数行は六角形の中心が x=512 に来るよう並べる。
+    // 塗りは六角形単位。中央にまたがる六角形は2段ごとに左右へ振り分け、境目のジグザグが中央を中心に揺れるようにする
+    for(let j=-6;j<=6;j++)for(let i=-6;i<=6;i++){
+      const odd=j&1,x=cx+(odd?i*dx:(i+.5)*dx),y=cy+j*dy;
+      const left=odd&&i===0?(((j%4)+4)%4===1):x<cx;
+      s+=`<polygon points="${poly(hexPts(x,y,r*1.02,false))}" fill="${left?'#2f9be0':'#d3dbe5'}"/><polygon points="${poly(hexPts(x,y,r*.86,false))}" fill="${left?'#5cc2f7':'#ffffff'}"/>`;}
+    return s;});}
+
+/* C2 C の柄で全面を塗りつぶした版 */
+function iconC2(size,finder){const R=size||100,BG=finder?FINDER_BLUE:['#78b6f7','#3b80d9'],W0=finder?FACE0:['#ffffff','#d6e6f8'],W1=finder?FACE1:['#f4f9ff','#c3daf4'];return frame(
+  id=>`<linearGradient id="${id}bg" x1="0" y1="0" x2="0" y2="1">${stops(BG)}</linearGradient>
+  <linearGradient id="${id}c0" x1="0" y1="0" x2="0" y2="1">${stops(W0)}</linearGradient>
+  <linearGradient id="${id}c1" x1="0" y1="0" x2="0" y2="1">${stops(W1)}</linearGradient>
+  <filter id="${id}cs" x="-30%" y="-30%" width="160%" height="170%"><feDropShadow dx="0" dy="8" stdDeviation="7" flood-color="#123f80" flood-opacity=".35"/></filter>`,
+  id=>`url(#${id}bg)`,
+  id=>{const r=R,dx=Math.sqrt(3)*r,dy=1.5*r,cx=512,cy=512;let g='',c='';
+    for(let j=-7;j<=7;j++)for(let i=-6;i<=6;i++){const x=cx+i*dx+(j&1?dx/2:0),y=cy+j*dy,d=Math.hypot(x-cx,y-cy);
+      const pts=poly(hexPts(x,y,r*.9,false));
+      if(d<dx*1.05){ // 中央の7つ：上が明るく下がわずかに青いグラデーション、下に落ち影、上辺に白い縁
+        c+=`<polygon points="${pts}" fill="url(#${id}${d<1?'c0':'c1'})" stroke="#fff" stroke-opacity=".9" stroke-width="3" filter="url(#${id}cs)"/>`;
+      }else g+=`<polygon points="${pts}" fill="none" stroke="#fff" stroke-opacity=".22" stroke-width="4"/>`;}
+    return g+c;});}
+
+/* C3 C2 の隙間を広げ、立体感を強めた版 */
+function iconC3(){return frame(
+  id=>`<linearGradient id="${id}bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#78b6f7"/><stop offset="1" stop-color="#3b80d9"/></linearGradient>
+  <linearGradient id="${id}ed" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset=".5" stop-color="#e2ecf9"/><stop offset="1" stop-color="#bcd3f0"/></linearGradient>
+  <linearGradient id="${id}f0" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#e2edfa"/></linearGradient>
+  <linearGradient id="${id}f1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fafcff"/><stop offset="1" stop-color="#d4e4f7"/></linearGradient>
+  <filter id="${id}cs" x="-30%" y="-30%" width="160%" height="180%"><feDropShadow dx="0" dy="9" stdDeviation="8" flood-color="#123f80" flood-opacity=".3"/></filter>`,
+  id=>`url(#${id}bg)`,
+  id=>{const r=100,dx=Math.sqrt(3)*r,dy=1.5*r,cx=512,cy=512;let g='',c='';
+    for(let j=-7;j<=7;j++)for(let i=-6;i<=6;i++){const x=cx+i*dx+(j&1?dx/2:0),y=cy+j*dy,d=Math.hypot(x-cx,y-cy);
+      if(d<dx*1.05){ // 外側の六角形を縁（面取り）、内側を少し上にずらした天面として重ね、落ち影を付ける
+        c+=`<polygon points="${poly(hexPts(x,y,r*.9,false))}" fill="url(#${id}ed)" filter="url(#${id}cs)"/>`+
+           `<polygon points="${poly(hexPts(x,y-2,r*.81,false))}" fill="url(#${id}${d<1?'f0':'f1'})"/>`;
+      }else g+=`<polygon points="${poly(hexPts(x,y,r*.9,false))}" fill="none" stroke="#fff" stroke-opacity=".38" stroke-width="4"/>`;}
+    return g+c;});}
+
+/* E 六角の O */
+function iconE(){return frame(
+  id=>`<linearGradient id="${id}bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1f2638"/><stop offset="1" stop-color="#0e1119"/></linearGradient>`,
+  id=>`url(#${id}bg)`,
+  id=>{const r=58,dx=Math.sqrt(3)*r,dy=1.5*r,cx=512,cy=512;let s='';
+    for(let j=-7;j<=7;j++)for(let i=-7;i<=7;i++){const x=cx+i*dx+(j&1?dx/2:0),y=cy+j*dy,d=Math.hypot(x-cx,y-cy);
+      if(d<140||d>330)continue;const a=(Math.atan2(y-cy,x-cx)+Math.PI*1.5)%TAU/TAU;
+      const h=168+130*a,l=58+8*Math.cos(a*TAU);s+=`<polygon points="${poly(hexPts(x,y,r*.88,false))}" fill="${hsl(h,70,l)}"/>`;}
+    return s;});}
+
+/* F 三面ペイン */
+function iconF(){return frame(
+  id=>`<linearGradient id="${id}bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1784a6"/><stop offset="1" stop-color="#0b3a63"/></linearGradient>`,
+  id=>`url(#${id}bg)`,
+  id=>{const C=[512,524],R=320,V=hexPts(C[0],C[1],R,false); // 0 top,1 UR,2 LR,3 bottom,4 LL,5 UL
+    const faces=[[[...C],V[5],V[0],V[1],'#eef6ff','#9fb9d6'],[[...C],V[1],V[2],V[3],'#7fb6ea','#3f78b4'],[[...C],V[3],V[4],V[5],'#3e86d6','#1d518f']];
+    let s='';for(const f of faces){const P=f.slice(0,4),m=[(P[0][0]+P[2][0])/2,(P[0][1]+P[2][1])/2],Q=P.map(p=>lerp(m,p,.93));
+      s+=`<polygon points="${poly(Q)}" fill="${f[4]}"/>`;
+      [.28,.46,.64].forEach((k,n)=>{const a=lerp(Q[0],Q[1],k),b=lerp(Q[3],Q[2],k),A=lerp(a,b,.2),B=lerp(a,b,n===1?.62:.8);
+        s+=`<line x1="${A[0].toFixed(1)}" y1="${A[1].toFixed(1)}" x2="${B[0].toFixed(1)}" y2="${B[1].toFixed(1)}" stroke="${f[5]}" stroke-width="20" stroke-linecap="round"/>`;});}
+    return s;});}
+
+const ICONS=[
+ ['C','複眼フォルダ',iconC,'ファイラーとすぐ分かるフォルダの前面に、六角形の格子。中央の7つだけを白く抜き、個眼のまとまりに見せています。'],
+ ['C-dark','複眼フォルダ・ダーク',()=>iconC(true),'C の背景だけを、A で使っていた濃紺のグラデーションに変えた版。フォルダと格子は C と同じです。'],
+ ['C-dark-F','複眼フォルダ・ダーク・Finder 青',()=>iconC(true,true),'採用した C-dark のフォルダを、Finder のアイコンの配色（青い地と、白から淡い青へ移る面）に合わせた版。'],
+ ['C-F','複眼フォルダ・Finder 青',()=>iconC(false,true),'C のフォルダを、同じ Finder の配色に合わせた版。'],
+ ['C2','複眼の面',iconC2,'C のフォルダの形をやめ、前面の柄でアイコン全体を塗りつぶした版。青のグラデーションに白い六角形の格子を引き、中央の7つだけを白く浮かせています。'],
+ ['C2-F','複眼の面・Finder 青',()=>iconC2(100,true),'C2 を Finder のアイコンの配色に合わせた版。地は Finder の青、中央の7つは Finder の顔の白から淡い青へのグラデーションです。']];
+
+
+const grid=document.getElementById('grid');
+for(const [k,name,fn,desc] of ICONS){
+  const strip=cls=>`<div class="strip ${cls}">${[128,64,32,16].map(n=>`<div class="s">${fn().replace('<svg ',`<svg width="${n}" height="${n}" `)}<span>${n}</span></div>`).join('')}</div>`;
+  grid.insertAdjacentHTML('beforeend',`<section class="card"><div class="top"><div class="big">${fn()}</div>
+    <div class="info"><div class="tag">案 ${k}</div><h2>${name}</h2><p>${desc}</p></div></div>
+    <div class="sizes">${strip('l')}${strip('d')}</div></section>`);
+}
+</script>

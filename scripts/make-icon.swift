@@ -2,19 +2,21 @@
 // Renders the app icon into the asset catalog.
 //
 // Usage: swift scripts/make-icon.swift <AppIcon.appiconset> [variant]
-//   variant: c-f (default, the adopted icon), c-dark, c, c2
+//   variant: c-f (default, the adopted icon), c-dark-f, c-dark, c, c2, c2-f
 //
 //   c-f     Folder on a pale blue ground, coloured like Finder's icon: a three-step blue front, and centre cells that
 //           fade from white to pale blue. The folder front carries a hexagonal lattice whose centre seven cells are light.
 //   c-dark  The folder in a quieter blue with plain white centre cells, on a navy ground.
+//   c-dark-f  c-f's folder on c-dark's navy ground.
 //   c       As c-dark, on a pale blue ground.
 //   c2      No folder: the lattice fills the whole tile, and the centre seven cells stand out with a soft shadow.
+//   c2-f    c2 in Finder's colours: the three-step blue ground and the white-to-pale-blue centre cells.
 //
 // Geometry is written on a 1024-unit canvas with y pointing down, the same as the SVG mock-ups it came from,
 // so numbers here can be compared with those directly.
 import AppKit
 
-enum Variant: String, CaseIterable { case cF = "c-f", cDark = "c-dark", c, c2 }
+enum Variant: String, CaseIterable { case cF = "c-f", cDarkF = "c-dark-f", cDark = "c-dark", c, c2, c2F = "c2-f" }
 
 func color(_ hex: UInt32, _ alpha: CGFloat = 1) -> CGColor {
     CGColor(srgbRed: CGFloat((hex >> 16) & 0xff) / 255, green: CGFloat((hex >> 8) & 0xff) / 255,
@@ -76,8 +78,9 @@ struct FolderColors {
 }
 
 /// Colours picked from Finder's icon.
-let finderFolder = FolderColors(back: 0x2479ee, front: [0x00c2ff, 0x339cfa, 0x3173f6],
-                                centre: ([0xfbfefe, 0xc8e6fd], [0xeef8fe, 0xb0d4fb]))
+let finderBlue: [UInt32] = [0x00c2ff, 0x339cfa, 0x3173f6]
+let finderFace: (inner: [UInt32], ring: [UInt32]) = ([0xfbfefe, 0xc8e6fd], [0xeef8fe, 0xb0d4fb])
+let finderFolder = FolderColors(back: 0x2479ee, front: finderBlue, centre: finderFace)
 let plainFolder = FolderColors(back: 0x3d7fd4, front: [0x78b6f7, 0x3b80d9], centre: nil)
 
 func drawFolder(_ ctx: CGContext, _ colors: FolderColors) {
@@ -132,7 +135,7 @@ func drawFolder(_ ctx: CGContext, _ colors: FolderColors) {
     ctx.fill(CGRect(x: 196, y: 372, width: 632, height: 6))
 }
 
-func drawFilledLattice(_ ctx: CGContext, scale: CGFloat) {
+func drawFilledLattice(_ ctx: CGContext, scale: CGFloat, centre: (inner: [UInt32], ring: [UInt32])) {
     let r: CGFloat = 100, center = CGPoint(x: 512, y: 512), dx = sqrt(3) * r
     let points = lattice(radius: r, center: center, rows: -7...7, columns: -6...6)
     var raised: [(CGPoint, Bool)] = []
@@ -154,11 +157,7 @@ func drawFilledLattice(_ ctx: CGContext, scale: CGFloat) {
         ctx.saveGState()
         ctx.addPath(hex)
         ctx.clip()
-        if isCenter {
-            verticalGradient(ctx, [0xffffff, 0xd6e6f8], p.y - r * 0.9, p.y + r * 0.9)
-        } else {
-            verticalGradient(ctx, [0xf4f9ff, 0xc3daf4], p.y - r * 0.9, p.y + r * 0.9)
-        }
+        verticalGradient(ctx, isCenter ? centre.inner : centre.ring, p.y - r * 0.9, p.y + r * 0.9)
         ctx.restoreGState()
         ctx.addPath(hex)
         ctx.setStrokeColor(color(0xffffff, 0.9))
@@ -181,9 +180,10 @@ func render(_ variant: Variant, size: Int) -> Data {
     // Apple's macOS icon grid: the tile is 824 units inside the 1024 canvas.
     let body = squircle(x: 100, y: 100, size: 824)
     let ground: [UInt32] = switch variant {
-    case .cDark: [0x22355c, 0x0b1226]
+    case .cDark, .cDarkF: [0x22355c, 0x0b1226]
     case .c, .cF: [0xeef4fb, 0xcddcee]
     case .c2: [0x78b6f7, 0x3b80d9]
+    case .c2F: finderBlue
     }
 
     // Tile with its drop shadow.
@@ -200,9 +200,10 @@ func render(_ variant: Variant, size: Int) -> Data {
     ctx.addPath(body)
     ctx.clip()
     switch variant {
-    case .cF: drawFolder(ctx, finderFolder)
+    case .cF, .cDarkF: drawFolder(ctx, finderFolder)
     case .cDark, .c: drawFolder(ctx, plainFolder)
-    case .c2: drawFilledLattice(ctx, scale: scale)
+    case .c2: drawFilledLattice(ctx, scale: scale, centre: ([0xffffff, 0xd6e6f8], [0xf4f9ff, 0xc3daf4]))
+    case .c2F: drawFilledLattice(ctx, scale: scale, centre: finderFace)
     }
     ctx.restoreGState()
 
