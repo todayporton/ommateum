@@ -13,6 +13,9 @@ struct WorkspaceSnapshot: Codable, Equatable, Sendable {
     var activePaneID: UUID?
     var sidebarVisible = true
     var sidebarWidth: Double?
+    /// The display the window was on (`NSScreen.displayUUID`) and its visible frame, for new windows.
+    var display: String?
+    var displayFrame: CodableRect?
 
     /// Repairs inconsistencies between `layout` and `panes` (e.g. hand-edited or partially corrupted files).
     /// Panes missing from the layout are dropped, layout leaves without a pane are removed, empty panes are removed.
@@ -40,6 +43,13 @@ struct WorkspaceSnapshot: Codable, Equatable, Sendable {
 }
 
 extension WorkspaceSnapshot {
+    /// Folder of the active tab in the active pane.
+    var activeFolder: URL? {
+        guard let pane = panes.first(where: { $0.id == activePaneID }) ?? panes.first,
+              let tab = pane.tabs.first(where: { $0.id == pane.activeTabID }) ?? pane.tabs.first else { return nil }
+        return URL(fileURLWithPath: tab.location.path, isDirectory: true)
+    }
+
     /// A copy with new pane and tab IDs. Tabs are found by ID across all windows (to move them between
     /// windows), so two windows opened from the same snapshot must not share IDs.
     func withFreshIDs() -> WorkspaceSnapshot {

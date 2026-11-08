@@ -24,6 +24,7 @@ final class WorkspaceStore {
     private var workspacesURL: URL { directory.appendingPathComponent("workspaces.json") }
     private var sessionURL: URL { directory.appendingPathComponent("session.json") }
     private var defaultWindowURL: URL { directory.appendingPathComponent("default-window.json") }
+    private var lastWindowURL: URL { directory.appendingPathComponent("last-window.json") }
     private(set) var workspaces: [WorkspaceSnapshot] = []
     /// Set when the workspaces file exists but could not be read; saving is refused so the file is not overwritten.
     private(set) var loadError: Error?
@@ -99,8 +100,19 @@ final class WorkspaceStore {
     // MARK: New window layout
 
     /// Layout, folders and window size used for new windows, separate from the named workspaces.
-    var defaultWindow: WorkspaceSnapshot? {
-        guard let data = try? Data(contentsOf: defaultWindowURL),
+    var defaultWindow: WorkspaceSnapshot? { readSnapshot(at: defaultWindowURL) }
+
+    /// The last window closed (or open at quit), for 「前回のウインドウ」 when no window is open.
+    var lastWindow: WorkspaceSnapshot? { readSnapshot(at: lastWindowURL) }
+
+    func saveLastWindow(_ snapshot: WorkspaceSnapshot) {
+        var snapshot = snapshot
+        snapshot.name = nil
+        try? write(snapshot, to: lastWindowURL)
+    }
+
+    private func readSnapshot(at url: URL) -> WorkspaceSnapshot? {
+        guard let data = try? Data(contentsOf: url),
               let snapshot = try? JSONDecoder().decode(WorkspaceSnapshot.self, from: data),
               snapshot.version <= WorkspaceSnapshot.currentVersion else { return nil }
         return snapshot.validated()

@@ -97,7 +97,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
             panes: state.panes,
             activePaneID: state.activePaneID,
             sidebarVisible: !root.isCompact,
-            sidebarWidth: Double(root.expandedWidth))
+            sidebarWidth: Double(root.expandedWidth),
+            display: window?.screen?.displayUUID,
+            displayFrame: (window?.screen?.visibleFrame).map(CodableRect.init))
     }
 
     var activeBrowser: FileBrowserViewController? { workspace.activeBrowser }

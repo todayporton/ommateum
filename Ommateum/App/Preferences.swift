@@ -8,6 +8,12 @@ enum Preferences {
         static let showHiddenFiles = "showHiddenFiles"
         static let defaultViewMode = "defaultViewMode"
         static let listRowHeight = "listRowHeight"
+        static let newWindowSource = "newWindowSource"
+        static let newWindowUsesLayout = "newWindowUsesLayout"
+        static let newWindowUsesPosition = "newWindowUsesPosition"
+        static let newWindowUsesSize = "newWindowUsesSize"
+        static let newWindowUsesDisplay = "newWindowUsesDisplay"
+        static let newWindowScreen = "newWindowScreen"
     }
 
     static func registerDefaults() {
@@ -17,9 +23,43 @@ enum Preferences {
             Key.showHiddenFiles: false,
             Key.defaultViewMode: ViewMode.list.rawValue,
             Key.listRowHeight: ListRowHeight.standard.rawValue,
+            Key.newWindowSource: NewWindowSource.last.rawValue,
+            Key.newWindowUsesLayout: false,
+            Key.newWindowUsesPosition: false,
+            Key.newWindowUsesSize: false,
+            Key.newWindowUsesDisplay: false,
+            Key.newWindowScreen: NewWindowScreen.activeWindow.rawValue,
             // We restore windows ourselves from the saved session; avoid AppKit's own window restoration.
             "NSQuitAlwaysKeepsWindows": false,
         ])
+        migrateDefaultWindow()
+    }
+
+    /// Before these settings existed, a saved default window always applied its layout and size.
+    private static func migrateDefaultWindow() {
+        let defaults = UserDefaults.standard
+        guard defaults.object(forKey: Key.newWindowSource) == nil,
+              FileManager.default.fileExists(atPath: AppPaths.supportDirectory.appendingPathComponent("default-window.json").path)
+        else { return }
+        defaults.set(NewWindowSource.saved.rawValue, forKey: Key.newWindowSource)
+        defaults.set(true, forKey: Key.newWindowUsesLayout)
+        defaults.set(true, forKey: Key.newWindowUsesSize)
+    }
+
+    static var newWindowSource: NewWindowSource {
+        NewWindowSource(rawValue: UserDefaults.standard.string(forKey: Key.newWindowSource) ?? "") ?? .last
+    }
+
+    static var newWindowScreen: NewWindowScreen {
+        NewWindowScreen(rawValue: UserDefaults.standard.string(forKey: Key.newWindowScreen) ?? "") ?? .activeWindow
+    }
+
+    static var newWindowUses: NewWindowPlacement.Uses {
+        let defaults = UserDefaults.standard
+        return .init(layout: defaults.bool(forKey: Key.newWindowUsesLayout),
+                     position: defaults.bool(forKey: Key.newWindowUsesPosition),
+                     size: defaults.bool(forKey: Key.newWindowUsesSize),
+                     display: defaults.bool(forKey: Key.newWindowUsesDisplay))
     }
 
     static var doubleClickEmptyAreaGoesUp: Bool { UserDefaults.standard.bool(forKey: Key.doubleClickEmptyAreaGoesUp) }
@@ -59,6 +99,33 @@ enum ListRowHeight: String, CaseIterable {
         case .compact: return 20
         case .standard: return 24
         case .large: return 28
+        }
+    }
+}
+
+/// Which window a new window copies.
+enum NewWindowSource: String, CaseIterable {
+    /// The front window, or the last one closed when none is open.
+    case last
+    /// The window saved in 設定 ▸ 一般.
+    case saved
+
+    var title: String {
+        switch self {
+        case .last: "前回のウインドウ"
+        case .saved: "保存したウインドウ"
+        }
+    }
+}
+
+/// Where a new window opens when it does not take the display from the default window.
+enum NewWindowScreen: String, CaseIterable {
+    case cursor, activeWindow
+
+    var title: String {
+        switch self {
+        case .cursor: "マウスカーソルのある画面"
+        case .activeWindow: "前面のウインドウがある画面"
         }
     }
 }

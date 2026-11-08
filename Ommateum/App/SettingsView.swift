@@ -60,7 +60,13 @@ private struct GeneralSettingsView: View {
     @AppStorage(Preferences.Key.restoreSession) private var restoreSession = true
     @AppStorage(Preferences.Key.defaultViewMode) private var defaultViewMode = ViewMode.list.rawValue
     @AppStorage(Preferences.Key.listRowHeight) private var listRowHeight = ListRowHeight.standard.rawValue
-    @State private var hasDefaultWindow = WorkspaceStore.shared.defaultWindow != nil
+    @AppStorage(Preferences.Key.newWindowSource) private var newWindowSource = NewWindowSource.last.rawValue
+    @AppStorage(Preferences.Key.newWindowUsesLayout) private var usesLayout = false
+    @AppStorage(Preferences.Key.newWindowUsesPosition) private var usesPosition = false
+    @AppStorage(Preferences.Key.newWindowUsesSize) private var usesSize = false
+    @AppStorage(Preferences.Key.newWindowUsesDisplay) private var usesDisplay = false
+    @AppStorage(Preferences.Key.newWindowScreen) private var newWindowScreen = NewWindowScreen.activeWindow.rawValue
+    @State private var savedWindow = WorkspaceStore.shared.defaultWindow
 
     var body: some View {
         Form {
@@ -76,22 +82,55 @@ private struct GeneralSettingsView: View {
                     Text(height.title).tag(height.rawValue)
                 }
             }
-            LabeledContent("新規ウインドウ") {
-                HStack {
-                    Text(hasDefaultWindow ? "設定したレイアウト" : "前面のウインドウのフォルダ")
-                        .foregroundStyle(.secondary)
-                    if hasDefaultWindow {
-                        Button("リセット") { try? WorkspaceStore.shared.setDefaultWindow(nil) }
+            Section("新規ウインドウ") {
+                Picker("既定のウインドウ", selection: $newWindowSource) {
+                    ForEach(NewWindowSource.allCases, id: \.rawValue) { Text($0.title).tag($0.rawValue) }
+                }
+                .help("前回のウインドウ: 前面のウインドウ（なければ最後に閉じたウインドウ）")
+                if newWindowSource == NewWindowSource.saved.rawValue {
+                    LabeledContent("保存したウインドウ") {
+                        HStack {
+                            Text(savedWindowDescription).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                            Button("前面のウインドウを保存") {
+                                (NSApp.delegate as? AppDelegate)?.saveFrontWindowAsDefault()
+                            }
+                            if savedWindow != nil {
+                                Button("削除") { try? WorkspaceStore.shared.setDefaultWindow(nil) }
+                            }
+                        }
                     }
                 }
+                LabeledContent("既定から引き継ぐ項目") {
+                    VStack(alignment: .leading) {
+                        Toggle("レイアウト（分割・タブ・フォルダ・表示方法）", isOn: $usesLayout)
+                        Toggle("位置", isOn: $usesPosition)
+                        Toggle("サイズ", isOn: $usesSize)
+                        Toggle("ディスプレイ", isOn: $usesDisplay)
+                    }
+                    .toggleStyle(.checkbox)
+                }
+                Picker("ウインドウを開くディスプレイ", selection: $newWindowScreen) {
+                    ForEach(NewWindowScreen.allCases, id: \.rawValue) { Text($0.title).tag($0.rawValue) }
+                }
+                .help("「ディスプレイ」を引き継がないとき、または既定のディスプレイが接続されていないとき")
             }
-            .help("ワークスペース ▸ 現在のウインドウを新規ウインドウの既定にする で設定します")
         }
         .formStyle(.grouped)
         .fixedSize(horizontal: false, vertical: true)
         .onReceive(NotificationCenter.default.publisher(for: .defaultWindowChanged)) { _ in
-            hasDefaultWindow = WorkspaceStore.shared.defaultWindow != nil
+            savedWindow = WorkspaceStore.shared.defaultWindow
         }
+    }
+
+    /// The saved window's panes as in the window lists, e.g. 「admin | 書類」.
+    private var savedWindowDescription: String {
+        guard let savedWindow else { return "未保存（前回のウインドウを使います）" }
+        return savedWindow.layout.leaves.compactMap { id in
+            savedWindow.panes.first { $0.id == id }.flatMap { pane in
+                (pane.tabs.first { $0.id == pane.activeTabID } ?? pane.tabs.first)
+                    .map { FileManager.default.displayName(atPath: $0.location.path) }
+            }
+        }.joined(separator: " | ")
     }
 }
 
