@@ -1,77 +1,80 @@
 # Ommateum
 
-複数のディレクトリを同時に見渡すための macOS ネイティブファイラー。
-Finder の使用感をできるだけ保ち、次の3点を加えます。
+A native macOS file manager for looking at several folders at once.
+It keeps the feel of Finder as much as possible and adds three things:
 
-1. 一覧の**空白部分をダブルクリック**すると親フォルダへ移動
-2. VS Code のエディターグループのように、**タブのドラッグで縦横自由にペインを分割・再配置**（各ペインが独立したタブを持つ）
-3. 画面構成・フォルダ・タブを**名前付きワークスペース**として保存・復元
+1. **Double-click an empty area** of a listing to go to the parent folder
+2. **Split and rearrange panes freely by dragging tabs**, like editor groups in VS Code (each pane has its own tabs)
+3. Save and restore the layout, folders and tabs as **named workspaces**
 
-## ビルド
+The user interface is in Japanese. Menu and setting names below are given in Japanese, with English in parentheses.
 
-- 要件: macOS 14 以降、Xcode 16 以降（検証: Xcode 26.6 / macOS 26.2 / Apple Silicon）
-- 外部ライブラリなし
+## Building
+
+- Requirements: macOS 14 or later, Xcode 16 or later (tested with Xcode 26.6 / macOS 26.2 / Apple Silicon)
+- No third-party libraries
 
 ```sh
-open Ommateum.xcodeproj            # Xcode で ⌘R
-# またはコマンドライン
+open Ommateum.xcodeproj            # then ⌘R in Xcode
+# or from the command line
 xcodebuild -project Ommateum.xcodeproj -scheme Ommateum -derivedDataPath build build
 xcodebuild -project Ommateum.xcodeproj -scheme Ommateum -derivedDataPath build test
 open build/Build/Products/Debug/Ommateum.app
 ```
 
-Bundle ID は `online.todayporton.ommateum` です。
-App Sandbox は使用していません（理由は [docs/feasibility.md](docs/feasibility.md) §5）。
+The bundle identifier is `online.todayporton.ommateum`.
+The app does not use App Sandbox (see [docs/feasibility.md](docs/feasibility.md) §5 for why).
 
-設定・セッション・ワークスペースは `~/Library/Application Support/Ommateum/` に JSON で保存されます。
-環境変数 `OMMATEUM_SUPPORT_DIR` で別の場所を指定できます（検証用。実データに触れずに UI を試すときに使用）。
+Settings, the session and workspaces are stored as JSON in `~/Library/Application Support/Ommateum/`.
+The environment variable `OMMATEUM_SUPPORT_DIR` points the app at another location instead (for testing the UI without touching real data).
 
-## 主な操作
+## Main controls
 
-| 操作 | キー / マウス |
+| Action | Key / mouse |
 | --- | --- |
-| 戻る / 進む | マウスのサイドボタン / ⌘[ / ⌘] |
-| 親フォルダへ | 空白をダブルクリック（設定で無効化可）/ ⌘↑ |
-| 開く / 新規タブで開く | ダブルクリック, ⌘↓, ⌘O / ⌘ダブルクリック |
-| 名前を変更 | Return |
-| クイックルック | Space, ⌘Y |
-| 新規フォルダ / 複製 / ゴミ箱 | ⇧⌘N / ⌘D / ⌘⌫ |
-| コピー / ペースト / 移動ペースト | ⌘C / ⌘V / ⌥⌘V |
-| 取り消す / やり直す | ⌘Z / ⇧⌘Z |
-| 表示切替 | ⌘1 アイコン / ⌘2 リスト / ⌘3 カラム / ⌘4 ギャラリー |
-| 検索 | ⌘F（このフォルダ / サブフォルダも含む） |
-| ショートカットの変更 | 設定 ▸ ショートカット |
-| 情報を見る / エイリアス作成 | ⌘I / ⌃⌘A |
-| 新規タブ / タブを閉じる | ⌘T / ⌘W |
-| 右に分割 / 下に分割 / ペインを閉じる | ⌘\ / ⇧⌘\ / ⌥⇧⌘W |
-| 仕切りを中央へ | ペイン間の仕切りをダブルクリック |
-| 次/前のペイン | ⌥⌘` / ⌥⇧⌘` |
-| タブを移動・分割 | タブを他ペインのタブバーへ（移動）、ペインの上下左右端へ（分割）、ウインドウ外へ（新規ウインドウ） |
-| ワークスペース保存 / 名前を付けて保存 | ⌘S / ⇧⌘S、読み込みはメニューから（⌥で新規ウインドウ） |
-| 隠しファイル表示 | ⇧⌘. |
-| Dropbox「コピーを転送」 | 右クリック / ファイル ▸ アクション |
+| Back / forward | Mouse side buttons / ⌘[ / ⌘] |
+| Parent folder | Double-click an empty area (can be turned off in settings) / ⌘↑ |
+| Open / open in a new tab | Double-click, ⌘↓, ⌘O / ⌘-double-click |
+| Rename | Return |
+| Quick Look | Space, ⌘Y |
+| New folder / duplicate / move to Trash | ⇧⌘N / ⌘D / ⌘⌫ |
+| Copy / paste / move here | ⌘C / ⌘V / ⌥⌘V |
+| Undo / redo | ⌘Z / ⇧⌘Z |
+| View | ⌘1 icons / ⌘2 list / ⌘3 columns / ⌘4 gallery |
+| Search | ⌘F (this folder, or including subfolders) |
+| Change shortcuts | 設定 ▸ ショートカット (Settings ▸ Shortcuts) |
+| Get info / make alias | ⌘I / ⌃⌘A |
+| New tab / close tab | ⌘T / ⌘W |
+| Split right / split down / close pane | ⌘\ / ⇧⌘\ / ⌥⇧⌘W |
+| Center a divider | Double-click the divider between panes |
+| Next / previous pane | ⌥⌘` / ⌥⇧⌘` |
+| Move or split with a tab | Drag a tab onto another pane's tab bar (move), onto a pane's edge (split), or out of the window (new window) |
+| Save workspace / save as | ⌘S / ⇧⌘S; open one from the menu (hold ⌥ to open it in a new window) |
+| Show hidden files | ⇧⌘. |
+| Dropbox "Send a copy" | Context menu / ファイル ▸ アクション (File ▸ Actions) |
 
-## 配布用ビルド
+## Release build
 
 ```sh
-scripts/release.sh                                  # ad-hoc 署名（この Mac 用）
+scripts/release.sh                                  # ad-hoc signed (for this Mac)
 OMMATEUM_BUNDLE_ID=... DEVELOPER_ID="Developer ID Application: ..." NOTARY_PROFILE=... scripts/release.sh
 ```
 
-## カスタムアクション
+## Custom actions
 
-右クリックメニューに自分用のコマンド（スクリプト、ショートカット、共有サービス）を追加できます。
-「ファイル ▸ アクション ▸ アクションを編集…」で `actions.json` を開きます。書式は [docs/actions.md](docs/actions.md)。
+You can add your own commands (scripts, Shortcuts, sharing services) to the context menu.
+ファイル ▸ アクション ▸ アクションを編集… (File ▸ Actions ▸ Edit Actions…) opens `actions.json`. The format is described in [docs/actions.md](docs/actions.md).
 
-## 実装状況
+## Status
 
-詳細は [docs/status.md](docs/status.md)。設計は [docs/architecture.md](docs/architecture.md)、
-技術調査は [docs/feasibility.md](docs/feasibility.md)、要件は [docs/instruction.md](docs/instruction.md)。
+The documents under `docs/` are written in Japanese.
+Details are in [docs/status.md](docs/status.md); the design is in [docs/architecture.md](docs/architecture.md),
+the technical research in [docs/feasibility.md](docs/feasibility.md), and the requirements in [docs/instruction.md](docs/instruction.md).
 
-| Phase | 内容 | 状態 |
+| Phase | Scope | Status |
 | --- | --- | --- |
-| 1 | 技術調査・設計 | 完了 |
-| 2 | 単一ペインのファイラー | 主要機能を実装・動作確認済み（一部未実装あり） |
-| 3 | タブと分割 | 実装・動作確認済み |
-| 4 | ワークスペース | 実装・動作確認済み |
-| 5 | Finder統合・仕上げ | 実装済み。一部は実操作での確認待ち（status.md「未検証」）。配布用の署名は証明書待ち |
+| 1 | Technical research and design | Done |
+| 2 | Single-pane file manager | Main features implemented and checked (a few are not implemented yet) |
+| 3 | Tabs and splits | Implemented and checked |
+| 4 | Workspaces | Implemented and checked |
+| 5 | Finder integration and finishing | Implemented. Some parts still await checks with real use (see "未検証" in status.md). Release signing awaits a certificate |
