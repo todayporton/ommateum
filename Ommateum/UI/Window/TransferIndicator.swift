@@ -1,6 +1,6 @@
 import AppKit
 
-/// Toolbar button showing the combined progress of running copies and moves as a ring.
+/// Toolbar button showing the combined progress of running copies and moves as a ring, with their count inside.
 /// Clicking it opens a popover with each transfer's details and a stop button.
 final class TransferIndicatorButton: NSButton {
     private let ring = ProgressRingView()
@@ -21,8 +21,8 @@ final class TransferIndicatorButton: NSButton {
             widthAnchor.constraint(equalToConstant: 32),
             ring.centerXAnchor.constraint(equalTo: centerXAnchor),
             ring.centerYAnchor.constraint(equalTo: centerYAnchor),
-            ring.widthAnchor.constraint(equalToConstant: 16),
-            ring.heightAnchor.constraint(equalToConstant: 16),
+            ring.widthAnchor.constraint(equalToConstant: 18),
+            ring.heightAnchor.constraint(equalToConstant: 18),
         ])
         // Selector-based, so the registrations go away with the button when the item leaves the toolbar.
         NotificationCenter.default.addObserver(self, selector: #selector(refresh), name: TransferCenter.didTick, object: TransferCenter.shared)
@@ -33,15 +33,17 @@ final class TransferIndicatorButton: NSButton {
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
     @objc private func refresh() {
-        ring.fraction = TransferCenter.shared.overallFraction
+        let center = TransferCenter.shared
+        ring.count = center.transfers.count
+        ring.fraction = center.overallFraction
         (popover?.contentViewController as? TransferListViewController)?.refresh()
     }
 
     @objc private func transfersChanged() {
-        if TransferCenter.shared.transfers.isEmpty {
-            popover?.close()
-        } else {
-            (popover?.contentViewController as? TransferListViewController)?.rebuild()
+        if let popover, let list = popover.contentViewController as? TransferListViewController {
+            list.rebuild()
+            // The popover follows preferredContentSize when it grows but not when it shrinks.
+            popover.contentSize = list.preferredContentSize
         }
         refresh()
     }
@@ -59,14 +61,16 @@ final class TransferIndicatorButton: NSButton {
     }
 }
 
-/// A progress ring; spins a short arc while the total size is still being counted.
+/// A progress ring with the number of transfers inside; spins a short arc while the total size is still being
+/// counted, and is an empty track when nothing is running.
 private final class ProgressRingView: NSView {
+    var count = 0 { didSet { if count != oldValue { needsDisplay = true } } }
     var fraction: Double? { didSet { needsDisplay = true } }
 
     override func hitTest(_ point: NSPoint) -> NSView? { nil } // clicks go to the button
 
     override func draw(_ dirtyRect: NSRect) {
-        let lineWidth: CGFloat = 2.5
+        let lineWidth: CGFloat = 2
         let rect = bounds.insetBy(dx: lineWidth / 2, dy: lineWidth / 2)
         let center = NSPoint(x: rect.midX, y: rect.midY)
         let radius = rect.width / 2
@@ -74,6 +78,14 @@ private final class ProgressRingView: NSView {
         track.lineWidth = lineWidth
         NSColor.tertiaryLabelColor.setStroke()
         track.stroke()
+        guard count > 0 else { return }
+
+        let text = NSAttributedString(string: "\(count)", attributes: [
+            .font: NSFont.monospacedDigitSystemFont(ofSize: count < 10 ? 10 : 8, weight: .semibold),
+            .foregroundColor: NSColor.labelColor,
+        ])
+        let size = text.size()
+        text.draw(at: NSPoint(x: bounds.midX - size.width / 2, y: bounds.midY - size.height / 2))
 
         let start: CGFloat
         let sweep: CGFloat
@@ -94,23 +106,38 @@ private final class ProgressRingView: NSView {
     }
 }
 
-/// Popover content: one row per running transfer.
+/// Popover content: one row per running transfer, or a note that nothing is running.
 private final class TransferListViewController: NSViewController {
     private let stack = NSStackView()
     private var rows: [TransferDetailRow] = []
+    private let emptyLabel = NSTextField(labelWithString: "実行中のファイル操作はありません")
 
     override func loadView() {
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = 14
         stack.edgeInsets = NSEdgeInsets(top: 14, left: 14, bottom: 14, right: 14)
-        view = stack
+        // The stack sits in a plain container so its fitting size isn't held at the popover's current size.
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        let container = NSView()
+        container.addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.topAnchor.constraint(equalTo: container.topAnchor),
+            stack.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+        ])
+        view = container
         rebuild()
     }
 
     func rebuild() {
         rows.forEach { $0.removeFromSuperview() }
         rows = TransferCenter.shared.transfers.map(TransferDetailRow.init)
+        emptyLabel.textColor = .secondaryLabelColor
+        if rows.isEmpty, emptyLabel.superview == nil {
+            stack.addArrangedSubview(emptyLabel)
+        } else if !rows.isEmpty {
+            emptyLabel.removeFromSuperview()
+        }
         for row in rows {
             stack.addArrangedSubview(row)
             row.widthAnchor.constraint(equalToConstant: 340).isActive = true

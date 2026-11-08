@@ -83,5 +83,5 @@ Dropbox「コピーを転送」のような外部連携は、ブラウザやメ�
 
 `FileManager.copyItem` は進捗も中止もできないため、`FileCopier` が `copyfile(3)` を使う（属性・拡張属性・シンボリックリンクを保持し、APFS では複製）。
 進捗は `TransferProgress`（ロック付き）に書き、`TransferCenter` が 0.1 秒ごとに読んで通知する。0.4 秒以内に終わる操作は一覧に載せない。
-各ウインドウのツールバーは、一覧が空でない間だけ `TransferIndicatorButton`（全操作の合計のリング）を表示ボタンの左に挿入し、クリックで操作ごとの吹き出しを開く。速度は `TransferSpeedMeter` が直近 3 秒の差分から出す。
+各ウインドウのツールバーは表示ボタンの左に常に `TransferIndicatorButton`（全操作の合計のリングと実行中の数）を置き、クリックで操作ごとの吹き出しを開く。速度は `TransferSpeedMeter` が直近 3 秒の差分から出す。
 別ボリュームへの移動はコピー完了後に元を削除する。
