@@ -266,11 +266,11 @@ extension AppDelegate {
         }
     }
 
-    /// 「【ワークスペース名】ペイン1|ペイン2」. Windows not loaded from a workspace show only the panes.
+    /// 「[ワークスペース名] - ペイン1 | ペイン2」. Windows not loaded from a workspace show only the panes.
     private func dockTitle(for controller: MainWindowController) -> String {
-        let panes = controller.workspace.paneTitles.joined(separator: "|")
+        let panes = controller.workspace.paneTitles.joined(separator: " | ")
         guard let name = controller.workspaceName else { return panes }
-        return "【\(name)】\(panes)"
+        return "[\(name)] - \(panes)"
     }
 
     private func bringToFront(_ controller: MainWindowController) {
