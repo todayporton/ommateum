@@ -110,6 +110,9 @@ final class FileBrowserViewController: NSViewController, NSMenuItemValidation {
         searchBar.onClose = { [weak self] in self?.endSearch(nil) }
         pathBar.translatesAutoresizingMaskIntoConstraints = false
         pathBar.onSelect = { [weak self] url in self?.pathBarSelected(url) }
+        pathBar.onDrop = { [weak self] urls, directory, operation in
+            self?.contentAcceptDrop(urls, into: directory, operation: operation) ?? false
+        }
         let stack = NSStackView(views: [banner, searchBar, contentContainer, pathBar])
         stack.orientation = .vertical
         stack.spacing = 0
