@@ -5,5 +5,17 @@
 	<!-- Keeps the pre-Liquid Glass window look: small window corners with a toolbar. See docs/feasibility.md §3. -->
 	<key>UIDesignRequiresCompatibility</key>
 	<true/>
+	<!-- ommateum://open?path=… and ommateum://workspace?name=… (see AppURL.swift) -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>Ommateum URL</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>ommateum</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

@@ -41,6 +41,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 
     func application(_ application: NSApplication, open urls: [URL]) {
         for url in urls {
+            if url.scheme?.lowercased() == AppURL.scheme {
+                handle(appURL: url)
+                continue
+            }
             let folder = FileSystem.isDirectory(url) ? url : url.deletingLastPathComponent()
             if let controller = keyWindowController {
                 controller.workspace.newTab(url: folder)
@@ -291,17 +295,50 @@ extension AppDelegate {
         newWindow(sender)
     }
 
-    /// Switches to the window already showing the workspace; otherwise opens it in a new window
-    /// so the window the user was working in is not replaced.
     @objc private func openWorkspaceFromDock(_ sender: NSMenuItem) {
         guard let name = sender.representedObject as? String else { return }
+        showWorkspace(named: name)
+    }
+
+    /// Switches to the window already showing the workspace; otherwise opens it in a new window
+    /// so the window the user was working in is not replaced.
+    @discardableResult
+    func showWorkspace(named name: String) -> Bool {
         if let open = windowControllers.first(where: { $0.workspaceName == name }) {
             bringToFront(open)
-            return
+            return true
         }
-        guard let snapshot = WorkspaceStore.shared.workspace(named: name) else { return }
+        guard let snapshot = WorkspaceStore.shared.workspace(named: name) else { return false }
         NSApp.activate()
         loadWorkspace(snapshot, inNewWindow: true)
+        return true
+    }
+}
+
+// MARK: - ommateum:// URLs
+
+extension AppDelegate {
+    func handle(appURL url: URL) {
+        switch AppURL(url) {
+        case .open(let path):
+            let target = URL(fileURLWithPath: path)
+            guard FileManager.default.fileExists(atPath: target.path) else {
+                FileOperations.shared.showError(message: "「\(path)」が見つかりません。", window: nil)
+                return
+            }
+            let isFolder = FileSystem.isDirectory(target)
+            NSApp.activate()
+            openWindow(snapshot: nil)?.activeBrowser?.navigate(
+                to: isFolder ? target : target.deletingLastPathComponent(),
+                recordHistory: false,
+                select: isFolder ? [] : [target])
+        case .workspace(let name):
+            if !showWorkspace(named: name) {
+                FileOperations.shared.showError(message: "ワークスペース「\(name)」が見つかりません。", window: nil)
+            }
+        case nil:
+            FileOperations.shared.showError(message: "この URL は開けません: \(url.absoluteString)", window: nil)
+        }
     }
 }
 

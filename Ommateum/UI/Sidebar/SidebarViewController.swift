@@ -779,6 +779,12 @@ final class SidebarViewController: NSViewController {
         (NSApp.delegate as? AppDelegate)?.showWorkspaceManager(sender)
     }
 
+    @objc private func copyAppURL(_ sender: NSMenuItem) {
+        guard let url = sender.representedObject as? URL else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(url.absoluteString, forType: .string)
+    }
+
     @objc private func openWorkspaceInNewWindow(_ sender: NSMenuItem) {
         if let name = (sender.representedObject as? SidebarWorkspaceEntry)?.name { host?.sidebarOpenWorkspace(name, inNewWindow: true) }
     }
@@ -804,10 +810,12 @@ extension SidebarViewController: NSMenuDelegate {
         switch clickedItem {
         case let workspace as SidebarWorkspaceEntry:
             add("新規ウインドウで開く", #selector(openWorkspaceInNewWindow(_:)), workspace)
+            add("URLをコピー", #selector(copyAppURL(_:)), AppURL.workspace(name: workspace.name).url)
             add("ワークスペースを管理…", #selector(manageWorkspaces(_:)))
         case let entry as SidebarEntry:
             add("新規タブで開く", #selector(openInNewTab(_:)), entry)
             add("Finderで表示", #selector(revealInFinder(_:)), entry)
+            add("URLをコピー", #selector(copyAppURL(_:)), AppURL.open(path: entry.url.path).url)
             if let groupID = entry.groupID, let itemPath = entry.itemPath {
                 menu.addItem(.separator())
                 add("表示名を変更…", #selector(renameItem(_:)), entry)

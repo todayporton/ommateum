@@ -527,6 +527,13 @@ final class FileBrowserViewController: NSViewController, NSMenuItemValidation {
         NSPasteboard.general.setString(paths.joined(separator: "\n"), forType: .string)
     }
 
+    /// `ommateum://open` links that open each item (or the current folder) in a new window.
+    @objc func copyAppURL(_ sender: Any?) {
+        let paths = selectedItems.isEmpty ? [currentURL.path] : selectedItems.map(\.url.path)
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(paths.map { AppURL.open(path: $0).url.absoluteString }.joined(separator: "\n"), forType: .string)
+    }
+
     @objc func revealInFinder(_ sender: Any?) {
         let urls = selectedItems.map(\.url)
         NSWorkspace.shared.activateFileViewerSelecting(urls.isEmpty ? [currentURL] : urls)
