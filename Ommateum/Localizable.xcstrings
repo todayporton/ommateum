@@ -397,13 +397,13 @@
         }
       }
     },
-    "Back/Forward": {
+    "Back/Forward/Up": {
       "extractionState": "manual",
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "戻る/進む"
+            "value": "戻る/進む/上へ"
           }
         }
       }
@@ -1999,6 +1999,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "ペースト"
+          }
+        }
+      }
+    },
+    "Path Bar": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "パスバー"
           }
         }
       }

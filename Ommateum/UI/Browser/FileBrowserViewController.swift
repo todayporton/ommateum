@@ -44,6 +44,7 @@ final class FileBrowserViewController: NSViewController, NSMenuItemValidation {
     private let contentContainer = NSView()
     private let banner = BannerView()
     private let searchBar = SearchBarView()
+    private let pathBar = PathBarView()
     private var searchText = ""
     private var searchScope = SearchBarView.Scope.thisFolder
     private var spotlight: SpotlightSearch?
@@ -107,7 +108,9 @@ final class FileBrowserViewController: NSViewController, NSMenuItemValidation {
         searchBar.isHidden = true
         searchBar.onChange = { [weak self] text, scope in self?.searchChanged(text: text, scope: scope) }
         searchBar.onClose = { [weak self] in self?.endSearch(nil) }
-        let stack = NSStackView(views: [banner, searchBar, contentContainer])
+        pathBar.translatesAutoresizingMaskIntoConstraints = false
+        pathBar.onSelect = { [weak self] url in self?.pathBarSelected(url) }
+        let stack = NSStackView(views: [banner, searchBar, contentContainer, pathBar])
         stack.orientation = .vertical
         stack.spacing = 0
         stack.translatesAutoresizingMaskIntoConstraints = false
@@ -124,12 +127,15 @@ final class FileBrowserViewController: NSViewController, NSMenuItemValidation {
             searchBar.trailingAnchor.constraint(equalTo: stack.trailingAnchor),
             contentContainer.leadingAnchor.constraint(equalTo: stack.leadingAnchor),
             contentContainer.trailingAnchor.constraint(equalTo: stack.trailingAnchor),
+            pathBar.leadingAnchor.constraint(equalTo: stack.leadingAnchor),
+            pathBar.trailingAnchor.constraint(equalTo: stack.trailingAnchor),
             placeholder.centerXAnchor.constraint(equalTo: contentContainer.centerXAnchor),
             placeholder.centerYAnchor.constraint(equalTo: contentContainer.centerYAnchor),
             placeholder.widthAnchor.constraint(lessThanOrEqualTo: contentContainer.widthAnchor, constant: -40),
         ])
         view = root
         installContent()
+        updatePathBar()
         if let missing = missingOriginalPath {
             showBanner(loc("“%@” can’t be found, so “%@” is shown instead.", missing, displayTitle), retry: { [weak self] in self?.retryMissingLocation() })
         }
@@ -188,7 +194,7 @@ final class FileBrowserViewController: NSViewController, NSMenuItemValidation {
         items = []
         if viewMode == .column { installContent() }
         reload()
-        host?.browserDidChangeLocation(self)
+        locationDidChange()
     }
 
     @objc func goBack(_ sender: Any?) {
@@ -235,6 +241,41 @@ final class FileBrowserViewController: NSViewController, NSMenuItemValidation {
         navigate(to: parent, select: [from])
     }
 
+    private func locationDidChange() {
+        updatePathBar()
+        host?.browserDidChangeLocation(self)
+    }
+
+    /// Like Finder, the path bar shows the selected item when there is exactly one, otherwise the folder.
+    private func updatePathBar() {
+        let selected = selectedItems
+        pathBar.url = selected.count == 1 ? selected[0].url : (targetDirectory ?? currentURL)
+    }
+
+    private func pathBarSelected(_ url: URL) {
+        host?.browserDidBecomeActive(self)
+        let path = url.standardizedFileURL.path
+        let current = currentURL.path
+        if path == current || current.hasPrefix(path == "/" ? "/" : path + "/") {
+            // Going up: select the folder we came out of, as ⌘↑ does.
+            let components = currentURL.pathComponents
+            let depth = url.standardizedFileURL.pathComponents.count
+            let child = components.count > depth
+                ? URL(fileURLWithPath: NSString.path(withComponents: Array(components.prefix(depth + 1))))
+                : nil
+            navigate(to: url, select: child.map { [$0] } ?? [])
+        } else if path.hasPrefix(current == "/" ? "/" : current + "/") {
+            // Inside the shown folder (an open column or an expanded row): select it rather than leaving the view.
+            if viewMode == .column || !FileSystem.isDirectory(url) {
+                content?.select([url])
+            } else {
+                navigate(to: url)
+            }
+        } else if FileSystem.isDirectory(url) {
+            navigate(to: url)
+        }
+    }
+
     func setViewMode(_ mode: ViewMode) {
         guard mode != viewMode else { return }
         let selection = Set(selectedItems.map(\.url))
@@ -242,7 +283,7 @@ final class FileBrowserViewController: NSViewController, NSMenuItemValidation {
         installContent()
         content?.select(selection)
         focus()
-        host?.browserDidChangeLocation(self)
+        locationDidChange()
     }
 
     // MARK: Search
@@ -554,7 +595,7 @@ final class FileBrowserViewController: NSViewController, NSMenuItemValidation {
         groupBy = (sender.representedObject as? String).flatMap(GroupKey.init(rawValue:))
         content?.groupKey = groupBy
         showItems()
-        host?.browserDidChangeLocation(self)
+        locationDidChange()
     }
 
     @objc func sortBy(_ sender: NSMenuItem) {
@@ -662,6 +703,7 @@ extension FileBrowserViewController: BrowserContentDelegate {
 
     func contentSelectionDidChange() {
         host?.browserDidBecomeActive(self)
+        updatePathBar()
         if let panel = QLPreviewPanel.sharedPreviewPanelExists() ? QLPreviewPanel.shared() : nil, panel.isVisible {
             panel.reloadData()
         }
@@ -702,7 +744,7 @@ extension FileBrowserViewController: BrowserContentDelegate {
     }
 
     func contentTargetDirectoryDidChange() {
-        host?.browserDidChangeLocation(self)
+        locationDidChange()
     }
 }
 

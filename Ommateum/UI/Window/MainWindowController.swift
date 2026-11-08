@@ -115,6 +115,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         viewModeControl?.selectedSegment = ViewMode.allCases.firstIndex(of: browser.viewMode) ?? 0
         navigationControl?.setEnabled(browser.canGoBack, forSegment: 0)
         navigationControl?.setEnabled(browser.canGoForward, forSegment: 1)
+        navigationControl?.setEnabled(browser.canGoUp, forSegment: 2)
         sidebar.highlight(browser.targetDirectory)
     }
 
@@ -187,7 +188,11 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
     }
 
     @objc func toolbarNavigate(_ sender: NSSegmentedControl) {
-        if sender.selectedSegment == 0 { activeBrowser?.goBack(sender) } else { activeBrowser?.goForward(sender) }
+        switch sender.selectedSegment {
+        case 0: activeBrowser?.goBack(sender)
+        case 1: activeBrowser?.goForward(sender)
+        default: activeBrowser?.goToEnclosingFolder(sender)
+        }
     }
 
     @objc func toolbarViewMode(_ sender: NSSegmentedControl) {
@@ -268,14 +273,16 @@ extension MainWindowController: NSToolbarDelegate {
             let control = NSSegmentedControl(images: [
                 NSImage(systemSymbolName: "chevron.left", accessibilityDescription: loc("Back"))!,
                 NSImage(systemSymbolName: "chevron.right", accessibilityDescription: loc("Forward"))!,
+                NSImage(systemSymbolName: "chevron.up", accessibilityDescription: loc("Enclosing Folder"))!,
             ], trackingMode: .momentary, target: self, action: #selector(toolbarNavigate(_:)))
             control.segmentStyle = .separated
             control.setToolTip(loc("Back"), forSegment: 0)
             control.setToolTip(loc("Forward"), forSegment: 1)
+            control.setToolTip(loc("Enclosing Folder"), forSegment: 2)
             navigationControl = control
             let item = NSToolbarItem(itemIdentifier: itemIdentifier)
             item.view = control
-            item.label = loc("Back/Forward")
+            item.label = loc("Back/Forward/Up")
             item.isNavigational = true
             return item
         case ToolbarID.viewMode:
