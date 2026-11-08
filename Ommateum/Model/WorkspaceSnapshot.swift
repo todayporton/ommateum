@@ -39,6 +39,33 @@ struct WorkspaceSnapshot: Codable, Equatable, Sendable {
     }
 }
 
+extension WorkspaceSnapshot {
+    /// A copy with new pane and tab IDs. Tabs are found by ID across all windows (to move them between
+    /// windows), so two windows opened from the same snapshot must not share IDs.
+    func withFreshIDs() -> WorkspaceSnapshot {
+        var copy = self
+        var paneIDs: [UUID: UUID] = [:]
+        copy.panes = panes.map { pane in
+            var pane = pane
+            let newID = UUID()
+            paneIDs[pane.id] = newID
+            pane.id = newID
+            var tabIDs: [UUID: UUID] = [:]
+            pane.tabs = pane.tabs.map { tab in
+                var copy = tab
+                copy.id = UUID()
+                tabIDs[tab.id] = copy.id
+                return copy
+            }
+            pane.activeTabID = pane.activeTabID.flatMap { tabIDs[$0] }
+            return pane
+        }
+        copy.layout = layout.mappingLeaves { paneIDs[$0] ?? $0 }
+        copy.activePaneID = activePaneID.flatMap { paneIDs[$0] }
+        return copy
+    }
+}
+
 /// Container for the automatically saved session (all open windows).
 struct SessionSnapshot: Codable, Sendable {
     var version = WorkspaceSnapshot.currentVersion

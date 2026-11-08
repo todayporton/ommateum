@@ -21,7 +21,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         if Preferences.restoreSession, let session = WorkspaceStore.shared.loadSession(), !session.windows.isEmpty {
             session.windows.forEach { openWindow(snapshot: $0) }
         } else {
-            openWindow(snapshot: nil)
+            openNewWindow()
         }
         if let error = WorkspaceStore.shared.loadError {
             FileOperations.shared.showError(message: "保存済みワークスペースを読み込めませんでした: \(error.localizedDescription)", window: nil)
@@ -35,7 +35,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        if !flag { openWindow(snapshot: nil) }
+        if !flag { openNewWindow() }
         return true
     }
 
@@ -65,8 +65,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 
     // MARK: Windows
 
+    /// The key or main window, else the frontmost visible one: right after another window (such as 設定) closes,
+    /// none of ours may be main yet.
     var keyWindowController: MainWindowController? {
-        windowControllers.first { $0.window?.isKeyWindow == true } ?? windowControllers.first { $0.window?.isMainWindow == true }
+        windowControllers.first { $0.window?.isKeyWindow == true }
+            ?? windowControllers.first { $0.window?.isMainWindow == true }
+            ?? NSApp.orderedWindows.lazy.compactMap { window in
+                self.windowControllers.first { $0.window === window && window.isVisible && !window.isMiniaturized }
+            }.first
     }
 
     @discardableResult
@@ -74,8 +80,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         let controller = MainWindowController(snapshot: snapshot)
         register(controller)
         controller.workspaceName = snapshot?.name
+        // Showing the window gives focus to the first pane, which would make it the active one.
+        let activePane = controller.workspace.activePane
         controller.showWindow(nil)
-        controller.workspace.activePane?.focus()
+        activePane?.focus()
         return controller
     }
 
@@ -115,10 +123,53 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         }
     }
 
-    @objc func newWindow(_ sender: Any?) {
-        let url = keyWindowController?.activeBrowser?.currentURL
-        let controller = openWindow(snapshot: nil)
-        if let url { controller?.activeBrowser?.navigate(to: url, recordHistory: false) }
+    @objc func newWindow(_ sender: Any?) { openNewWindow() }
+
+    /// For ⌘N, the Dock menu, `ommateum://open` and launching without a restored session: the layout set with
+    /// 「現在のウインドウを新規ウインドウの既定にする」, or else one tab on the front window's folder.
+    @discardableResult
+    func openNewWindow() -> MainWindowController? {
+        guard var snapshot = WorkspaceStore.shared.defaultWindow else {
+            let url = keyWindowController?.activeBrowser?.currentURL
+            let controller = openWindow(snapshot: nil)
+            if let url { controller?.activeBrowser?.navigate(to: url, recordHistory: false) }
+            return controller
+        }
+        // Only the size is kept; the position follows the front window so the new one does not cover it.
+        if let size = snapshot.windowFrame?.rect.size {
+            snapshot.windowFrame = CodableRect(Self.newWindowFrame(size: size, after: keyWindowController?.window))
+        }
+        return openWindow(snapshot: snapshot)
+    }
+
+    /// Below and to the right of `previous` (like AppKit's cascading), or centred; kept on the screen.
+    static func newWindowFrame(size: CGSize, after previous: NSWindow?) -> CGRect {
+        let screen = (previous?.screen ?? NSScreen.main)?.visibleFrame ?? CGRect(origin: .zero, size: size)
+        let width = min(size.width, screen.width), height = min(size.height, screen.height)
+        var origin = CGPoint(x: screen.midX - width / 2, y: screen.midY - height / 2)
+        if let previous, !previous.styleMask.contains(.fullScreen) {
+            origin = CGPoint(x: previous.frame.minX + 22, y: previous.frame.maxY - 22 - height)
+        }
+        origin.x = min(max(origin.x, screen.minX), screen.maxX - width)
+        origin.y = min(max(origin.y, screen.minY), screen.maxY - height)
+        return CGRect(origin: origin, size: CGSize(width: width, height: height))
+    }
+
+    @objc func setDefaultWindowLayout(_ sender: Any?) {
+        guard let controller = keyWindowController else { return }
+        do {
+            try WorkspaceStore.shared.setDefaultWindow(controller.snapshot())
+        } catch {
+            FileOperations.shared.showError(error, window: controller.window)
+        }
+    }
+
+    @objc func resetDefaultWindowLayout(_ sender: Any?) {
+        do {
+            try WorkspaceStore.shared.setDefaultWindow(nil)
+        } catch {
+            FileOperations.shared.showError(error, window: keyWindowController?.window)
+        }
     }
 
     // MARK: Settings
@@ -223,8 +274,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         case #selector(toggleHiddenFiles(_:)):
             menuItem.state = Preferences.showHiddenFiles ? .on : .off
             return true
-        case #selector(saveWorkspace(_:)), #selector(saveWorkspaceAs(_:)):
+        case #selector(saveWorkspace(_:)), #selector(saveWorkspaceAs(_:)), #selector(setDefaultWindowLayout(_:)):
             return keyWindowController != nil
+        case #selector(resetDefaultWindowLayout(_:)):
+            return WorkspaceStore.shared.defaultWindow != nil
         case #selector(mergeWindowsIntoFront(_:)):
             return windowControllers.count > 1
         default:
@@ -332,6 +385,9 @@ extension AppDelegate {
                 to: isFolder ? target : target.deletingLastPathComponent(),
                 recordHistory: false,
                 select: isFolder ? [] : [target])
+        case .newWindow:
+            NSApp.activate()
+            openNewWindow()
         case .workspace(let name):
             if !showWorkspace(named: name) {
                 FileOperations.shared.showError(message: "ワークスペース「\(name)」が見つかりません。", window: nil)
@@ -370,6 +426,8 @@ extension AppDelegate: NSMenuDelegate {
         menu.removeAllItems()
         menu.addItem(withTitle: "ワークスペースを保存", action: #selector(saveWorkspace(_:)), keyEquivalent: "s")
         menu.addItem(withTitle: "名前を付けてワークスペースを保存…", action: #selector(saveWorkspaceAs(_:)), keyEquivalent: "S")
+        menu.addItem(withTitle: "現在のウインドウを新規ウインドウの既定にする", action: #selector(setDefaultWindowLayout(_:)), keyEquivalent: "")
+        menu.addItem(withTitle: "新規ウインドウの既定をリセット", action: #selector(resetDefaultWindowLayout(_:)), keyEquivalent: "")
         menu.addItem(withTitle: "ワークスペースを管理…", action: #selector(showWorkspaceManager(_:)), keyEquivalent: "")
         let names = WorkspaceStore.shared.names
         if !names.isEmpty { menu.addItem(.separator()) }

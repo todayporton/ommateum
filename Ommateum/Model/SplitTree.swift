@@ -38,6 +38,14 @@ indirect enum SplitTree: Equatable, Sendable {
 
     func contains(_ id: UUID) -> Bool { leaves.contains(id) }
 
+    /// The same layout with each pane ID replaced.
+    func mappingLeaves(_ transform: (UUID) -> UUID) -> SplitTree {
+        switch self {
+        case .leaf(let id): .leaf(transform(id))
+        case .split(let axis, let children, let fractions): .split(axis, children.map { $0.mappingLeaves(transform) }, fractions)
+        }
+    }
+
     // MARK: Mutations
 
     /// Splits the leaf `target` and places `newLeaf` on `edge` of it. The two share the target's former space equally.

@@ -60,6 +60,7 @@ private struct GeneralSettingsView: View {
     @AppStorage(Preferences.Key.restoreSession) private var restoreSession = true
     @AppStorage(Preferences.Key.defaultViewMode) private var defaultViewMode = ViewMode.list.rawValue
     @AppStorage(Preferences.Key.listRowHeight) private var listRowHeight = ListRowHeight.standard.rawValue
+    @State private var hasDefaultWindow = WorkspaceStore.shared.defaultWindow != nil
 
     var body: some View {
         Form {
@@ -75,9 +76,22 @@ private struct GeneralSettingsView: View {
                     Text(height.title).tag(height.rawValue)
                 }
             }
+            LabeledContent("新規ウインドウ") {
+                HStack {
+                    Text(hasDefaultWindow ? "設定したレイアウト" : "前面のウインドウのフォルダ")
+                        .foregroundStyle(.secondary)
+                    if hasDefaultWindow {
+                        Button("リセット") { try? WorkspaceStore.shared.setDefaultWindow(nil) }
+                    }
+                }
+            }
+            .help("ワークスペース ▸ 現在のウインドウを新規ウインドウの既定にする で設定します")
         }
         .formStyle(.grouped)
         .fixedSize(horizontal: false, vertical: true)
+        .onReceive(NotificationCenter.default.publisher(for: .defaultWindowChanged)) { _ in
+            hasDefaultWindow = WorkspaceStore.shared.defaultWindow != nil
+        }
     }
 }
 

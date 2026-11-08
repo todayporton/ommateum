@@ -30,7 +30,8 @@ final class WorkspaceViewController: NSViewController {
 
     /// Builds the layout and pane controllers for a snapshot, or a single home-folder pane when it is unusable.
     private static func makeState(from snapshot: WorkspaceSnapshot?) -> (SplitTree, [UUID: PaneViewController], UUID) {
-        if let snapshot = snapshot?.validated() {
+        // Fresh IDs: the same workspace may be open in several windows, and tabs are found by ID across windows.
+        if let snapshot = snapshot?.validated()?.withFreshIDs() {
             var panes: [UUID: PaneViewController] = [:]
             for paneState in snapshot.panes {
                 panes[paneState.id] = PaneViewController(state: paneState)

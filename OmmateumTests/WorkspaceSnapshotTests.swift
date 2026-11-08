@@ -55,4 +55,19 @@ struct WorkspaceSnapshotTests {
         #expect(FileSystem.nearestExistingDirectory(to: missing)?.standardizedFileURL.path
                 == URL(fileURLWithPath: NSTemporaryDirectory()).standardizedFileURL.path)
     }
+
+    @Test func freshIDsKeepStructureButShareNoIDs() {
+        let p1 = pane(), p2 = pane(tabs: 2)
+        var snapshot = WorkspaceSnapshot(layout: SplitTree.leaf(p1.id).inserting(p2.id, at: .right, of: p1.id), panes: [p1, p2], activePaneID: p2.id)
+        snapshot.panes[1].activeTabID = p2.tabs[1].id
+        let fresh = snapshot.withFreshIDs()
+        let oldIDs = Set(snapshot.panes.flatMap { [$0.id] + $0.tabs.map(\.id) })
+        let newIDs = Set(fresh.panes.flatMap { [$0.id] + $0.tabs.map(\.id) })
+        #expect(oldIDs.isDisjoint(with: newIDs))
+        #expect(fresh.layout.leaves == fresh.panes.map(\.id))
+        #expect(fresh.activePaneID == fresh.panes[1].id)
+        #expect(fresh.panes[1].activeTabID == fresh.panes[1].tabs[1].id)
+        #expect(fresh.panes.map { $0.tabs.map(\.location) } == snapshot.panes.map { $0.tabs.map(\.location) })
+        #expect(fresh.validated() == fresh)
+    }
 }

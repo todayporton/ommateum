@@ -17,8 +17,9 @@ struct AppURLTests {
     @Test func parsing() {
         #expect(AppURL(URL(string: "ommateum://open?path=~/Documents")!) == .open(path: NSHomeDirectory() + "/Documents"))
         #expect(AppURL(URL(string: "OMMATEUM://Workspace?name=x")!) == .workspace(name: "x"))
-        #expect(AppURL(URL(string: "ommateum://open")!) == nil)
-        #expect(AppURL(URL(string: "ommateum://open?path=")!) == nil)
+        #expect(AppURL(URL(string: "ommateum://open")!) == .newWindow)
+        #expect(AppURL(URL(string: "ommateum://open?path=")!) == .newWindow)
+        #expect(AppURL(AppURL.newWindow.url) == .newWindow)
         #expect(AppURL(URL(string: "ommateum://other?path=/")!) == nil)
         #expect(AppURL(URL(string: "https://open?path=/")!) == nil)
     }

@@ -4,9 +4,11 @@ import Foundation
 ///
 /// - `ommateum://open?path=/Users/me/Documents` opens the folder in a new window. A file opens its folder with
 ///   the file selected. `~` is expanded.
+/// - `ommateum://open` without a path opens a new window with the layout set for new windows.
 /// - `ommateum://workspace?name=作業` shows the window that has the workspace open, or opens it in a new window.
 enum AppURL: Equatable {
     case open(path: String)
+    case newWindow
     case workspace(name: String)
 
     static let scheme = "ommateum"
@@ -19,7 +21,7 @@ enum AppURL: Equatable {
         }
         switch components.host?.lowercased() {
         case "open":
-            guard let path = value("path") else { return nil }
+            guard let path = value("path") else { self = .newWindow; return }
             self = .open(path: (path as NSString).expandingTildeInPath)
         case "workspace":
             guard let name = value("name") else { return nil }
@@ -30,9 +32,11 @@ enum AppURL: Equatable {
     }
 
     var url: URL {
-        let (host, key, value) = switch self {
-        case .open(let path): ("open", "path", path)
-        case .workspace(let name): ("workspace", "name", name)
+        let host: String, key: String, value: String
+        switch self {
+        case .newWindow: return URL(string: "\(Self.scheme)://open")!
+        case .open(let path): (host, key, value) = ("open", "path", path)
+        case .workspace(let name): (host, key, value) = ("workspace", "name", name)
         }
         // Encoded by hand: URLComponents leaves "&", "+" and "=" as they are inside a query value,
         // and other tools read them as separators or a space.

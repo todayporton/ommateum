@@ -23,6 +23,7 @@ final class WorkspaceStore {
     private let directory: URL
     private var workspacesURL: URL { directory.appendingPathComponent("workspaces.json") }
     private var sessionURL: URL { directory.appendingPathComponent("session.json") }
+    private var defaultWindowURL: URL { directory.appendingPathComponent("default-window.json") }
     private(set) var workspaces: [WorkspaceSnapshot] = []
     /// Set when the workspaces file exists but could not be read; saving is refused so the file is not overwritten.
     private(set) var loadError: Error?
@@ -95,6 +96,26 @@ final class WorkspaceStore {
         NotificationCenter.default.post(name: .workspacesChanged, object: self)
     }
 
+    // MARK: New window layout
+
+    /// Layout, folders and window size used for new windows, separate from the named workspaces.
+    var defaultWindow: WorkspaceSnapshot? {
+        guard let data = try? Data(contentsOf: defaultWindowURL),
+              let snapshot = try? JSONDecoder().decode(WorkspaceSnapshot.self, from: data),
+              snapshot.version <= WorkspaceSnapshot.currentVersion else { return nil }
+        return snapshot.validated()
+    }
+
+    func setDefaultWindow(_ snapshot: WorkspaceSnapshot?) throws {
+        if var snapshot {
+            snapshot.name = nil
+            try write(snapshot, to: defaultWindowURL)
+        } else if FileManager.default.fileExists(atPath: defaultWindowURL.path) {
+            try FileManager.default.removeItem(at: defaultWindowURL)
+        }
+        NotificationCenter.default.post(name: .defaultWindowChanged, object: self)
+    }
+
     // MARK: Session
 
     func saveSession(_ session: SessionSnapshot) {
@@ -122,4 +143,5 @@ final class WorkspaceStore {
 
 extension Notification.Name {
     static let workspacesChanged = Notification.Name("OmmateumWorkspacesChanged")
+    static let defaultWindowChanged = Notification.Name("OmmateumDefaultWindowChanged")
 }
