@@ -131,7 +131,7 @@ final class FileBrowserViewController: NSViewController, NSMenuItemValidation {
         view = root
         installContent()
         if let missing = missingOriginalPath {
-            showBanner("元の場所「\(missing)」が見つからないため、「\(displayTitle)」を表示しています。", retry: { [weak self] in self?.retryMissingLocation() })
+            showBanner(loc("“%@” can’t be found, so “%@” is shown instead.", missing, displayTitle), retry: { [weak self] in self?.retryMissingLocation() })
         }
         reload()
         NotificationCenter.default.addObserver(self, selector: #selector(showHiddenChanged), name: .showHiddenFilesChanged, object: nil)
@@ -351,9 +351,9 @@ final class FileBrowserViewController: NSViewController, NSMenuItemValidation {
         let nsError = error as NSError
         let denied = nsError.domain == NSCocoaErrorDomain && nsError.code == NSFileReadNoPermissionError
         placeholder.configure(
-            message: denied ? "「\(displayTitle)」を表示するためのアクセス権がありません。" : "「\(displayTitle)」を読み込めませんでした。\n\(error.localizedDescription)",
-            buttons: [("再試行", { [weak self] in self?.reload() }),
-                      ("Finderで表示", { NSWorkspace.shared.activateFileViewerSelecting([self.currentURL]) })])
+            message: denied ? loc("You don’t have permission to see “%@”.", displayTitle) : loc("Couldn’t read “%@”.\n%@", displayTitle, error.localizedDescription),
+            buttons: [(loc("Try Again"), { [weak self] in self?.reload() }),
+                      (loc("Show in Finder"), { NSWorkspace.shared.activateFileViewerSelecting([self.currentURL]) })])
         placeholder.isHidden = false
         content?.view.isHidden = true
     }
@@ -372,7 +372,7 @@ final class FileBrowserViewController: NSViewController, NSMenuItemValidation {
         guard let fallback = FileSystem.nearestExistingDirectory(to: missing) else { return }
         navigate(to: fallback, recordHistory: false)
         missingOriginalPath = missing.path
-        showBanner("「\(missing.path)」が見つかりません。移動・削除されたか、ボリュームが取り外されました。", retry: { [weak self] in self?.retryMissingLocation() })
+        showBanner(loc("“%@” can’t be found. It was moved or deleted, or its volume was disconnected.", missing.path), retry: { [weak self] in self?.retryMissingLocation() })
     }
 
     private func retryMissingLocation() {
@@ -509,7 +509,7 @@ final class FileBrowserViewController: NSViewController, NSMenuItemValidation {
 
     @objc func paste(_ sender: Any?) { pasteFiles(mode: .copy) }
 
-    /// ⌥⌘V: move the copied items here (Finder's "項目をここに移動").
+    /// ⌥⌘V: move the copied items here (Finder's "Move Item Here").
     @objc func pasteAndMove(_ sender: Any?) { pasteFiles(mode: .move) }
 
     private func pasteFiles(mode: FileOperations.Mode) {

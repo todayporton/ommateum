@@ -58,7 +58,7 @@ struct CustomActionsTests {
 
         try Data("not json".utf8).write(to: file)
         try FileManager.default.setAttributes([.modificationDate: Date().addingTimeInterval(5)], ofItemAtPath: file.path)
-        #expect(provider.actions(for: context).map(\.title) == ["actions.json を読み込めません…"])
+        #expect(provider.actions(for: context).map(\.title) == [loc("Can’t Read actions.json…")])
     }
 
     @Test func parsesShortcuts() {

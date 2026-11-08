@@ -90,7 +90,7 @@ final class PaneViewController: NSViewController {
         contentView.pane = self
         root.setAccessibilityElement(true)
         root.setAccessibilityRole(.group)
-        root.setAccessibilityLabel("ペイン")
+        root.setAccessibilityLabel(loc("Pane"))
         root.addSubview(tabBar)
         root.addSubview(contentView)
         let height = tabBar.heightAnchor.constraint(equalToConstant: TabBarView.height)
@@ -299,22 +299,22 @@ extension PaneViewController: TabBarDelegate {
             item.representedObject = target // keep the target alive with the item
             menu.addItem(item)
         }
-        add("タブを閉じる") { [weak self] in self?.closeTab(at: self?.tabs.firstIndex { $0.id == tabID } ?? -1) }
+        add(loc("Close Tab")) { [weak self] in self?.closeTab(at: self?.tabs.firstIndex { $0.id == tabID } ?? -1) }
         if tabs.count > 1 {
-            add("ほかのタブを閉じる") { [weak self] in
+            add(loc("Close Other Tabs")) { [weak self] in
                 guard let self else { return }
                 for tab in self.tabs where tab.id != tabID { self.detachTab(tab.id) }
             }
         }
         menu.addItem(.separator())
-        for (title, edge) in [("右に分割", PaneEdge.right), ("下に分割", .bottom)] {
+        for (title, edge) in [(loc("Split Right"), PaneEdge.right), (loc("Split Down"), .bottom)] {
             add(title) { [weak self] in
                 guard let self, let tab = self.tabs.first(where: { $0.id == tabID }) else { return }
                 self.host?.pane(self, openInSplit: tab.currentURL, edge: edge)
             }
         }
         if tabs.count > 1 {
-            for (title, edge) in [("右のペインへ移動", PaneEdge.right), ("下のペインへ移動", .bottom)] {
+            for (title, edge) in [(loc("Move to Right Pane"), PaneEdge.right), (loc("Move to Lower Pane"), .bottom)] {
                 add(title) { [weak self] in
                     guard let self else { return }
                     _ = self.host?.pane(self, acceptTab: tabID, at: nil, edge: edge)
@@ -322,7 +322,7 @@ extension PaneViewController: TabBarDelegate {
             }
         }
         menu.addItem(.separator())
-        add("Finderで表示") { [weak self] in
+        add(loc("Show in Finder")) { [weak self] in
             guard let url = self?.tabs.first(where: { $0.id == tabID })?.currentURL else { return }
             NSWorkspace.shared.activateFileViewerSelecting([url])
         }

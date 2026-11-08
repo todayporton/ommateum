@@ -74,8 +74,8 @@ final class CustomActionsProvider: FileActionProvider {
     func actions(for context: FileActionContext) -> [FileAction] {
         switch definitions() {
         case .failure(let error):
-            return [FileAction(title: "actions.json を読み込めません…") { context in
-                FileOperations.shared.showError(message: "actions.json を読み込めません: \(error.localizedDescription)", window: context.window)
+            return [FileAction(title: loc("Can’t Read actions.json…")) { context in
+                FileOperations.shared.showError(message: loc("Can’t read actions.json: %@", error.localizedDescription), window: context.window)
             }]
         case .success(let definitions):
             let items = context.items.map { url in
@@ -111,7 +111,7 @@ final class CustomActionsProvider: FileActionProvider {
         cached = Result {
             let file = try JSONDecoder().decode(CustomActionsFile.self, from: Data(contentsOf: fileURL))
             guard file.version <= CustomActionsFile.currentVersion else {
-                throw CocoaError(.fileReadCorruptFile, userInfo: [NSLocalizedDescriptionKey: "新しいバージョン（\(file.version)）の形式です"])
+                throw CocoaError(.fileReadCorruptFile, userInfo: [NSLocalizedDescriptionKey: loc("The file is in a newer format (version %ld).", file.version)])
             }
             return file.actions
         }
@@ -122,7 +122,7 @@ final class CustomActionsProvider: FileActionProvider {
     func openForEditing() {
         if !FileManager.default.fileExists(atPath: fileURL.path) {
             let example = CustomActionsFile(actions: [
-                CustomAction(title: "テキストエディットで開く", type: .script, command: "/usr/bin/open",
+                CustomAction(title: loc("Open in TextEdit"), type: .script, command: "/usr/bin/open",
                              arguments: ["-a", "TextEdit", "{files}"], appliesTo: .files),
             ])
             let encoder = JSONEncoder()
@@ -150,7 +150,7 @@ enum CustomActionRunner {
         switch action.type {
         case .shareService:
             guard let name = action.name, let service = SharingServices.service(titled: name, for: context.items) else {
-                FileOperations.shared.showError(message: "共有サービス「\(action.name ?? "")」が見つかりません。", window: context.window)
+                FileOperations.shared.showError(message: loc("The sharing service “%@” can’t be found.", action.name ?? ""), window: context.window)
                 return
             }
             service.perform(withItems: context.items)
@@ -170,7 +170,7 @@ enum CustomActionRunner {
     }
 
     private static func missing(_ key: String, in action: CustomAction, context: FileActionContext) {
-        FileOperations.shared.showError(message: "アクション「\(action.title)」に \(key) がありません。", window: context.window)
+        FileOperations.shared.showError(message: loc("The action “%@” has no %@.", action.title, key), window: context.window)
     }
 
     /// Runs off the main thread and reports a non-zero exit with the end of stderr.
@@ -193,13 +193,13 @@ enum CustomActionRunner {
                     process.waitUntilExit()
                     guard process.terminationStatus != 0 else { return nil }
                     let output = String(decoding: stderr.suffix(2000), as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
-                    return "終了コード \(process.terminationStatus)" + (output.isEmpty ? "" : "\n\n\(output)")
+                    return loc("Exit code %ld", Int(process.terminationStatus)) + (output.isEmpty ? "" : "\n\n\(output)")
                 } catch {
                     return error.localizedDescription
                 }
             }.value
             if let failure {
-                FileOperations.shared.showError(message: "アクション「\(title)」が失敗しました: \(failure)", window: window)
+                FileOperations.shared.showError(message: loc("The action “%@” failed: %@", title, failure), window: window)
             }
         }
     }

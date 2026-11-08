@@ -7,7 +7,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     private var workspaceManagerWindow: NSWindow?
     /// Windows closed while quitting must not replace the front window as 「前回のウインドウ」.
     private var isTerminating = false
-    let workspaceMenu = NSMenu(title: "ワークスペース")
+    let workspaceMenu = NSMenu(title: loc("Workspace"))
 
     /// Unit tests run inside the app; they must not restore or overwrite the user's session.
     private let isRunningTests = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
@@ -26,7 +26,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             openNewWindow()
         }
         if let error = WorkspaceStore.shared.loadError {
-            FileOperations.shared.showError(message: "保存済みワークスペースを読み込めませんでした: \(error.localizedDescription)", window: nil)
+            FileOperations.shared.showError(message: loc("Couldn’t load the saved workspaces: %@", error.localizedDescription), window: nil)
         }
     }
 
@@ -129,7 +129,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         windowControllers.forEach { $0.workspace.showsTabBarsForOtherWindows = windowControllers.count > 1 }
     }
 
-    /// Finder's "すべてのウインドウを結合": all tabs move to the frontmost window.
+    /// Finder's "Merge All Windows": all tabs move to the frontmost window.
     @objc func mergeWindowsIntoFront(_ sender: Any?) {
         guard let target = keyWindowController else { return }
         for controller in windowControllers where controller !== target {
@@ -222,6 +222,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 
     // MARK: Settings
 
+    /// Quits and opens the app again once this process has exited, e.g. after the language changes.
+    func relaunch() {
+        var arguments = ["-c", "while kill -0 \(ProcessInfo.processInfo.processIdentifier) 2>/dev/null; do sleep 0.2; done; /usr/bin/open \"$@\"", "sh"]
+        // LaunchServices does not pass on the environment; keep a test support directory.
+        if let support = ProcessInfo.processInfo.environment["OMMATEUM_SUPPORT_DIR"], !support.isEmpty {
+            arguments += ["--env", "OMMATEUM_SUPPORT_DIR=\(support)"]
+        }
+        arguments.append(Bundle.main.bundlePath)
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/sh")
+        process.arguments = arguments
+        do {
+            try process.run()
+            NSApp.terminate(nil)
+        } catch {
+            FileOperations.shared.showError(error, window: nil)
+        }
+    }
+
     @objc func toggleHiddenFiles(_ sender: Any?) {
         Preferences.showHiddenFiles.toggle()
     }
@@ -229,7 +248,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     @objc func showSettings(_ sender: Any?) {
         if settingsWindow == nil {
             let window = NSWindow(contentViewController: NSHostingController(rootView: SettingsView()))
-            window.title = "設定"
+            window.title = loc("Settings")
             window.styleMask = [.titled, .closable, .resizable]
             window.setContentSize(NSSize(width: 700, height: 520))
             window.isReleasedWhenClosed = false
@@ -244,12 +263,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     @objc func saveWorkspaceAs(_ sender: Any?) {
         guard let controller = keyWindowController, let window = controller.window else { return }
         let alert = NSAlert()
-        alert.messageText = "ワークスペースを保存"
-        alert.informativeText = "現在のウインドウの分割、タブ、フォルダ、表示方法を名前を付けて保存します。"
-        alert.addButton(withTitle: "保存")
-        alert.addButton(withTitle: "キャンセル")
+        alert.messageText = loc("Save Workspace")
+        alert.informativeText = loc("Saves this window’s splits, tabs, folders and views under a name.")
+        alert.addButton(withTitle: loc("Save"))
+        alert.addButton(withTitle: loc("Cancel"))
         let field = NSTextField(string: controller.workspaceName ?? "")
-        field.placeholderString = "名前"
+        field.placeholderString = loc("Name")
         field.frame = NSRect(x: 0, y: 0, width: 260, height: 22)
         alert.accessoryView = field
         alert.window.initialFirstResponder = field
@@ -270,9 +289,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     private func save(_ controller: MainWindowController, as name: String, confirmOverwrite: Bool) {
         if confirmOverwrite, name != controller.workspaceName, WorkspaceStore.shared.workspace(named: name) != nil {
             let alert = NSAlert()
-            alert.messageText = "「\(name)」はすでに存在します。置き換えますか？"
-            alert.addButton(withTitle: "置き換える")
-            alert.addButton(withTitle: "キャンセル")
+            alert.messageText = loc("“%@” already exists. Do you want to replace it?", name)
+            alert.addButton(withTitle: loc("Replace"))
+            alert.addButton(withTitle: loc("Cancel"))
             guard alert.runModal() == .alertFirstButtonReturn else { return }
         }
         do {
@@ -290,7 +309,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 
     func loadWorkspace(_ snapshot: WorkspaceSnapshot, inNewWindow: Bool) {
         guard snapshot.validated() != nil else {
-            FileOperations.shared.showError(message: "ワークスペース「\(snapshot.name ?? "")」は破損しているため開けません。", window: keyWindowController?.window)
+            FileOperations.shared.showError(message: loc("The workspace “%@” is damaged and can’t be opened.", snapshot.name ?? ""), window: keyWindowController?.window)
             return
         }
         let options = snapshot.openOptions ?? WorkspaceOpenOptions()
@@ -310,7 +329,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
                 self?.loadWorkspace(snapshot, inNewWindow: newWindow)
             }
             let window = NSWindow(contentViewController: NSHostingController(rootView: view))
-            window.title = "ワークスペース"
+            window.title = loc("Workspace")
             window.styleMask = [.titled, .closable, .resizable]
             window.isReleasedWhenClosed = false
             window.setContentSize(NSSize(width: 420, height: 360))
@@ -353,7 +372,7 @@ extension AppDelegate {
             }
         }
         if !menu.items.isEmpty { menu.addItem(.separator()) }
-        let newWindow = NSMenuItem(title: "新規ウインドウ", action: #selector(newWindowFromDock(_:)), keyEquivalent: "")
+        let newWindow = NSMenuItem(title: loc("New Window"), action: #selector(newWindowFromDock(_:)), keyEquivalent: "")
         newWindow.target = self
         menu.addItem(newWindow)
         return menu
@@ -425,7 +444,7 @@ extension AppDelegate {
         case .open(let path):
             let target = URL(fileURLWithPath: path)
             guard FileManager.default.fileExists(atPath: target.path) else {
-                FileOperations.shared.showError(message: "「\(path)」が見つかりません。", window: nil)
+                FileOperations.shared.showError(message: loc("“%@” can’t be found.", path), window: nil)
                 return
             }
             let isFolder = FileSystem.isDirectory(target)
@@ -436,10 +455,10 @@ extension AppDelegate {
             openNewWindow()
         case .workspace(let name):
             if !showWorkspace(named: name) {
-                FileOperations.shared.showError(message: "ワークスペース「\(name)」が見つかりません。", window: nil)
+                FileOperations.shared.showError(message: loc("The workspace “%@” can’t be found.", name), window: nil)
             }
         case nil:
-            FileOperations.shared.showError(message: "この URL は開けません: \(url.absoluteString)", window: nil)
+            FileOperations.shared.showError(message: loc("This URL can’t be opened: %@", url.absoluteString), window: nil)
         }
     }
 }
@@ -470,9 +489,9 @@ extension AppDelegate: NSMenuDelegate {
     @objc func rebuildWorkspaceMenu() {
         let menu = workspaceMenu
         menu.removeAllItems()
-        menu.addItem(withTitle: "ワークスペースを保存", action: #selector(saveWorkspace(_:)), keyEquivalent: "s")
-        menu.addItem(withTitle: "名前を付けてワークスペースを保存…", action: #selector(saveWorkspaceAs(_:)), keyEquivalent: "S")
-        menu.addItem(withTitle: "ワークスペースを管理…", action: #selector(showWorkspaceManager(_:)), keyEquivalent: "")
+        menu.addItem(withTitle: loc("Save Workspace"), action: #selector(saveWorkspace(_:)), keyEquivalent: "s")
+        menu.addItem(withTitle: loc("Save Workspace As…"), action: #selector(saveWorkspaceAs(_:)), keyEquivalent: "S")
+        menu.addItem(withTitle: loc("Manage Workspaces…"), action: #selector(showWorkspaceManager(_:)), keyEquivalent: "")
         let names = WorkspaceStore.shared.names
         if !names.isEmpty { menu.addItem(.separator()) }
         let current = keyWindowController?.workspaceName
@@ -483,7 +502,7 @@ extension AppDelegate: NSMenuDelegate {
             item.state = name == current ? .on : .off
             menu.addItem(item)
             // ⌥ shows the alternate "open in new window".
-            let alternate = NSMenuItem(title: "\(name)（新規ウインドウ）", action: #selector(openWorkspace(_:)), keyEquivalent: "")
+            let alternate = NSMenuItem(title: loc("%@ (New Window)", name), action: #selector(openWorkspace(_:)), keyEquivalent: "")
             alternate.keyEquivalentModifierMask = .option
             alternate.isAlternate = true
             alternate.representedObject = name

@@ -1,8 +1,8 @@
 import AppKit
 import SwiftUI
 
-/// Ommateum's own info window (⌘I). Finder's "情報を見る" window cannot be opened through a public API without
-/// Apple Events automation, so this shows the same basics; "Finderで表示" is one click away for the rest.
+/// Ommateum's own info window (⌘I). Finder's "Get Info" window cannot be opened through a public API without
+/// Apple Events automation, so this shows the same basics; "Show in Finder" is one click away for the rest.
 final class InfoPanelController: NSObject, NSWindowDelegate {
     private static var open: [InfoPanelController] = []
 
@@ -42,7 +42,7 @@ final class InfoModel {
     let urls: [URL]
     let title: String
     let icon: NSImage
-    private(set) var sizeText = "計算中…"
+    private(set) var sizeText = loc("Calculating…")
     var tagsText: String
     private let undoManager: UndoManager?
     private var sizing: Task<Void, Never>?
@@ -51,7 +51,7 @@ final class InfoModel {
     init(urls: [URL], undoManager: UndoManager?) {
         self.urls = urls
         self.undoManager = undoManager
-        title = urls.count == 1 ? FileManager.default.displayName(atPath: urls[0].path) : "\(urls.count)項目"
+        title = urls.count == 1 ? FileManager.default.displayName(atPath: urls[0].path) : loc("%ld items", urls.count)
         icon = urls.count == 1 ? NSWorkspace.shared.icon(forFile: urls[0].path) : NSImage(named: NSImage.multipleDocumentsName) ?? NSImage()
         tagsText = urls.count == 1 ? FileOperations.tags(of: urls[0]).joined(separator: ", ") : ""
     }
@@ -126,20 +126,20 @@ private struct InfoView: View {
             }
             Divider()
             Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 6) {
-                row("種類", model.kind)
-                row("サイズ", model.sizeText)
-                row("場所", model.location)
-                row("作成日", model.created)
-                row("変更日", model.modified)
-                row("権限", model.permissions)
+                row(loc("Kind"), model.kind)
+                row(loc("Size"), model.sizeText)
+                row(loc("Where"), model.location)
+                row(loc("Created"), model.created)
+                row(loc("Modified"), model.modified)
+                row(loc("Permissions"), model.permissions)
             }
             Divider()
-            Text(model.urls.count == 1 ? "タグ（カンマ区切り）" : "追加するタグ（カンマ区切り）").font(.caption).foregroundStyle(.secondary)
-            TextField("例: 仕事, 重要", text: $model.tagsText).onSubmit { model.applyTags() }
+            Text(model.urls.count == 1 ? loc("Tags (comma-separated)") : loc("Tags to add (comma-separated)")).font(.caption).foregroundStyle(.secondary)
+            TextField(loc("e.g. Work, Important"), text: $model.tagsText).onSubmit { model.applyTags() }
             HStack {
-                Button("Finderで表示") { model.reveal() }
+                Button(loc("Show in Finder")) { model.reveal() }
                 Spacer()
-                Button("タグを適用") { model.applyTags() }
+                Button(loc("Apply Tags")) { model.applyTags() }
             }
         }
         .padding(16)

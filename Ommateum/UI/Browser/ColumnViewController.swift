@@ -130,7 +130,7 @@ final class ColumnViewController: NSViewController, BrowserContent {
         browser.registerForDraggedTypes([.fileURL])
         browser.setDraggingSourceOperationMask([.copy, .move, .link, .generic], forLocal: false)
         browser.setDraggingSourceOperationMask([.copy, .move, .generic], forLocal: true)
-        browser.setAccessibilityLabel("カラム表示")
+        browser.setAccessibilityLabel(loc("Column View"))
         view = browser
     }
 

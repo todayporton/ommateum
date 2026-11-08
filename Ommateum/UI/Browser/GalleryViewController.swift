@@ -18,7 +18,7 @@ final class GalleryViewController: NSViewController, BrowserContent {
         preview.imageScaling = .scaleProportionallyUpOrDown
         preview.setContentCompressionResistancePriority(.init(1), for: .vertical)
         preview.setContentCompressionResistancePriority(.init(1), for: .horizontal)
-        preview.setAccessibilityLabel("プレビュー")
+        preview.setAccessibilityLabel(loc("Preview"))
         nameLabel.font = .boldSystemFont(ofSize: NSFont.systemFontSize)
         nameLabel.alignment = .center
         nameLabel.lineBreakMode = .byTruncatingMiddle
@@ -61,8 +61,8 @@ final class GalleryViewController: NSViewController, BrowserContent {
             detailLabel.stringValue = ""
             return
         }
-        nameLabel.stringValue = selection.count == 1 ? item.name : "\(selection.count)項目"
-        detailLabel.stringValue = selection.count == 1 ? "\(item.kind) ・ \(Formatters.size(item))" : ""
+        nameLabel.stringValue = selection.count == 1 ? item.name : loc("%ld items", selection.count)
+        detailLabel.stringValue = selection.count == 1 ? loc("%@ · %@", item.kind, Formatters.size(item)) : ""
         guard previewedURL != item.url else { return }
         previewedURL = item.url
         preview.image = IconCache.shared.icon(for: item)

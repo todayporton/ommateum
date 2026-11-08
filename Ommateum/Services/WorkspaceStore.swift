@@ -15,7 +15,7 @@ final class WorkspaceStore {
         var errorDescription: String? {
             switch self {
             case .unsupportedVersion(let version):
-                "このワークスペースファイル（バージョン \(version)）は、より新しいOmmateumで作成されたため読み込めません。"
+                loc("This workspace file (version %ld) was made by a newer version of Ommateum and can’t be read.", version)
             }
         }
     }

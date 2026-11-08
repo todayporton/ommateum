@@ -1,0 +1,3405 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    " (%ld of %ld items)": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "（%ld/%ld 項目）"
+          }
+        }
+      }
+    },
+    " (Default)": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "（デフォルト）"
+          }
+        }
+      }
+    },
+    "%2$@ to “%1$@”": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%1$@”へ%2$@"
+          }
+        }
+      }
+    },
+    "%@ (%ld)": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@（%ld）"
+          }
+        }
+      }
+    },
+    "%@ (New Window)": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@（新規ウインドウ）"
+          }
+        }
+      }
+    },
+    "%@ (actions.json)": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@（actions.json）"
+          }
+        }
+      }
+    },
+    "%@ alias": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ のエイリアス"
+          }
+        }
+      }
+    },
+    "%@ copy": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ のコピー"
+          }
+        }
+      }
+    },
+    "%@ copy %ld": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ のコピー %ld"
+          }
+        }
+      }
+    },
+    "%@ is assigned to “%@”.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ は「%@」に割り当てられています"
+          }
+        }
+      }
+    },
+    "%@ is used by “%@” and can’t be assigned.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ は「%@」で使われているため割り当てられません。"
+          }
+        }
+      }
+    },
+    "%@ remaining": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "残り%@"
+          }
+        }
+      }
+    },
+    "%@ · %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ ・ %@"
+          }
+        }
+      }
+    },
+    "%@/s": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@/秒"
+          }
+        }
+      }
+    },
+    "%ld found": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%ld件"
+          }
+        }
+      }
+    },
+    "%ld items": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%ld項目"
+          }
+        }
+      }
+    },
+    "%ld items will be removed from the sidebar. The folders themselves are not deleted.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "サイドバーから %ld 項目がなくなります。フォルダ自体は削除されません。"
+          }
+        }
+      }
+    },
+    ", ": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "、"
+          }
+        }
+      }
+    },
+    "1 GB or more": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 GB 以上"
+          }
+        }
+      }
+    },
+    "1 MB to 100 MB": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 MB〜100 MB"
+          }
+        }
+      }
+    },
+    "100 MB to 1 GB": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "100 MB〜1 GB"
+          }
+        }
+      }
+    },
+    "A group named “%@” already exists.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "「%@」という名前のグループはすでにあります。"
+          }
+        }
+      }
+    },
+    "A workspace named “%@” already exists.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "「%@」という名前のワークスペースはすでにあります。"
+          }
+        }
+      }
+    },
+    "About Ommateum": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ommateumについて"
+          }
+        }
+      }
+    },
+    "Actions": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アクション"
+          }
+        }
+      }
+    },
+    "Add Server": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "サーバーを追加"
+          }
+        }
+      }
+    },
+    "Add Server…": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "サーバーを追加…"
+          }
+        }
+      }
+    },
+    "Add Share…": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "共有を追加…"
+          }
+        }
+      }
+    },
+    "Add a Share to “%@”": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "「%@」に共有を追加"
+          }
+        }
+      }
+    },
+    "Add groups from the sidebar’s context menu.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "グループはサイドバーの右クリックで追加できます。"
+          }
+        }
+      }
+    },
+    "Add to Sidebar": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "サイドバーに追加"
+          }
+        }
+      }
+    },
+    "An item named “%@” already exists in this location.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "「%@」という名前の項目がすでにこの場所にあります。"
+          }
+        }
+      }
+    },
+    "Applications": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アプリケーション"
+          }
+        }
+      }
+    },
+    "Apply Tags": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "タグを適用"
+          }
+        }
+      }
+    },
+    "Apply to All": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "すべてに適用"
+          }
+        }
+      }
+    },
+    "Back": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "戻る"
+          }
+        }
+      }
+    },
+    "Back/Forward": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "戻る/進む"
+          }
+        }
+      }
+    },
+    "Bookmarks": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ブックマーク"
+          }
+        }
+      }
+    },
+    "Bring All to Front": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "すべてを手前に移動"
+          }
+        }
+      }
+    },
+    "Calculating size…": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "サイズを計算しています…"
+          }
+        }
+      }
+    },
+    "Calculating…": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "計算中…"
+          }
+        }
+      }
+    },
+    "Cancel": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "キャンセル"
+          }
+        }
+      }
+    },
+    "Can’t Read actions.json…": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "actions.json を読み込めません…"
+          }
+        }
+      }
+    },
+    "Can’t read actions.json: %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "actions.json を読み込めません: %@"
+          }
+        }
+      }
+    },
+    "Change": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "変更"
+          }
+        }
+      }
+    },
+    "Change Icon…": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アイコンを変更…"
+          }
+        }
+      }
+    },
+    "Change Tags": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "タグ"
+          }
+        }
+      }
+    },
+    "Changes only how “%@” appears in the sidebar. The folder keeps its name. Leave it empty to restore the original.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "「%@」のサイドバーでの表示だけを変えます。フォルダの名前は変わりません。空にすると元に戻ります。"
+          }
+        }
+      }
+    },
+    "Choose an Icon": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アイコンを選択"
+          }
+        }
+      }
+    },
+    "Click a shortcut, then press the new keys.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "変更するキーをクリックして、新しいキーを押します。"
+          }
+        }
+      }
+    },
+    "Close": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "閉じる"
+          }
+        }
+      }
+    },
+    "Close Other Tabs": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ほかのタブを閉じる"
+          }
+        }
+      }
+    },
+    "Close Pane": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ペインを閉じる"
+          }
+        }
+      }
+    },
+    "Close Tab": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "タブを閉じる"
+          }
+        }
+      }
+    },
+    "Close Window": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ウインドウを閉じる"
+          }
+        }
+      }
+    },
+    "Collapse": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "閉じる"
+          }
+        }
+      }
+    },
+    "Column View": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "カラム表示"
+          }
+        }
+      }
+    },
+    "Columns": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "カラム"
+          }
+        }
+      }
+    },
+    "Computer": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "コンピュータ"
+          }
+        }
+      }
+    },
+    "Connect": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "接続"
+          }
+        }
+      }
+    },
+    "Connect…": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "接続…"
+          }
+        }
+      }
+    },
+    "Copy": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "コピー"
+          }
+        }
+      }
+    },
+    "Copy Path": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "パスをコピー"
+          }
+        }
+      }
+    },
+    "Copy URL": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "URLをコピー"
+          }
+        }
+      }
+    },
+    "Couldn’t connect to “%@” (%ld: %@).": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "「%@」に接続できませんでした（%ld: %@）。"
+          }
+        }
+      }
+    },
+    "Couldn’t load the saved workspaces: %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存済みワークスペースを読み込めませんでした: %@"
+          }
+        }
+      }
+    },
+    "Couldn’t read Finder’s favorites. This relies on a private macOS file format and may not work on your version of macOS.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finderのよく使う項目を読み込めませんでした。この機能はmacOSの非公開の保存形式に依存しており、お使いのmacOSでは利用できない可能性があります。"
+          }
+        }
+      }
+    },
+    "Couldn’t read “%@”.\n%@": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "「%@」を読み込めませんでした。\n%@"
+          }
+        }
+      }
+    },
+    "Create": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "作成"
+          }
+        }
+      }
+    },
+    "Created": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "作成日"
+          }
+        }
+      }
+    },
+    "Cut": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "カット"
+          }
+        }
+      }
+    },
+    "Date Created": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "作成日"
+          }
+        }
+      }
+    },
+    "Date Modified": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "変更日"
+          }
+        }
+      }
+    },
+    "Default window": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "既定のウインドウ"
+          }
+        }
+      }
+    },
+    "Delete": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "削除"
+          }
+        }
+      }
+    },
+    "Delete %ld items?": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%ld項目を削除しますか？"
+          }
+        }
+      }
+    },
+    "Delete Group…": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "グループを削除…"
+          }
+        }
+      }
+    },
+    "Delete Immediately": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ゴミ箱に入れずに削除"
+          }
+        }
+      }
+    },
+    "Delete the group “%@”?": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "グループ「%@」を削除しますか？"
+          }
+        }
+      }
+    },
+    "Delete “%@”?": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%@”を削除しますか？"
+          }
+        }
+      }
+    },
+    "Desktop": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "デスクトップ"
+          }
+        }
+      }
+    },
+    "Disconnect": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "接続を解除"
+          }
+        }
+      }
+    },
+    "Disconnect All Servers": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "すべてのサーバーの接続を解除"
+          }
+        }
+      }
+    },
+    "Display": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ディスプレイ"
+          }
+        }
+      }
+    },
+    "Display with the front window": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "前面のウインドウがある画面"
+          }
+        }
+      }
+    },
+    "Display with the pointer": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "マウスカーソルのある画面"
+          }
+        }
+      }
+    },
+    "Documents": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "書類"
+          }
+        }
+      }
+    },
+    "Done": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "完了"
+          }
+        }
+      }
+    },
+    "Double-click an empty area to go to the parent folder": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "空白部分のダブルクリックで親フォルダへ移動"
+          }
+        }
+      }
+    },
+    "Downloads": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ダウンロード"
+          }
+        }
+      }
+    },
+    "Drives": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ドライブ"
+          }
+        }
+      }
+    },
+    "Duplicate": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "複製"
+          }
+        }
+      }
+    },
+    "Earlier": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "それ以前"
+          }
+        }
+      }
+    },
+    "Edit": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "編集"
+          }
+        }
+      }
+    },
+    "Edit Actions…": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アクションを編集…"
+          }
+        }
+      }
+    },
+    "Eject": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "取り出す"
+          }
+        }
+      }
+    },
+    "Eject All External Disks": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "すべての外部ディスクを取り出す"
+          }
+        }
+      }
+    },
+    "Eject “%@”": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "「%@」を取り出す"
+          }
+        }
+      }
+    },
+    "Enclosing Folder": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "内包しているフォルダ"
+          }
+        }
+      }
+    },
+    "Enter a group name.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "グループ名を入力してください。"
+          }
+        }
+      }
+    },
+    "Error": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "エラー"
+          }
+        }
+      }
+    },
+    "Example: smb://MyNAS.local/music\nLeave out the share to choose one when connecting. macOS asks for the password.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アドレスの例: smb://MyNAS.local/music\n共有名を省くと、接続時に選べます。パスワードはシステムの画面で入力します。"
+          }
+        }
+      }
+    },
+    "Exit code %ld": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "終了コード %ld"
+          }
+        }
+      }
+    },
+    "Expand": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "開く"
+          }
+        }
+      }
+    },
+    "File": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ファイル"
+          }
+        }
+      }
+    },
+    "File Operations": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ファイル操作の進行状況"
+          }
+        }
+      }
+    },
+    "Files": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ファイル一覧"
+          }
+        }
+      }
+    },
+    "Find": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "検索"
+          }
+        }
+      }
+    },
+    "Folders": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "フォルダ"
+          }
+        }
+      }
+    },
+    "Forward": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "進む"
+          }
+        }
+      }
+    },
+    "Gallery": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ギャラリー"
+          }
+        }
+      }
+    },
+    "General": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "一般"
+          }
+        }
+      }
+    },
+    "Get Info": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "情報を見る"
+          }
+        }
+      }
+    },
+    "Go": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "移動"
+          }
+        }
+      }
+    },
+    "Go to Folder": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "フォルダへ移動"
+          }
+        }
+      }
+    },
+    "Go to Folder…": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "フォルダへ移動…"
+          }
+        }
+      }
+    },
+    "Group By": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "グループ分け"
+          }
+        }
+      }
+    },
+    "Group Name": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "グループ名"
+          }
+        }
+      }
+    },
+    "Help": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ヘルプ"
+          }
+        }
+      }
+    },
+    "Hide Ommateum": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ommateumを隠す"
+          }
+        }
+      }
+    },
+    "Hide Others": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ほかを隠す"
+          }
+        }
+      }
+    },
+    "Home": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ホーム"
+          }
+        }
+      }
+    },
+    "Icon View": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アイコン表示"
+          }
+        }
+      }
+    },
+    "Icons": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アイコン"
+          }
+        }
+      }
+    },
+    "If you replace it, the existing item is deleted immediately. You can’t undo this.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "置き換えると、既存の項目はすぐに削除されます。この操作は取り消せません。"
+          }
+        }
+      }
+    },
+    "If you replace it, the existing item is moved to the Trash.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "置き換えると、既存の項目はゴミ箱に移動されます。"
+          }
+        }
+      }
+    },
+    "If you replace it, “%@” will have no shortcut.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "置き換えると「%@」のショートカットはなしになります。"
+          }
+        }
+      }
+    },
+    "Import Finder Favorites (Experimental)": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finderのよく使う項目を読み込む（実験的）"
+          }
+        }
+      }
+    },
+    "In the cloud only (not downloaded)": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "クラウド上のみ（未ダウンロード）"
+          }
+        }
+      }
+    },
+    "Including Subfolders": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "サブフォルダも含む"
+          }
+        }
+      }
+    },
+    "Keep Both": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "両方とも残す"
+          }
+        }
+      }
+    },
+    "Kind": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "種類"
+          }
+        }
+      }
+    },
+    "Language": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "言語"
+          }
+        }
+      }
+    },
+    "Large": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "大"
+          }
+        }
+      }
+    },
+    "Last window": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "前回のウインドウ"
+          }
+        }
+      }
+    },
+    "Last window: the front window, or the last one closed when none is open": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "前回のウインドウ: 前面のウインドウ（なければ最後に閉じたウインドウ）"
+          }
+        }
+      }
+    },
+    "Layout (splits, tabs, folders, views)": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "レイアウト（分割・タブ・フォルダ・表示方法）"
+          }
+        }
+      }
+    },
+    "Less than 1 MB": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 MB 未満"
+          }
+        }
+      }
+    },
+    "List": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "リスト"
+          }
+        }
+      }
+    },
+    "List row height": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "リストの行の高さ"
+          }
+        }
+      }
+    },
+    "Make Alias": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "エイリアスを作成"
+          }
+        }
+      }
+    },
+    "Manage Workspaces…": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ワークスペースを管理…"
+          }
+        }
+      }
+    },
+    "Merge All Windows": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "すべてのウインドウを結合"
+          }
+        }
+      }
+    },
+    "Minimize": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "しまう"
+          }
+        }
+      }
+    },
+    "Modified": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "変更日"
+          }
+        }
+      }
+    },
+    "Move": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "移動"
+          }
+        }
+      }
+    },
+    "Move Down": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "下へ移動"
+          }
+        }
+      }
+    },
+    "Move Item Here": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "項目をここに移動"
+          }
+        }
+      }
+    },
+    "Move Up": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "上へ移動"
+          }
+        }
+      }
+    },
+    "Move to Lower Pane": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "下のペインへ移動"
+          }
+        }
+      }
+    },
+    "Move to Right Pane": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "右のペインへ移動"
+          }
+        }
+      }
+    },
+    "Move to Trash": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ゴミ箱に入れる"
+          }
+        }
+      }
+    },
+    "Name": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "名前"
+          }
+        }
+      }
+    },
+    "Name in the Sidebar": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "サイドバーでの表示名"
+          }
+        }
+      }
+    },
+    "Names can’t contain “/”.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "名前に「/」は使用できません。"
+          }
+        }
+      }
+    },
+    "Names starting with “.” are reserved for the system.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "「.」で始まる名前はシステム用に予約されています。"
+          }
+        }
+      }
+    },
+    "New Folder": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新規フォルダ"
+          }
+        }
+      }
+    },
+    "New Group": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新規グループ"
+          }
+        }
+      }
+    },
+    "New Group…": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新規グループ…"
+          }
+        }
+      }
+    },
+    "New Tab": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新規タブ"
+          }
+        }
+      }
+    },
+    "New Window": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新規ウインドウ"
+          }
+        }
+      }
+    },
+    "New Windows": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新規ウインドウ"
+          }
+        }
+      }
+    },
+    "Next Pane": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "次のペイン"
+          }
+        }
+      }
+    },
+    "No Actions for the Selection": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "選択項目に使えるアクションはありません"
+          }
+        }
+      }
+    },
+    "No file operations in progress": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "実行中のファイル操作はありません"
+          }
+        }
+      }
+    },
+    "No saved workspaces.\nYou can save one from the Workspace menu.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存されたワークスペースはありません。\n「ワークスペース」メニューから保存できます。"
+          }
+        }
+      }
+    },
+    "None": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "なし"
+          }
+        }
+      }
+    },
+    "Not Downloaded": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未ダウンロード"
+          }
+        }
+      }
+    },
+    "Not connected (click to connect)": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未接続（クリックで接続）"
+          }
+        }
+      }
+    },
+    "Not saved (the last window is used)": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未保存（前回のウインドウを使います）"
+          }
+        }
+      }
+    },
+    "Open": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "開く"
+          }
+        }
+      }
+    },
+    "Open With": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このアプリケーションで開く"
+          }
+        }
+      }
+    },
+    "Open in New Tab": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新規タブで開く"
+          }
+        }
+      }
+    },
+    "Open in New Window": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新規ウインドウで開く"
+          }
+        }
+      }
+    },
+    "Open in Split Down": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "下に分割して開く"
+          }
+        }
+      }
+    },
+    "Open in Split Right": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "右に分割して開く"
+          }
+        }
+      }
+    },
+    "Open in Terminal": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ターミナルで開く"
+          }
+        }
+      }
+    },
+    "Open in TextEdit": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "テキストエディットで開く"
+          }
+        }
+      }
+    },
+    "Open windows on": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ウインドウを開くディスプレイ"
+          }
+        }
+      }
+    },
+    "Other": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "その他"
+          }
+        }
+      }
+    },
+    "Pane": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ペイン"
+          }
+        }
+      }
+    },
+    "Paste": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ペースト"
+          }
+        }
+      }
+    },
+    "Permissions": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "権限"
+          }
+        }
+      }
+    },
+    "Position": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "位置"
+          }
+        }
+      }
+    },
+    "Preparing…": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "準備しています…"
+          }
+        }
+      }
+    },
+    "Press keys with ⌘ or ⌃, or a function key. Some input sources need switching to a Latin layout first.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "⌘ か ⌃ を含むキーかファンクションキーを押してください。入力ソースによっては英字に切り替えが必要です。"
+          }
+        }
+      }
+    },
+    "Preview": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プレビュー"
+          }
+        }
+      }
+    },
+    "Previous 30 Days": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "過去30日間"
+          }
+        }
+      }
+    },
+    "Previous 7 Days": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "過去7日間"
+          }
+        }
+      }
+    },
+    "Previous Pane": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "前のペイン"
+          }
+        }
+      }
+    },
+    "Progress": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "進行状況"
+          }
+        }
+      }
+    },
+    "Quick Look": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "クイックルック"
+          }
+        }
+      }
+    },
+    "Quit Ommateum": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ommateumを終了"
+          }
+        }
+      }
+    },
+    "Redo": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "やり直す"
+          }
+        }
+      }
+    },
+    "Remove Server": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "サーバーを登録から削除"
+          }
+        }
+      }
+    },
+    "Remove Shortcut": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ショートカットをなしにする"
+          }
+        }
+      }
+    },
+    "Remove from Sidebar": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "サイドバーから削除"
+          }
+        }
+      }
+    },
+    "Remove “%@”": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "「%@」を登録から削除"
+          }
+        }
+      }
+    },
+    "Rename": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "名前を変更"
+          }
+        }
+      }
+    },
+    "Rename Group": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "グループ名を変更"
+          }
+        }
+      }
+    },
+    "Rename in Sidebar…": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "表示名を変更…"
+          }
+        }
+      }
+    },
+    "Rename “%@”": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "「%@」の名前を変更"
+          }
+        }
+      }
+    },
+    "Rename…": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "名前を変更…"
+          }
+        }
+      }
+    },
+    "Replace": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "置き換える"
+          }
+        }
+      }
+    },
+    "Replace “%@” with Finder’s favorites (%ld items)?": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "「%@」をFinderのよく使う項目（%ld件）で置き換えますか？"
+          }
+        }
+      }
+    },
+    "Restart Now": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "今すぐ再起動"
+          }
+        }
+      }
+    },
+    "Restore All Defaults": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "すべてデフォルトに戻す"
+          }
+        }
+      }
+    },
+    "Restore Default": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "デフォルトに戻す"
+          }
+        }
+      }
+    },
+    "Restore Name and Icon": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "表示名とアイコンを元に戻す"
+          }
+        }
+      }
+    },
+    "Restore the default (%@)": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "デフォルト（%@）に戻す"
+          }
+        }
+      }
+    },
+    "Restore when opening": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "開くときに復元"
+          }
+        }
+      }
+    },
+    "Restore windows and tabs from the last session at launch": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "終了時のウインドウとタブを次回起動時に復元"
+          }
+        }
+      }
+    },
+    "Save": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存"
+          }
+        }
+      }
+    },
+    "Save Front Window": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "前面のウインドウを保存"
+          }
+        }
+      }
+    },
+    "Save Workspace": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ワークスペースを保存"
+          }
+        }
+      }
+    },
+    "Save Workspace As…": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "名前を付けてワークスペースを保存…"
+          }
+        }
+      }
+    },
+    "Saved window": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存したウインドウ"
+          }
+        }
+      }
+    },
+    "Saves this window’s splits, tabs, folders and views under a name.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "現在のウインドウの分割、タブ、フォルダ、表示方法を名前を付けて保存します。"
+          }
+        }
+      }
+    },
+    "Search": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "検索"
+          }
+        }
+      }
+    },
+    "Search by Name": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "名前で検索"
+          }
+        }
+      }
+    },
+    "Searching…": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "検索中…"
+          }
+        }
+      }
+    },
+    "Select All": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "すべてを選択"
+          }
+        }
+      }
+    },
+    "Send a Copy (Dropbox Transfer)…": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "コピーを転送（Dropbox Transfer）…"
+          }
+        }
+      }
+    },
+    "Servers": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "サーバー"
+          }
+        }
+      }
+    },
+    "Services": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "サービス"
+          }
+        }
+      }
+    },
+    "Settings": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "設定"
+          }
+        }
+      }
+    },
+    "Settings…": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "設定…"
+          }
+        }
+      }
+    },
+    "Share": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "共有"
+          }
+        }
+      }
+    },
+    "Share Name": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "共有名"
+          }
+        }
+      }
+    },
+    "Shortcuts": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ショートカット"
+          }
+        }
+      }
+    },
+    "Show All": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "すべてを表示"
+          }
+        }
+      }
+    },
+    "Show Free Disk Space": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ディスクの空き容量を表示"
+          }
+        }
+      }
+    },
+    "Show Hidden Files": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "隠しファイルを表示"
+          }
+        }
+      }
+    },
+    "Show Next Tab": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "次のタブを表示"
+          }
+        }
+      }
+    },
+    "Show Previous Tab": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "前のタブを表示"
+          }
+        }
+      }
+    },
+    "Show free disk space": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ディスクの空き容量を表示"
+          }
+        }
+      }
+    },
+    "Show in Finder": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finderで表示"
+          }
+        }
+      }
+    },
+    "Show in the sidebar:": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "サイドバーに表示する項目:"
+          }
+        }
+      }
+    },
+    "Show/Hide Sidebar": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "サイドバーを表示/非表示"
+          }
+        }
+      }
+    },
+    "Sidebar": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "サイドバー"
+          }
+        }
+      }
+    },
+    "Size": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "サイズ"
+          }
+        }
+      }
+    },
+    "Skip": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "スキップ"
+          }
+        }
+      }
+    },
+    "Small (same as Finder)": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "小（Finder と同じ）"
+          }
+        }
+      }
+    },
+    "Sort By": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "並べ替え"
+          }
+        }
+      }
+    },
+    "Split": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "分割"
+          }
+        }
+      }
+    },
+    "Split Down": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "下に分割"
+          }
+        }
+      }
+    },
+    "Split Right": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "右に分割"
+          }
+        }
+      }
+    },
+    "Split right (⌥-click to split down)": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "右に分割（⌥クリックで下に分割）"
+          }
+        }
+      }
+    },
+    "Standard": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "標準"
+          }
+        }
+      }
+    },
+    "Stop": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "停止"
+          }
+        }
+      }
+    },
+    "Stop Operation": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "中止"
+          }
+        }
+      }
+    },
+    "Stopping…": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "中止しています…"
+          }
+        }
+      }
+    },
+    "System": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "システム"
+          }
+        }
+      }
+    },
+    "Tabs": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "タブ"
+          }
+        }
+      }
+    },
+    "Tags": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "タグ"
+          }
+        }
+      }
+    },
+    "Tags (comma-separated)": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "タグ（カンマ区切り）"
+          }
+        }
+      }
+    },
+    "Tags to add (comma-separated)": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "追加するタグ（カンマ区切り）"
+          }
+        }
+      }
+    },
+    "Take from the default window": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "既定から引き継ぐ項目"
+          }
+        }
+      }
+    },
+    "Takes effect after Ommateum restarts.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ommateum の再起動後に反映されます。"
+          }
+        }
+      }
+    },
+    "The action “%@” failed: %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アクション「%@」が失敗しました: %@"
+          }
+        }
+      }
+    },
+    "The action “%@” has no %@.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アクション「%@」に %@ がありません。"
+          }
+        }
+      }
+    },
+    "The file is in a newer format (version %ld).": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新しいバージョン（%ld）の形式です"
+          }
+        }
+      }
+    },
+    "The folder “%@” can’t be found.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "フォルダ「%@」が見つかりません。"
+          }
+        }
+      }
+    },
+    "The name “%@” is already taken. Please choose a different name.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "「%@」という名前はすでに使用されています。別の名前を選択してください。"
+          }
+        }
+      }
+    },
+    "The sharing service “%@” can’t be found.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "共有サービス「%@」が見つかりません。"
+          }
+        }
+      }
+    },
+    "The workspace “%@” can’t be found.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ワークスペース「%@」が見つかりません。"
+          }
+        }
+      }
+    },
+    "The workspace “%@” is damaged and can’t be opened.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ワークスペース「%@」は破損しているため開けません。"
+          }
+        }
+      }
+    },
+    "These items will be deleted immediately. You can’t undo this.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "これらの項目はすぐに削除されます。この操作は取り消せません。"
+          }
+        }
+      }
+    },
+    "This Folder": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このフォルダ"
+          }
+        }
+      }
+    },
+    "This URL can’t be opened: %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この URL は開けません: %@"
+          }
+        }
+      }
+    },
+    "This item will be deleted immediately. You can’t undo this.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この項目はすぐに削除されます。この操作は取り消せません。"
+          }
+        }
+      }
+    },
+    "This workspace file (version %ld) was made by a newer version of Ommateum and can’t be read.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このワークスペースファイル（バージョン %ld）は、より新しいOmmateumで作成されたため読み込めません。"
+          }
+        }
+      }
+    },
+    "Today": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "今日"
+          }
+        }
+      }
+    },
+    "Trash": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ゴミ箱"
+          }
+        }
+      }
+    },
+    "Try Again": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "再試行"
+          }
+        }
+      }
+    },
+    "Type Shortcut…": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "キーを入力…"
+          }
+        }
+      }
+    },
+    "Undo": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "取り消す"
+          }
+        }
+      }
+    },
+    "Use Default Icon": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "既定のアイコンに戻す"
+          }
+        }
+      }
+    },
+    "Utilities": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ユーティリティ"
+          }
+        }
+      }
+    },
+    "View": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "表示"
+          }
+        }
+      }
+    },
+    "View for new tabs": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新規タブの表示方法"
+          }
+        }
+      }
+    },
+    "When Display is not restored, or the saved display is not connected": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "「ディスプレイ」を復元しないとき、または保存時のディスプレイが接続されていないとき"
+          }
+        }
+      }
+    },
+    "When Display is not taken from the default window, or its display is not connected": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "「ディスプレイ」を引き継がないとき、または既定のディスプレイが接続されていないとき"
+          }
+        }
+      }
+    },
+    "Where": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "場所"
+          }
+        }
+      }
+    },
+    "Window": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ウインドウ"
+          }
+        }
+      }
+    },
+    "Workspace": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ワークスペース"
+          }
+        }
+      }
+    },
+    "Workspaces": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ワークスペース"
+          }
+        }
+      }
+    },
+    "Yesterday": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "昨日"
+          }
+        }
+      }
+    },
+    "You can’t copy “%@” into itself.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "「%@」をそれ自体の中にコピーすることはできません。"
+          }
+        }
+      }
+    },
+    "You can’t move “%@” into itself.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "「%@」をそれ自体の中に移動することはできません。"
+          }
+        }
+      }
+    },
+    "You don’t have permission to see “%@”.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "「%@」を表示するためのアクセス権がありません。"
+          }
+        }
+      }
+    },
+    "Zoom": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "拡大/縮小"
+          }
+        }
+      }
+    },
+    "a few seconds": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "数秒"
+          }
+        }
+      }
+    },
+    "about %ld h": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "約%ld時間"
+          }
+        }
+      }
+    },
+    "about %ld h %ld min": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "約%ld時間%ld分"
+          }
+        }
+      }
+    },
+    "about %ld min": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "約%ld分"
+          }
+        }
+      }
+    },
+    "about %ld s": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "約%ld秒"
+          }
+        }
+      }
+    },
+    "as Columns": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "カラム"
+          }
+        }
+      }
+    },
+    "as Gallery": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ギャラリー"
+          }
+        }
+      }
+    },
+    "as Icons": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アイコン"
+          }
+        }
+      }
+    },
+    "as List": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "リスト"
+          }
+        }
+      }
+    },
+    "e.g. Work, Important": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "例: 仕事, 重要"
+          }
+        }
+      }
+    },
+    "smb://server/share": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "smb://サーバー名/共有名"
+          }
+        }
+      }
+    },
+    "untitled folder": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "名称未設定フォルダ"
+          }
+        }
+      }
+    },
+    "“%@” already exists. Do you want to replace it?": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "「%@」はすでに存在します。置き換えますか？"
+          }
+        }
+      }
+    },
+    "“%@” can’t be found, so “%@” is shown instead.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "元の場所「%@」が見つからないため、「%@」を表示しています。"
+          }
+        }
+      }
+    },
+    "“%@” can’t be found.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "「%@」が見つかりません。"
+          }
+        }
+      }
+    },
+    "“%@” can’t be found. It was moved or deleted, or its volume was disconnected.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "「%@」が見つかりません。移動・削除されたか、ボリュームが取り外されました。"
+          }
+        }
+      }
+    },
+    "“%@” is not a server address. smb://, afp://, nfs://, http:// and https:// are supported.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "「%@」はサーバーのアドレスとして使えません。smb://, afp://, nfs://, http://, https:// に対応しています。"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

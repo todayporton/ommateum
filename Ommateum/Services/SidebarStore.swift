@@ -21,9 +21,9 @@ enum SidebarBuiltInSection: String, Codable, CaseIterable {
 
     var title: String {
         switch self {
-        case .servers: "サーバー"
-        case .drives: "ドライブ"
-        case .workspaces: "ワークスペース"
+        case .servers: loc("Servers")
+        case .drives: loc("Drives")
+        case .workspaces: loc("Workspaces")
         }
     }
 }
@@ -32,7 +32,7 @@ enum SidebarBuiltInSection: String, Codable, CaseIterable {
 /// the sidebar; Finder's favorites can be imported once on request (see `FinderSidebarImporter`), not synchronized.
 final class SidebarStore {
     static let shared = SidebarStore()
-    static let defaultGroupName = "ブックマーク"
+    static let defaultGroupName = loc("Bookmarks")
 
     private struct Stored: Codable {
         var version = 2

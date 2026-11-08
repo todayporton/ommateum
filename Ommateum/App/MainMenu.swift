@@ -15,7 +15,7 @@ enum MainMenu {
         main.addItem(submenu(window))
         window.delegate = delegate // appends the open windows; see AppDelegate.windowListItems
         NSApp.windowsMenu = window
-        let help = NSMenu(title: "ヘルプ")
+        let help = NSMenu(title: loc("Help"))
         main.addItem(submenu(help))
         NSApp.helpMenu = help
         // The workspace menu adopts itself when it is rebuilt.
@@ -39,124 +39,129 @@ enum MainMenu {
 
     private static func appMenu() -> NSMenu {
         let menu = NSMenu(title: "Ommateum")
-        add(menu, "Ommateumについて", #selector(NSApplication.orderFrontStandardAboutPanel(_:)))
+        add(menu, loc("About Ommateum"), #selector(NSApplication.orderFrontStandardAboutPanel(_:)))
         menu.addItem(.separator())
-        add(menu, "設定…", #selector(AppDelegate.showSettings(_:)), ",")
+        add(menu, loc("Settings…"), #selector(AppDelegate.showSettings(_:)), ",")
         menu.addItem(.separator())
-        let services = NSMenu(title: "サービス")
+        let services = NSMenu(title: loc("Services"))
         NSApp.servicesMenu = services
         menu.addItem(submenu(services))
         menu.addItem(.separator())
-        add(menu, "Ommateumを隠す", #selector(NSApplication.hide(_:)), "h")
-        add(menu, "ほかを隠す", #selector(NSApplication.hideOtherApplications(_:)), "h", [.command, .option])
-        add(menu, "すべてを表示", #selector(NSApplication.unhideAllApplications(_:)))
+        add(menu, loc("Hide Ommateum"), #selector(NSApplication.hide(_:)), "h")
+        add(menu, loc("Hide Others"), #selector(NSApplication.hideOtherApplications(_:)), "h", [.command, .option])
+        add(menu, loc("Show All"), #selector(NSApplication.unhideAllApplications(_:)))
         menu.addItem(.separator())
-        add(menu, "Ommateumを終了", #selector(NSApplication.terminate(_:)), "q")
+        add(menu, loc("Quit Ommateum"), #selector(NSApplication.terminate(_:)), "q")
         return menu
     }
 
     private static func fileMenu() -> NSMenu {
-        let menu = NSMenu(title: "ファイル")
-        add(menu, "新規ウインドウ", #selector(AppDelegate.newWindow(_:)), "n")
-        add(menu, "新規フォルダ", #selector(FileBrowserViewController.newFolder(_:)), "n", [.command, .shift])
-        add(menu, "新規タブ", #selector(MainWindowController.newTab(_:)), "t")
-        add(menu, "開く", #selector(FileBrowserViewController.openSelection(_:)), "o")
-        add(menu, "新規タブで開く", #selector(FileBrowserViewController.openSelectionInNewTab(_:)))
-        add(menu, "タブを閉じる", #selector(MainWindowController.closeTab(_:)), "w")
-        add(menu, "ウインドウを閉じる", #selector(NSWindow.performClose(_:)), "w", [.command, .shift])
+        let menu = NSMenu(title: loc("File"))
+        add(menu, loc("New Window"), #selector(AppDelegate.newWindow(_:)), "n")
+        add(menu, loc("New Folder"), #selector(FileBrowserViewController.newFolder(_:)), "n", [.command, .shift])
+        add(menu, loc("New Tab"), #selector(MainWindowController.newTab(_:)), "t")
+        add(menu, loc("Open"), #selector(FileBrowserViewController.openSelection(_:)), "o")
+        add(menu, loc("Open in New Tab"), #selector(FileBrowserViewController.openSelectionInNewTab(_:)))
+        add(menu, loc("Close Tab"), #selector(MainWindowController.closeTab(_:)), "w")
+        add(menu, loc("Close Window"), #selector(NSWindow.performClose(_:)), "w", [.command, .shift])
         menu.addItem(.separator())
-        add(menu, "名前を変更", #selector(FileBrowserViewController.renameSelection(_:)))
-        add(menu, "複製", #selector(FileBrowserViewController.duplicate(_:)), "d")
-        add(menu, "エイリアスを作成", #selector(FileBrowserViewController.makeAlias(_:)), "a", [.command, .control])
-        add(menu, "クイックルック", #selector(FileBrowserViewController.toggleQuickLook(_:)), "y")
-        add(menu, "情報を見る", #selector(FileBrowserViewController.showInfo(_:)), "i")
-        add(menu, "ゴミ箱に入れる", #selector(FileBrowserViewController.moveToTrash(_:)), "\u{8}")
+        add(menu, loc("Rename"), #selector(FileBrowserViewController.renameSelection(_:)))
+        add(menu, loc("Duplicate"), #selector(FileBrowserViewController.duplicate(_:)), "d")
+        add(menu, loc("Make Alias"), #selector(FileBrowserViewController.makeAlias(_:)), "a", [.command, .control])
+        add(menu, loc("Quick Look"), #selector(FileBrowserViewController.toggleQuickLook(_:)), "y")
+        add(menu, loc("Get Info"), #selector(FileBrowserViewController.showInfo(_:)), "i")
+        add(menu, loc("Move to Trash"), #selector(FileBrowserViewController.moveToTrash(_:)), "\u{8}")
         menu.addItem(.separator())
         menu.addItem(BrowserMenus.tagSubmenu(target: nil))
-        let actions = NSMenu(title: "アクション")
+        let actions = NSMenu(title: loc("Actions"))
         actions.delegate = FileActionsMenuController.shared
         menu.addItem(submenu(actions))
-        add(menu, "Finderで表示", #selector(FileBrowserViewController.revealInFinder(_:)), "r", [.command, .option, .shift])
-        add(menu, "サイドバーに追加", #selector(FileBrowserViewController.addToSidebar(_:)), "t", [.command, .control])
+        add(menu, loc("Show in Finder"), #selector(FileBrowserViewController.revealInFinder(_:)), "r", [.command, .option, .shift])
+        add(menu, loc("Add to Sidebar"), #selector(FileBrowserViewController.addToSidebar(_:)), "t", [.command, .control])
         return menu
     }
 
     private static func editMenu() -> NSMenu {
-        let menu = NSMenu(title: "編集")
-        add(menu, "取り消す", Selector(("undo:")), "z")
-        add(menu, "やり直す", Selector(("redo:")), "z", [.command, .shift])
+        let menu = NSMenu(title: loc("Edit"))
+        add(menu, loc("Undo"), Selector(("undo:")), "z")
+        add(menu, loc("Redo"), Selector(("redo:")), "z", [.command, .shift])
         menu.addItem(.separator())
-        add(menu, "カット", #selector(NSText.cut(_:)), "x")
-        add(menu, "コピー", #selector(NSText.copy(_:)), "c")
-        add(menu, "パスをコピー", #selector(FileBrowserViewController.copyPath(_:)), "c", [.command, .option])
-        add(menu, "ペースト", #selector(NSText.paste(_:)), "v")
-        add(menu, "項目をここに移動", #selector(FileBrowserViewController.pasteAndMove(_:)), "v", [.command, .option])
-        add(menu, "すべてを選択", #selector(NSText.selectAll(_:)), "a")
+        add(menu, loc("Cut"), #selector(NSText.cut(_:)), "x")
+        add(menu, loc("Copy"), #selector(NSText.copy(_:)), "c")
+        add(menu, loc("Copy Path"), #selector(FileBrowserViewController.copyPath(_:)), "c", [.command, .option])
+        add(menu, loc("Paste"), #selector(NSText.paste(_:)), "v")
+        add(menu, loc("Move Item Here"), #selector(FileBrowserViewController.pasteAndMove(_:)), "v", [.command, .option])
+        add(menu, loc("Select All"), #selector(NSText.selectAll(_:)), "a")
         menu.addItem(.separator())
-        add(menu, "検索", #selector(FileBrowserViewController.startSearch(_:)), "f")
+        add(menu, loc("Find"), #selector(FileBrowserViewController.startSearch(_:)), "f")
         return menu
     }
 
     private static func viewMenu() -> NSMenu {
-        let menu = NSMenu(title: "表示")
-        add(menu, "アイコン", #selector(FileBrowserViewController.showAsIcons(_:)), "1")
-        add(menu, "リスト", #selector(FileBrowserViewController.showAsList(_:)), "2")
-        add(menu, "カラム", #selector(FileBrowserViewController.showAsColumns(_:)), "3")
-        add(menu, "ギャラリー", #selector(FileBrowserViewController.showAsGallery(_:)), "4")
+        let menu = NSMenu(title: loc("View"))
+        add(menu, loc("as Icons"), #selector(FileBrowserViewController.showAsIcons(_:)), "1")
+        add(menu, loc("as List"), #selector(FileBrowserViewController.showAsList(_:)), "2")
+        add(menu, loc("as Columns"), #selector(FileBrowserViewController.showAsColumns(_:)), "3")
+        add(menu, loc("as Gallery"), #selector(FileBrowserViewController.showAsGallery(_:)), "4")
         menu.addItem(.separator())
         menu.addItem(BrowserMenus.sortSubmenu(target: nil))
         menu.addItem(BrowserMenus.groupSubmenu(target: nil))
         menu.addItem(.separator())
-        add(menu, "サイドバーを表示/非表示", #selector(MainWindowController.toggleSidebarPane(_:)), "s", [.command, .control])
-        add(menu, "隠しファイルを表示", #selector(AppDelegate.toggleHiddenFiles(_:)), ".", [.command, .shift])
+        add(menu, loc("Show/Hide Sidebar"), #selector(MainWindowController.toggleSidebarPane(_:)), "s", [.command, .control])
+        add(menu, loc("Show Hidden Files"), #selector(AppDelegate.toggleHiddenFiles(_:)), ".", [.command, .shift])
         return menu
     }
 
     private static func goMenu() -> NSMenu {
-        let menu = NSMenu(title: "移動")
-        add(menu, "戻る", #selector(FileBrowserViewController.goBack(_:)), "[")
-        add(menu, "進む", #selector(FileBrowserViewController.goForward(_:)), "]")
-        add(menu, "内包しているフォルダ", #selector(FileBrowserViewController.goToEnclosingFolder(_:)), String(Character(UnicodeScalar(NSUpArrowFunctionKey)!)))
+        let menu = NSMenu(title: loc("Go"))
+        add(menu, loc("Back"), #selector(FileBrowserViewController.goBack(_:)), "[")
+        add(menu, loc("Forward"), #selector(FileBrowserViewController.goForward(_:)), "]")
+        add(menu, loc("Enclosing Folder"), #selector(FileBrowserViewController.goToEnclosingFolder(_:)), String(Character(UnicodeScalar(NSUpArrowFunctionKey)!)))
         menu.addItem(.separator())
         let fm = FileManager.default
-        let locations: [(String, URL?, String, NSEvent.ModifierFlags)] = [
-            ("書類", fm.urls(for: .documentDirectory, in: .userDomainMask).first, "o", [.command, .shift]),
-            ("デスクトップ", fm.urls(for: .desktopDirectory, in: .userDomainMask).first, "d", [.command, .shift]),
-            ("ダウンロード", fm.urls(for: .downloadsDirectory, in: .userDomainMask).first, "l", [.command, .option]),
-            ("ホーム", fm.homeDirectoryForCurrentUser, "h", [.command, .shift]),
-            ("コンピュータ", URL(fileURLWithPath: "/Volumes"), "c", [.command, .shift]),
-            ("アプリケーション", URL(fileURLWithPath: "/Applications"), "a", [.command, .shift]),
-            ("ユーティリティ", URL(fileURLWithPath: "/Applications/Utilities"), "u", [.command, .shift]),
+        // The identifier names the place for keyboard shortcuts, whatever the language (KeyboardShortcuts.commandID).
+        let locations: [(String, String, URL?, String, NSEvent.ModifierFlags)] = [
+            ("documents", loc("Documents"), fm.urls(for: .documentDirectory, in: .userDomainMask).first, "o", [.command, .shift]),
+            ("desktop", loc("Desktop"), fm.urls(for: .desktopDirectory, in: .userDomainMask).first, "d", [.command, .shift]),
+            ("downloads", loc("Downloads"), fm.urls(for: .downloadsDirectory, in: .userDomainMask).first, "l", [.command, .option]),
+            ("home", loc("Home"), fm.homeDirectoryForCurrentUser, "h", [.command, .shift]),
+            ("computer", loc("Computer"), URL(fileURLWithPath: "/Volumes"), "c", [.command, .shift]),
+            ("applications", loc("Applications"), URL(fileURLWithPath: "/Applications"), "a", [.command, .shift]),
+            ("utilities", loc("Utilities"), URL(fileURLWithPath: "/Applications/Utilities"), "u", [.command, .shift]),
         ]
-        for (title, url, key, modifiers) in locations {
+        for (id, title, url, key, modifiers) in locations {
             guard let url else { continue }
-            add(menu, title, #selector(MainWindowController.goToStandardLocation(_:)), key, modifiers).representedObject = url.path
+            let item = add(menu, title, #selector(MainWindowController.goToStandardLocation(_:)), key, modifiers)
+            item.representedObject = url.path
+            item.identifier = NSUserInterfaceItemIdentifier(id)
         }
         let iCloud = fm.homeDirectoryForCurrentUser.appendingPathComponent("Library/Mobile Documents/com~apple~CloudDocs")
         if FileSystem.isDirectory(iCloud) {
-            add(menu, "iCloud Drive", #selector(MainWindowController.goToStandardLocation(_:)), "i", [.command, .shift]).representedObject = iCloud.path
+            let item = add(menu, "iCloud Drive", #selector(MainWindowController.goToStandardLocation(_:)), "i", [.command, .shift])
+            item.representedObject = iCloud.path
+            item.identifier = NSUserInterfaceItemIdentifier("iCloudDrive")
         }
         menu.addItem(.separator())
-        add(menu, "フォルダへ移動…", #selector(MainWindowController.goToFolder(_:)), "g", [.command, .shift])
+        add(menu, loc("Go to Folder…"), #selector(MainWindowController.goToFolder(_:)), "g", [.command, .shift])
         return menu
     }
 
     private static func windowMenu() -> NSMenu {
-        let menu = NSMenu(title: "ウインドウ")
-        add(menu, "しまう", #selector(NSWindow.performMiniaturize(_:)), "m")
-        add(menu, "拡大/縮小", #selector(NSWindow.performZoom(_:)))
+        let menu = NSMenu(title: loc("Window"))
+        add(menu, loc("Minimize"), #selector(NSWindow.performMiniaturize(_:)), "m")
+        add(menu, loc("Zoom"), #selector(NSWindow.performZoom(_:)))
         menu.addItem(.separator())
-        add(menu, "右に分割", #selector(MainWindowController.splitRight(_:)), "\\")
-        add(menu, "下に分割", #selector(MainWindowController.splitDown(_:)), "\\", [.command, .shift])
-        add(menu, "ペインを閉じる", #selector(MainWindowController.closePane(_:)), "w", [.command, .option, .shift])
-        add(menu, "次のペイン", #selector(MainWindowController.focusNextPane(_:)), "`", [.command, .option])
-        add(menu, "前のペイン", #selector(MainWindowController.focusPreviousPane(_:)), "`", [.command, .option, .shift])
+        add(menu, loc("Split Right"), #selector(MainWindowController.splitRight(_:)), "\\")
+        add(menu, loc("Split Down"), #selector(MainWindowController.splitDown(_:)), "\\", [.command, .shift])
+        add(menu, loc("Close Pane"), #selector(MainWindowController.closePane(_:)), "w", [.command, .option, .shift])
+        add(menu, loc("Next Pane"), #selector(MainWindowController.focusNextPane(_:)), "`", [.command, .option])
+        add(menu, loc("Previous Pane"), #selector(MainWindowController.focusPreviousPane(_:)), "`", [.command, .option, .shift])
         menu.addItem(.separator())
-        add(menu, "次のタブを表示", #selector(MainWindowController.selectNextTab(_:)), "}")
-        add(menu, "前のタブを表示", #selector(MainWindowController.selectPreviousTab(_:)), "{")
+        add(menu, loc("Show Next Tab"), #selector(MainWindowController.selectNextTab(_:)), "}")
+        add(menu, loc("Show Previous Tab"), #selector(MainWindowController.selectPreviousTab(_:)), "{")
         menu.addItem(.separator())
-        add(menu, "すべてのウインドウを結合", #selector(AppDelegate.mergeWindowsIntoFront(_:)))
-        add(menu, "すべてを手前に移動", #selector(NSApplication.arrangeInFront(_:)))
+        add(menu, loc("Merge All Windows"), #selector(AppDelegate.mergeWindowsIntoFront(_:)))
+        add(menu, loc("Bring All to Front"), #selector(NSApplication.arrangeInFront(_:)))
         return menu
     }
 }
@@ -243,12 +248,12 @@ final class FileActionsMenuController: NSObject, NSMenuDelegate {
         let browser = (NSApp.mainWindow?.windowController as? MainWindowController)?.activeBrowser
         let items = browser.map { FileActionRegistry.shared.menuItems(for: $0.actionContext) } ?? []
         if items.isEmpty {
-            menu.addItem(NSMenuItem(title: "選択項目に使えるアクションはありません", action: nil, keyEquivalent: ""))
+            menu.addItem(NSMenuItem(title: loc("No Actions for the Selection"), action: nil, keyEquivalent: ""))
         } else {
             items.forEach(menu.addItem)
         }
         menu.addItem(.separator())
-        let edit = NSMenuItem(title: "アクションを編集…", action: #selector(editActions(_:)), keyEquivalent: "")
+        let edit = NSMenuItem(title: loc("Edit Actions…"), action: #selector(editActions(_:)), keyEquivalent: "")
         edit.target = self
         menu.addItem(edit)
     }

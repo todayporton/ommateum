@@ -80,16 +80,16 @@ final class TabBarView: NSView {
         super.init(frame: frameRect)
         wantsLayer = true
         registerForDraggedTypes([.ommateumTab, .fileURL])
-        addButton.image = NSImage(systemSymbolName: "plus", accessibilityDescription: "新規タブ")
+        addButton.image = NSImage(systemSymbolName: "plus", accessibilityDescription: loc("New Tab"))
         addButton.isBordered = false
         addButton.target = self
         addButton.action = #selector(addClicked)
-        addButton.toolTip = "新規タブ"
+        addButton.toolTip = loc("New Tab")
         addSubview(addButton)
         dropSlot.isHidden = true
         addSubview(dropSlot)
         setAccessibilityRole(.tabGroup)
-        setAccessibilityLabel("タブ")
+        setAccessibilityLabel(loc("Tabs"))
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
@@ -312,13 +312,13 @@ private final class TabButton: NSView {
         label.lineBreakMode = .byTruncatingMiddle
         label.alignment = .center
         iconView.image = tab.icon
-        closeButton.image = NSImage(systemSymbolName: "xmark", accessibilityDescription: "タブを閉じる")
+        closeButton.image = NSImage(systemSymbolName: "xmark", accessibilityDescription: loc("Close Tab"))
         closeButton.symbolConfiguration = .init(pointSize: 9, weight: .semibold)
         closeButton.isBordered = false
         closeButton.isHidden = true
         closeButton.target = self
         closeButton.action = #selector(closeClicked)
-        closeButton.toolTip = "タブを閉じる"
+        closeButton.toolTip = loc("Close Tab")
         for view in [label, iconView, closeButton] as [NSView] {
             view.translatesAutoresizingMaskIntoConstraints = false
             addSubview(view)

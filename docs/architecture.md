@@ -12,6 +12,7 @@
 | Bundle ID | `online.todayporton.ommateum` |
 | プロジェクト | `Ommateum.xcodeproj`（フォルダ同期グループ。`Ommateum/` 以下のファイルは自動でビルド対象） |
 | 外部ライブラリ | なし |
+| 表示言語 | 英語（開発言語）と日本語。画面の文字列は `loc("英語の文")` で書き、日本語訳を `Ommateum/Localizable.xcstrings` に足す。値を埋め込む文は `%@` / `%ld` を使い、訳では `%1$@` で語順を入れ替えられる。設定 ▸ 一般 ▸ 言語は、アプリ自身の `AppleLanguages` を書き換え、再起動後に反映 |
 
 ## レイヤ
 

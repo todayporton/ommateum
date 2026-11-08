@@ -7,9 +7,9 @@ private enum SettingsSection: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .general: return "一般"
-        case .sidebar: return "サイドバー"
-        case .shortcuts: return "ショートカット"
+        case .general: return loc("General")
+        case .sidebar: return loc("Sidebar")
+        case .shortcuts: return loc("Shortcuts")
         }
     }
 
@@ -67,52 +67,61 @@ private struct GeneralSettingsView: View {
     @AppStorage(Preferences.Key.newWindowUsesDisplay) private var usesDisplay = false
     @AppStorage(Preferences.Key.newWindowScreen) private var newWindowScreen = NewWindowScreen.activeWindow.rawValue
     @State private var savedWindow = WorkspaceStore.shared.defaultWindow
+    @State private var language = AppLanguage.current
 
     var body: some View {
         Form {
-            Toggle("空白部分のダブルクリックで親フォルダへ移動", isOn: $doubleClickGoesUp)
-            Toggle("終了時のウインドウとタブを次回起動時に復元", isOn: $restoreSession)
-            Picker("新規タブの表示方法", selection: $defaultViewMode) {
+            Picker(loc("Language"), selection: Binding(get: { language }, set: { AppLanguage.choose($0); language = $0 })) {
+                ForEach(AppLanguage.allCases, id: \.self) { Text($0.title).tag($0) }
+            }
+            if language != AppLanguage.atLaunch {
+                LabeledContent(loc("Takes effect after Ommateum restarts.")) {
+                    Button(loc("Restart Now")) { (NSApp.delegate as? AppDelegate)?.relaunch() }
+                }
+            }
+            Toggle(loc("Double-click an empty area to go to the parent folder"), isOn: $doubleClickGoesUp)
+            Toggle(loc("Restore windows and tabs from the last session at launch"), isOn: $restoreSession)
+            Picker(loc("View for new tabs"), selection: $defaultViewMode) {
                 ForEach(ViewMode.allCases, id: \.rawValue) { mode in
                     Text(mode.title).tag(mode.rawValue)
                 }
             }
-            Picker("リストの行の高さ", selection: $listRowHeight) {
+            Picker(loc("List row height"), selection: $listRowHeight) {
                 ForEach(ListRowHeight.allCases, id: \.rawValue) { height in
                     Text(height.title).tag(height.rawValue)
                 }
             }
-            Section("新規ウインドウ") {
-                Picker("既定のウインドウ", selection: $newWindowSource) {
+            Section(loc("New Windows")) {
+                Picker(loc("Default window"), selection: $newWindowSource) {
                     ForEach(NewWindowSource.allCases, id: \.rawValue) { Text($0.title).tag($0.rawValue) }
                 }
-                .help("前回のウインドウ: 前面のウインドウ（なければ最後に閉じたウインドウ）")
+                .help(loc("Last window: the front window, or the last one closed when none is open"))
                 if newWindowSource == NewWindowSource.saved.rawValue {
-                    LabeledContent("保存したウインドウ") {
+                    LabeledContent(loc("Saved window")) {
                         HStack {
                             Text(savedWindowDescription).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
-                            Button("前面のウインドウを保存") {
+                            Button(loc("Save Front Window")) {
                                 (NSApp.delegate as? AppDelegate)?.saveFrontWindowAsDefault()
                             }
                             if savedWindow != nil {
-                                Button("削除") { try? WorkspaceStore.shared.setDefaultWindow(nil) }
+                                Button(loc("Delete")) { try? WorkspaceStore.shared.setDefaultWindow(nil) }
                             }
                         }
                     }
                 }
-                LabeledContent("既定から引き継ぐ項目") {
+                LabeledContent(loc("Take from the default window")) {
                     VStack(alignment: .leading) {
-                        Toggle("レイアウト（分割・タブ・フォルダ・表示方法）", isOn: $usesLayout)
-                        Toggle("位置", isOn: $usesPosition)
-                        Toggle("サイズ", isOn: $usesSize)
-                        Toggle("ディスプレイ", isOn: $usesDisplay)
+                        Toggle(loc("Layout (splits, tabs, folders, views)"), isOn: $usesLayout)
+                        Toggle(loc("Position"), isOn: $usesPosition)
+                        Toggle(loc("Size"), isOn: $usesSize)
+                        Toggle(loc("Display"), isOn: $usesDisplay)
                     }
                     .toggleStyle(.checkbox)
                 }
-                Picker("ウインドウを開くディスプレイ", selection: $newWindowScreen) {
+                Picker(loc("Open windows on"), selection: $newWindowScreen) {
                     ForEach(NewWindowScreen.allCases, id: \.rawValue) { Text($0.title).tag($0.rawValue) }
                 }
-                .help("「ディスプレイ」を引き継がないとき、または既定のディスプレイが接続されていないとき")
+                .help(loc("When Display is not taken from the default window, or its display is not connected"))
             }
         }
         .formStyle(.grouped)
@@ -124,7 +133,7 @@ private struct GeneralSettingsView: View {
 
     /// The saved window's panes as in the window lists, e.g. 「admin | 書類」.
     private var savedWindowDescription: String {
-        guard let savedWindow else { return "未保存（前回のウインドウを使います）" }
+        guard let savedWindow else { return loc("Not saved (the last window is used)") }
         return savedWindow.layout.leaves.compactMap { id in
             savedWindow.panes.first { $0.id == id }.flatMap { pane in
                 (pane.tabs.first { $0.id == pane.activeTabID } ?? pane.tabs.first)
@@ -142,19 +151,19 @@ private struct SidebarSettingsView: View {
     var body: some View {
         let _ = revision
         VStack(alignment: .leading, spacing: 6) {
-            Text("サイドバーに表示する項目:").fontWeight(.semibold)
+            Text(loc("Show in the sidebar:")).fontWeight(.semibold)
             ForEach(SidebarBuiltInSection.allCases, id: \.self) { section in
                 Toggle(section.title, isOn: Binding(
                     get: { !store.hiddenSections.contains(section) },
                     set: { store.setSection(section, hidden: !$0) }
                 ))
             }
-            Toggle("ディスクの空き容量を表示", isOn: Binding(
+            Toggle(loc("Show free disk space"), isOn: Binding(
                 get: { store.showsCapacity },
                 set: { store.setShowsCapacity($0) }
             ))
             .padding(.top, 6)
-            Text("グループはサイドバーの右クリックで追加できます。").font(.caption).foregroundStyle(.secondary).padding(.top, 6)
+            Text(loc("Add groups from the sidebar’s context menu.")).font(.caption).foregroundStyle(.secondary).padding(.top, 6)
         }
         .toggleStyle(.checkbox)
         .padding(20)
@@ -193,7 +202,7 @@ private struct ShortcutSettingsView: View {
     var body: some View {
         let _ = revision
         VStack(spacing: 8) {
-            TextField("検索", text: $searchText)
+            TextField(loc("Search"), text: $searchText)
                 .textFieldStyle(.roundedBorder)
             List {
                 ForEach(menuTitles, id: \.self) { menuTitle in
@@ -206,11 +215,11 @@ private struct ShortcutSettingsView: View {
                 }
             }
             HStack {
-                Text(message ?? "変更するキーをクリックして、新しいキーを押します。")
+                Text(message ?? loc("Click a shortcut, then press the new keys."))
                     .font(.caption)
                     .foregroundStyle(message == nil ? AnyShapeStyle(.secondary) : AnyShapeStyle(.red))
                 Spacer()
-                Button("すべてデフォルトに戻す") {
+                Button(loc("Restore All Defaults")) {
                     stopRecording()
                     store.resetAll()
                 }
@@ -222,15 +231,15 @@ private struct ShortcutSettingsView: View {
         .onReceive(NotificationCenter.default.publisher(for: .keyboardShortcutsChanged)) { _ in revision += 1 }
         .onDisappear(perform: stopRecording)
         .alert(
-            "\(pendingReplacement?.shortcut.displayText ?? "") は「\(pendingReplacement?.other.title ?? "")」に割り当てられています",
+            loc("%@ is assigned to “%@”.", pendingReplacement?.shortcut.displayText ?? "", pendingReplacement?.other.title ?? ""),
             isPresented: Binding(get: { pendingReplacement != nil }, set: { if !$0 { pendingReplacement = nil } })
         ) {
-            Button("キャンセル", role: .cancel) {}
-            Button("置き換える") {
+            Button(loc("Cancel"), role: .cancel) {}
+            Button(loc("Replace")) {
                 if let pendingReplacement { store.assign(pendingReplacement.shortcut, to: pendingReplacement.commandID) }
             }
         } message: {
-            Text("置き換えると「\(pendingReplacement?.other.title ?? "")」のショートカットはなしになります。")
+            Text(loc("If you replace it, “%@” will have no shortcut.", pendingReplacement?.other.title ?? ""))
         }
     }
 
@@ -238,7 +247,7 @@ private struct ShortcutSettingsView: View {
         HStack {
             Text(command.title)
             Spacer()
-            Button(recordingID == command.id ? "キーを入力…" : store.shortcut(for: command.id).displayText) {
+            Button(recordingID == command.id ? loc("Type Shortcut…") : store.shortcut(for: command.id).displayText) {
                 recordingID == command.id ? stopRecording() : startRecording(command.id)
             }
             // Fixed slots keep the key buttons in one column whichever of these a row shows.
@@ -246,8 +255,8 @@ private struct ShortcutSettingsView: View {
                 if store.isCustomized(command.id) {
                     Button { store.reset(command.id) } label: { Image(systemName: "arrow.uturn.backward") }
                         .buttonStyle(.borderless)
-                        .accessibilityLabel("デフォルトに戻す")
-                        .help("デフォルト（\(command.defaultShortcut.displayText)）に戻す")
+                        .accessibilityLabel(loc("Restore Default"))
+                        .help(loc("Restore the default (%@)", command.defaultShortcut.displayText))
                 }
             }
             .frame(width: 18)
@@ -256,8 +265,8 @@ private struct ShortcutSettingsView: View {
                     Button { store.assign(.none, to: command.id) } label: { Image(systemName: "xmark.circle.fill") }
                         .buttonStyle(.borderless)
                         .foregroundStyle(.secondary)
-                        .accessibilityLabel("ショートカットをなしにする")
-                        .help("ショートカットをなしにする")
+                        .accessibilityLabel(loc("Remove Shortcut"))
+                        .help(loc("Remove Shortcut"))
                 }
             }
             .frame(width: 18)
@@ -287,12 +296,12 @@ private struct ShortcutSettingsView: View {
             return
         }
         guard let shortcut = KeyShortcut(event: event), shortcut.isAssignable else {
-            message = "⌘ か ⌃ を含むキーかファンクションキーを押してください。入力ソースによっては英字に切り替えが必要です。"
+            message = loc("Press keys with ⌘ or ⌃, or a function key. Some input sources need switching to a Latin layout first.")
             return
         }
         switch store.conflict(for: shortcut, assigningTo: id, fixed: fixed) {
         case .fixed(let title):
-            message = "\(shortcut.displayText) は「\(title)」で使われているため割り当てられません。"
+            message = loc("%@ is used by “%@” and can’t be assigned.", shortcut.displayText, title)
         case .command(let other):
             stopRecording()
             pendingReplacement = PendingReplacement(shortcut: shortcut, commandID: id, other: other)
@@ -320,11 +329,11 @@ struct WorkspaceManagerView: View {
                 ForEach(names, id: \.self) { name in
                     Text(name)
                         .contextMenu {
-                            Button("開く") { open(name, false) }
-                            Button("新規ウインドウで開く") { open(name, true) }
-                            Button("名前を変更…") { startRename(name) }
+                            Button(loc("Open")) { open(name, false) }
+                            Button(loc("Open in New Window")) { open(name, true) }
+                            Button(loc("Rename…")) { startRename(name) }
                             Divider()
-                            Button("削除", role: .destructive) { delete(name) }
+                            Button(loc("Delete"), role: .destructive) { delete(name) }
                         }
                 }
                 .onMove { source, destination in
@@ -333,7 +342,7 @@ struct WorkspaceManagerView: View {
             }
             .overlay {
                 if names.isEmpty {
-                    Text("保存されたワークスペースはありません。\n「ワークスペース」メニューから保存できます。")
+                    Text(loc("No saved workspaces.\nYou can save one from the Workspace menu."))
                         .multilineTextAlignment(.center)
                         .foregroundStyle(.secondary)
                 }
@@ -345,12 +354,12 @@ struct WorkspaceManagerView: View {
                 Divider()
             }
             HStack {
-                Button("開く") { if let selection { open(selection, false) } }
+                Button(loc("Open")) { if let selection { open(selection, false) } }
                     .keyboardShortcut(.defaultAction)
-                Button("新規ウインドウで開く") { if let selection { open(selection, true) } }
+                Button(loc("Open in New Window")) { if let selection { open(selection, true) } }
                 Spacer()
-                Button("名前を変更…") { if let selection { startRename(selection) } }
-                Button("削除") { if let selection { delete(selection) } }
+                Button(loc("Rename…")) { if let selection { startRename(selection) } }
+                Button(loc("Delete")) { if let selection { delete(selection) } }
             }
             .disabled(selection == nil)
             .padding(10)
@@ -361,19 +370,19 @@ struct WorkspaceManagerView: View {
         }
         .sheet(item: Binding(get: { renaming.map(RenameTarget.init) }, set: { renaming = $0?.name })) { target in
             VStack(alignment: .leading, spacing: 12) {
-                Text("「\(target.name)」の名前を変更").font(.headline)
-                TextField("名前", text: $newName)
+                Text(loc("Rename “%@”", target.name)).font(.headline)
+                TextField(loc("Name"), text: $newName)
                     .frame(width: 260)
                     .onSubmit { commitRename(target.name) }
                 HStack {
                     Spacer()
-                    Button("キャンセル") { renaming = nil }.keyboardShortcut(.cancelAction)
-                    Button("変更") { commitRename(target.name) }.keyboardShortcut(.defaultAction)
+                    Button(loc("Cancel")) { renaming = nil }.keyboardShortcut(.cancelAction)
+                    Button(loc("Rename")) { commitRename(target.name) }.keyboardShortcut(.defaultAction)
                 }
             }
             .padding(20)
         }
-        .alert("エラー", isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
+        .alert(loc("Error"), isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
             Button("OK") {}
         } message: {
             Text(errorMessage ?? "")
@@ -389,18 +398,18 @@ struct WorkspaceManagerView: View {
                 optionsRevision += 1
             })
         return Form {
-            LabeledContent("開くときに復元") {
+            LabeledContent(loc("Restore when opening")) {
                 HStack(spacing: 14) {
-                    Toggle("位置", isOn: binding.position)
-                    Toggle("サイズ", isOn: binding.size)
-                    Toggle("ディスプレイ", isOn: binding.display)
+                    Toggle(loc("Position"), isOn: binding.position)
+                    Toggle(loc("Size"), isOn: binding.size)
+                    Toggle(loc("Display"), isOn: binding.display)
                 }
                 .toggleStyle(.checkbox)
             }
-            Picker("ウインドウを開くディスプレイ", selection: binding.screen) {
+            Picker(loc("Open windows on"), selection: binding.screen) {
                 ForEach(NewWindowScreen.allCases, id: \.rawValue) { Text($0.title).tag($0.rawValue) }
             }
-            .help("「ディスプレイ」を復元しないとき、または保存時のディスプレイが接続されていないとき")
+            .help(loc("When Display is not restored, or the saved display is not connected"))
         }
         .padding(.horizontal, 10)
         .padding(.top, 8)
@@ -422,7 +431,7 @@ struct WorkspaceManagerView: View {
         renaming = nil
         guard !trimmed.isEmpty, trimmed != name else { return }
         if names.contains(trimmed) {
-            errorMessage = "「\(trimmed)」という名前のワークスペースはすでにあります。"
+            errorMessage = loc("A workspace named “%@” already exists.", trimmed)
             return
         }
         perform { try WorkspaceStore.shared.rename(name, to: trimmed) }

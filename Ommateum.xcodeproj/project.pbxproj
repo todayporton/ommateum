@@ -134,7 +134,7 @@
 				};
 			};
 			buildConfigurationList = A10000000000000000000040 /* Build configuration list for PBXProject "Ommateum" */;
-			developmentRegion = ja;
+			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				ja,

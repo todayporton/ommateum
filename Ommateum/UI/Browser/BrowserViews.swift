@@ -3,7 +3,7 @@ import AppKit
 /// Thin notice strip shown at the top of a browser (e.g. "the original folder was not found").
 final class BannerView: NSView {
     private let label = NSTextField(wrappingLabelWithString: "")
-    private let retryButton = NSButton(title: "再試行", target: nil, action: nil)
+    private let retryButton = NSButton(title: loc("Try Again"), target: nil, action: nil)
     private let closeButton = NSButton()
     private var retry: (() -> Void)?
     private var close: (() -> Void)?
@@ -18,7 +18,7 @@ final class BannerView: NSView {
         retryButton.bezelStyle = .push
         retryButton.target = self
         retryButton.action = #selector(retryClicked)
-        closeButton.image = NSImage(systemSymbolName: "xmark", accessibilityDescription: "閉じる")
+        closeButton.image = NSImage(systemSymbolName: "xmark", accessibilityDescription: loc("Close"))
         closeButton.isBordered = false
         closeButton.controlSize = .small
         closeButton.target = self
@@ -109,51 +109,51 @@ enum BrowserMenus {
         }
 
         if items.isEmpty {
-            add("新規フォルダ", #selector(FileBrowserViewController.newFolder(_:)), key: "n", modifiers: [.command, .shift])
+            add(loc("New Folder"), #selector(FileBrowserViewController.newFolder(_:)), key: "n", modifiers: [.command, .shift])
             menu.addItem(.separator())
-            add("ペースト", #selector(FileBrowserViewController.paste(_:)), key: "v")
+            add(loc("Paste"), #selector(FileBrowserViewController.paste(_:)), key: "v")
             menu.addItem(.separator())
             menu.addItem(viewSubmenu(target: browser))
             menu.addItem(.separator())
-            add("Finderで表示", #selector(FileBrowserViewController.revealInFinder(_:)))
-            add("パスをコピー", #selector(FileBrowserViewController.copyPath(_:)), key: "c", modifiers: [.command, .option])
-            add("URLをコピー", #selector(FileBrowserViewController.copyAppURL(_:)))
-            add("サイドバーに追加", #selector(FileBrowserViewController.addToSidebar(_:)), key: "t", modifiers: [.command, .control])
-            add("情報を見る", #selector(FileBrowserViewController.showInfo(_:)), key: "i")
+            add(loc("Show in Finder"), #selector(FileBrowserViewController.revealInFinder(_:)))
+            add(loc("Copy Path"), #selector(FileBrowserViewController.copyPath(_:)), key: "c", modifiers: [.command, .option])
+            add(loc("Copy URL"), #selector(FileBrowserViewController.copyAppURL(_:)))
+            add(loc("Add to Sidebar"), #selector(FileBrowserViewController.addToSidebar(_:)), key: "t", modifiers: [.command, .control])
+            add(loc("Get Info"), #selector(FileBrowserViewController.showInfo(_:)), key: "i")
             FileActionRegistry.shared.menuItems(for: browser.actionContext).forEach(menu.addItem)
             return menu
         }
 
-        add("開く", #selector(FileBrowserViewController.openSelection(_:)), key: "o")
+        add(loc("Open"), #selector(FileBrowserViewController.openSelection(_:)), key: "o")
         if items.contains(where: { !$0.isNavigable }) {
             menu.addItem(openWithSubmenu(for: items, target: browser))
         }
         if items.contains(where: \.isNavigable) {
-            add("新規タブで開く", #selector(FileBrowserViewController.openSelectionInNewTab(_:)))
-            add("右に分割して開く", #selector(FileBrowserViewController.openSelectionInSplitRight(_:)))
-            add("下に分割して開く", #selector(FileBrowserViewController.openSelectionInSplitDown(_:)))
+            add(loc("Open in New Tab"), #selector(FileBrowserViewController.openSelectionInNewTab(_:)))
+            add(loc("Open in Split Right"), #selector(FileBrowserViewController.openSelectionInSplitRight(_:)))
+            add(loc("Open in Split Down"), #selector(FileBrowserViewController.openSelectionInSplitDown(_:)))
         }
         menu.addItem(.separator())
-        add("ゴミ箱に入れる", #selector(FileBrowserViewController.moveToTrash(_:)), key: "\u{8}")
+        add(loc("Move to Trash"), #selector(FileBrowserViewController.moveToTrash(_:)), key: "\u{8}")
         menu.addItem(deleteAlternate(for: menu.items[menu.items.count - 1], target: browser))
         menu.addItem(.separator())
-        if items.count == 1 { add("名前を変更", #selector(FileBrowserViewController.renameSelection(_:)), key: "") }
-        add("複製", #selector(FileBrowserViewController.duplicate(_:)), key: "d")
-        add("エイリアスを作成", #selector(FileBrowserViewController.makeAlias(_:)), key: "a", modifiers: [.command, .control])
-        add("クイックルック", #selector(FileBrowserViewController.toggleQuickLook(_:)), key: "y")
-        add("情報を見る", #selector(FileBrowserViewController.showInfo(_:)), key: "i")
+        if items.count == 1 { add(loc("Rename"), #selector(FileBrowserViewController.renameSelection(_:)), key: "") }
+        add(loc("Duplicate"), #selector(FileBrowserViewController.duplicate(_:)), key: "d")
+        add(loc("Make Alias"), #selector(FileBrowserViewController.makeAlias(_:)), key: "a", modifiers: [.command, .control])
+        add(loc("Quick Look"), #selector(FileBrowserViewController.toggleQuickLook(_:)), key: "y")
+        add(loc("Get Info"), #selector(FileBrowserViewController.showInfo(_:)), key: "i")
         menu.addItem(.separator())
-        add("コピー", #selector(FileBrowserViewController.copy(_:)), key: "c")
-        add("パスをコピー", #selector(FileBrowserViewController.copyPath(_:)), key: "c", modifiers: [.command, .option])
-        add("URLをコピー", #selector(FileBrowserViewController.copyAppURL(_:)))
+        add(loc("Copy"), #selector(FileBrowserViewController.copy(_:)), key: "c")
+        add(loc("Copy Path"), #selector(FileBrowserViewController.copyPath(_:)), key: "c", modifiers: [.command, .option])
+        add(loc("Copy URL"), #selector(FileBrowserViewController.copyAppURL(_:)))
         menu.addItem(.separator())
         menu.addItem(tagSubmenu(target: browser))
         menu.addItem(.separator())
         menu.addItem(SharingServices.shareMenuItem(for: items.map(\.url)))
         FileActionRegistry.shared.menuItems(for: browser.actionContext).forEach(menu.addItem)
-        add("Finderで表示", #selector(FileBrowserViewController.revealInFinder(_:)))
+        add(loc("Show in Finder"), #selector(FileBrowserViewController.revealInFinder(_:)))
         if items.contains(where: \.isNavigable) {
-            add("サイドバーに追加", #selector(FileBrowserViewController.addToSidebar(_:)), key: "t", modifiers: [.command, .control])
+            add(loc("Add to Sidebar"), #selector(FileBrowserViewController.addToSidebar(_:)), key: "t", modifiers: [.command, .control])
         }
         return menu
     }
@@ -161,7 +161,7 @@ enum BrowserMenus {
     /// Shown in place of `trashItem` while ⌥ is held. AppKit pairs alternates by key, so it takes the trash
     /// item's key (as customized in settings) with ⌥ added; that key only works while the menu is open.
     private static func deleteAlternate(for trashItem: NSMenuItem, target: AnyObject) -> NSMenuItem {
-        let item = NSMenuItem(title: "ゴミ箱に入れずに削除", action: #selector(FileBrowserViewController.deleteImmediately(_:)), keyEquivalent: trashItem.keyEquivalent)
+        let item = NSMenuItem(title: loc("Delete Immediately"), action: #selector(FileBrowserViewController.deleteImmediately(_:)), keyEquivalent: trashItem.keyEquivalent)
         item.keyEquivalentModifierMask = trashItem.keyEquivalentModifierMask.union(.option)
         item.isAlternate = true
         item.target = target
@@ -169,10 +169,10 @@ enum BrowserMenus {
     }
 
     static func tagSubmenu(target: AnyObject?) -> NSMenuItem {
-        let parent = NSMenuItem(title: "タグ", action: nil, keyEquivalent: "")
+        let parent = NSMenuItem(title: loc("Tags"), action: nil, keyEquivalent: "")
         let submenu = NSMenu()
         let colors = NSWorkspace.shared.fileLabelColors
-        // Index 0 is "なし".
+        // Index 0 is "None".
         for (index, label) in NSWorkspace.shared.fileLabels.enumerated() where index > 0 && index < colors.count {
             let item = NSMenuItem(title: label, action: #selector(FileBrowserViewController.toggleTag(_:)), keyEquivalent: "")
             item.representedObject = label
@@ -189,7 +189,7 @@ enum BrowserMenus {
     }
 
     private static func openWithSubmenu(for items: [FileItem], target: AnyObject) -> NSMenuItem {
-        let parent = NSMenuItem(title: "このアプリケーションで開く", action: nil, keyEquivalent: "")
+        let parent = NSMenuItem(title: loc("Open With"), action: nil, keyEquivalent: "")
         let submenu = NSMenu()
         let files = items.filter { !$0.isNavigable }.map(\.url)
         var apps = files.first.map { NSWorkspace.shared.urlsForApplications(toOpen: $0) } ?? []
@@ -201,7 +201,7 @@ enum BrowserMenus {
         let defaultApp = files.first.flatMap { NSWorkspace.shared.urlForApplication(toOpen: $0) }
         for app in apps.prefix(30) {
             var title = FileManager.default.displayName(atPath: app.path)
-            if app == defaultApp { title += "（デフォルト）" }
+            if app == defaultApp { title += loc(" (Default)") }
             let item = NSMenuItem(title: title, action: #selector(FileBrowserViewController.openWithApplication(_:)), keyEquivalent: "")
             item.representedObject = app
             item.target = target
@@ -210,18 +210,18 @@ enum BrowserMenus {
             item.image = icon
             submenu.addItem(item)
         }
-        if apps.isEmpty { submenu.addItem(withTitle: "なし", action: nil, keyEquivalent: "") }
+        if apps.isEmpty { submenu.addItem(withTitle: loc("None"), action: nil, keyEquivalent: "") }
         parent.submenu = submenu
         return parent
     }
 
     static func viewSubmenu(target: AnyObject?) -> NSMenuItem {
-        let parent = NSMenuItem(title: "表示", action: nil, keyEquivalent: "")
+        let parent = NSMenuItem(title: loc("View"), action: nil, keyEquivalent: "")
         let submenu = NSMenu()
-        for (title, action) in [("アイコン", #selector(FileBrowserViewController.showAsIcons(_:))),
-                                ("リスト", #selector(FileBrowserViewController.showAsList(_:))),
-                                ("カラム", #selector(FileBrowserViewController.showAsColumns(_:))),
-                                ("ギャラリー", #selector(FileBrowserViewController.showAsGallery(_:)))] {
+        for (title, action) in [(loc("as Icons"), #selector(FileBrowserViewController.showAsIcons(_:))),
+                                (loc("as List"), #selector(FileBrowserViewController.showAsList(_:))),
+                                (loc("as Columns"), #selector(FileBrowserViewController.showAsColumns(_:))),
+                                (loc("as Gallery"), #selector(FileBrowserViewController.showAsGallery(_:)))] {
             let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
             item.target = target
             submenu.addItem(item)
@@ -234,9 +234,9 @@ enum BrowserMenus {
     }
 
     static func groupSubmenu(target: AnyObject?) -> NSMenuItem {
-        let parent = NSMenuItem(title: "グループ分け", action: nil, keyEquivalent: "")
+        let parent = NSMenuItem(title: loc("Group By"), action: nil, keyEquivalent: "")
         let submenu = NSMenu()
-        for (title, key) in [("なし", String?.none)] + GroupKey.allCases.map({ ($0.title, Optional($0.rawValue)) }) {
+        for (title, key) in [(loc("None"), String?.none)] + GroupKey.allCases.map({ ($0.title, Optional($0.rawValue)) }) {
             let item = NSMenuItem(title: title, action: #selector(FileBrowserViewController.groupItems(_:)), keyEquivalent: "")
             item.representedObject = key
             item.target = target
@@ -247,7 +247,7 @@ enum BrowserMenus {
     }
 
     static func sortSubmenu(target: AnyObject?) -> NSMenuItem {
-        let parent = NSMenuItem(title: "並べ替え", action: nil, keyEquivalent: "")
+        let parent = NSMenuItem(title: loc("Sort By"), action: nil, keyEquivalent: "")
         let submenu = NSMenu()
         for key in SortKey.allCases {
             let item = NSMenuItem(title: key.title, action: #selector(FileBrowserViewController.sortBy(_:)), keyEquivalent: "")

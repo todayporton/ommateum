@@ -5,10 +5,10 @@ enum ViewMode: String, Codable, CaseIterable, Sendable {
 
     var title: String {
         switch self {
-        case .icon: "アイコン"
-        case .list: "リスト"
-        case .column: "カラム"
-        case .gallery: "ギャラリー"
+        case .icon: loc("Icons")
+        case .list: loc("List")
+        case .column: loc("Columns")
+        case .gallery: loc("Gallery")
         }
     }
 
@@ -27,11 +27,11 @@ enum SortKey: String, Codable, CaseIterable, Sendable {
 
     var title: String {
         switch self {
-        case .name: "名前"
-        case .dateModified: "変更日"
-        case .dateCreated: "作成日"
-        case .size: "サイズ"
-        case .kind: "種類"
+        case .name: loc("Name")
+        case .dateModified: loc("Date Modified")
+        case .dateCreated: loc("Date Created")
+        case .size: loc("Size")
+        case .kind: loc("Kind")
         }
     }
 }
@@ -42,9 +42,9 @@ enum GroupKey: String, Codable, CaseIterable, Sendable {
 
     var title: String {
         switch self {
-        case .kind: "種類"
-        case .dateModified: "変更日"
-        case .size: "サイズ"
+        case .kind: loc("Kind")
+        case .dateModified: loc("Date Modified")
+        case .size: loc("Size")
         }
     }
 }

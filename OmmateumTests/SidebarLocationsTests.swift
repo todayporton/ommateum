@@ -14,7 +14,7 @@ struct SidebarLocationsTests {
     @Test func migratesFlatFavoritesToAGroupWithTrash() throws {
         let (store, _, cleanup) = try makeStore(json: #"{"version":1,"favorites":[{"path":"/tmp"}],"hiddenLocations":["/"]}"#)
         defer { cleanup() }
-        #expect(store.groups.map(\.name) == ["ブックマーク"])
+        #expect(store.groups.map(\.name) == [SidebarStore.defaultGroupName])
         #expect(store.groups[0].items.map(\.path) == ["/tmp", SidebarStore.trashURL.path])
     }
 

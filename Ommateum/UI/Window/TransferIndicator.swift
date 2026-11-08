@@ -11,8 +11,8 @@ final class TransferIndicatorButton: NSButton {
         bezelStyle = .toolbar
         title = ""
         imagePosition = .noImage
-        toolTip = "ファイル操作の進行状況"
-        setAccessibilityLabel("ファイル操作の進行状況")
+        toolTip = loc("File Operations")
+        setAccessibilityLabel(loc("File Operations"))
         target = self
         action = #selector(togglePopover(_:))
         ring.translatesAutoresizingMaskIntoConstraints = false
@@ -110,7 +110,7 @@ private final class ProgressRingView: NSView {
 private final class TransferListViewController: NSViewController {
     private let stack = NSStackView()
     private var rows: [TransferDetailRow] = []
-    private let emptyLabel = NSTextField(labelWithString: "実行中のファイル操作はありません")
+    private let emptyLabel = NSTextField(labelWithString: loc("No file operations in progress"))
 
     override func loadView() {
         stack.orientation = .vertical
@@ -175,10 +175,10 @@ private final class TransferDetailRow: NSView {
         bar.minValue = 0
         bar.maxValue = 1
         bar.controlSize = .small
-        let stop = NSButton(image: NSImage(systemSymbolName: "xmark.circle.fill", accessibilityDescription: "中止") ?? NSImage(),
+        let stop = NSButton(image: NSImage(systemSymbolName: "xmark.circle.fill", accessibilityDescription: loc("Stop Operation")) ?? NSImage(),
                             target: self, action: #selector(stopClicked))
         stop.isBordered = false
-        stop.toolTip = "中止"
+        stop.toolTip = loc("Stop Operation")
         stop.contentTintColor = .secondaryLabelColor
         stop.setContentHuggingPriority(.required, for: .horizontal)
 
@@ -213,12 +213,12 @@ private final class TransferDetailRow: NSView {
     func refresh() {
         let state = transfer.snapshot
         if let destination = transfer.destination {
-            titleLabel.stringValue = "“\(FileManager.default.displayName(atPath: destination.path))”へ\(transfer.title)"
+            titleLabel.stringValue = loc("%2$@ to “%1$@”", FileManager.default.displayName(atPath: destination.path), transfer.title)
         } else {
             titleLabel.stringValue = transfer.title
         }
-        let count = state.totalItems > 1 ? "（\(state.currentItem)/\(state.totalItems) 項目）" : ""
-        fileLabel.stringValue = state.currentName.isEmpty ? "準備しています…" : state.currentName + count
+        let count = state.totalItems > 1 ? loc(" (%ld of %ld items)", state.currentItem, state.totalItems) : ""
+        fileLabel.stringValue = state.currentName.isEmpty ? loc("Preparing…") : state.currentName + count
 
         if let fraction = transfer.fraction {
             bar.stopAnimation(nil)
@@ -230,32 +230,32 @@ private final class TransferDetailRow: NSView {
         }
 
         if state.isCancelled {
-            sizeLabel.stringValue = "中止しています…"
+            sizeLabel.stringValue = loc("Stopping…")
             speedLabel.stringValue = ""
             return
         }
         let bytes = { ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) }
-        sizeLabel.stringValue = state.totalBytes > 0 ? "\(bytes(state.completedBytes)) / \(bytes(state.totalBytes))" : "サイズを計算しています…"
+        sizeLabel.stringValue = state.totalBytes > 0 ? "\(bytes(state.completedBytes)) / \(bytes(state.totalBytes))" : loc("Calculating size…")
         var speed: [String] = []
         if let rate = transfer.meter.bytesPerSecond, state.totalBytes > 0 {
-            speed.append("\(bytes(Int64(rate)))/秒")
+            speed.append(loc("%@/s", bytes(Int64(rate))))
         }
         if let remaining = transfer.meter.secondsRemaining(completed: state.completedBytes, total: state.totalBytes) {
-            speed.append("残り\(Self.duration(remaining))")
+            speed.append(loc("%@ remaining", Self.duration(remaining)))
         }
         speedLabel.stringValue = speed.joined(separator: " · ")
     }
 
-    /// Rough remaining time, like "約3分".
+    /// Rough remaining time, like "about 3 min".
     static func duration(_ seconds: TimeInterval) -> String {
         switch seconds {
-        case ..<10: return "数秒"
-        case ..<60: return "約\(Int(seconds.rounded()))秒"
-        case ..<3600: return "約\(Int((seconds / 60).rounded()))分"
+        case ..<10: return loc("a few seconds")
+        case ..<60: return loc("about %ld s", Int(seconds.rounded()))
+        case ..<3600: return loc("about %ld min", Int((seconds / 60).rounded()))
         default:
             let hours = Int(seconds / 3600)
             let minutes = Int((seconds - Double(hours) * 3600) / 60)
-            return minutes == 0 ? "約\(hours)時間" : "約\(hours)時間\(minutes)分"
+            return minutes == 0 ? loc("about %ld h", hours) : loc("about %ld h %ld min", hours, minutes)
         }
     }
 

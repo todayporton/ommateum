@@ -7,7 +7,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
     private let root: WindowRootViewController
     let workspace: WorkspaceViewController
     private var firstResponderObservation: NSKeyValueObservation?
-    /// Name of the saved workspace this window was loaded from / saved as (for "上書き保存").
+    /// Name of the saved workspace this window was loaded from / saved as (for "Save Workspace").
     var workspaceName: String?
     var onClose: ((MainWindowController) -> Void)?
 
@@ -165,9 +165,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
     @objc func goToFolder(_ sender: Any?) {
         guard let window, let browser = activeBrowser else { return }
         let alert = NSAlert()
-        alert.messageText = "フォルダへ移動"
-        alert.addButton(withTitle: "移動")
-        alert.addButton(withTitle: "キャンセル")
+        alert.messageText = loc("Go to Folder")
+        alert.addButton(withTitle: loc("Go"))
+        alert.addButton(withTitle: loc("Cancel"))
         let field = NSTextField(string: browser.currentURL.path)
         field.frame = NSRect(x: 0, y: 0, width: 360, height: 22)
         alert.accessoryView = field
@@ -181,7 +181,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
             } else if FileManager.default.fileExists(atPath: url.path) {
                 browser.navigate(to: url.deletingLastPathComponent(), select: [url])
             } else {
-                FileOperations.shared.showError(message: "フォルダ「\(field.stringValue)」が見つかりません。", window: window)
+                FileOperations.shared.showError(message: loc("The folder “%@” can’t be found.", field.stringValue), window: window)
             }
         }
     }
@@ -266,16 +266,16 @@ extension MainWindowController: NSToolbarDelegate {
         switch itemIdentifier {
         case ToolbarID.navigation:
             let control = NSSegmentedControl(images: [
-                NSImage(systemSymbolName: "chevron.left", accessibilityDescription: "戻る")!,
-                NSImage(systemSymbolName: "chevron.right", accessibilityDescription: "進む")!,
+                NSImage(systemSymbolName: "chevron.left", accessibilityDescription: loc("Back"))!,
+                NSImage(systemSymbolName: "chevron.right", accessibilityDescription: loc("Forward"))!,
             ], trackingMode: .momentary, target: self, action: #selector(toolbarNavigate(_:)))
             control.segmentStyle = .separated
-            control.setToolTip("戻る", forSegment: 0)
-            control.setToolTip("進む", forSegment: 1)
+            control.setToolTip(loc("Back"), forSegment: 0)
+            control.setToolTip(loc("Forward"), forSegment: 1)
             navigationControl = control
             let item = NSToolbarItem(itemIdentifier: itemIdentifier)
             item.view = control
-            item.label = "戻る/進む"
+            item.label = loc("Back/Forward")
             item.isNavigational = true
             return item
         case ToolbarID.viewMode:
@@ -286,13 +286,13 @@ extension MainWindowController: NSToolbarDelegate {
             viewModeControl = control
             let item = NSToolbarItem(itemIdentifier: itemIdentifier)
             item.view = control
-            item.label = "表示"
+            item.label = loc("View")
             return item
         case ToolbarID.sidebar:
             let item = NSToolbarItem(itemIdentifier: itemIdentifier)
-            item.image = NSImage(systemSymbolName: "sidebar.left", accessibilityDescription: "サイドバー")
-            item.label = "サイドバー"
-            item.toolTip = "サイドバーを表示/非表示"
+            item.image = NSImage(systemSymbolName: "sidebar.left", accessibilityDescription: loc("Sidebar"))
+            item.label = loc("Sidebar")
+            item.toolTip = loc("Show/Hide Sidebar")
             item.target = self
             item.action = #selector(toggleSidebarPane(_:))
             item.isNavigational = true // stays on the left, next to 戻る/進む
@@ -300,9 +300,9 @@ extension MainWindowController: NSToolbarDelegate {
             return item
         case ToolbarID.split:
             let item = NSToolbarItem(itemIdentifier: itemIdentifier)
-            item.image = NSImage(systemSymbolName: "rectangle.split.2x1", accessibilityDescription: "分割")
-            item.label = "分割"
-            item.toolTip = "右に分割（⌥クリックで下に分割）"
+            item.image = NSImage(systemSymbolName: "rectangle.split.2x1", accessibilityDescription: loc("Split"))
+            item.label = loc("Split")
+            item.toolTip = loc("Split right (⌥-click to split down)")
             item.target = self
             item.action = #selector(toolbarSplit(_:))
             item.isBordered = true
@@ -310,7 +310,7 @@ extension MainWindowController: NSToolbarDelegate {
         case ToolbarID.transfers:
             let item = NSToolbarItem(itemIdentifier: itemIdentifier)
             item.view = TransferIndicatorButton()
-            item.label = "進行状況"
+            item.label = loc("Progress")
             item.visibilityPriority = .high
             return item
         default:

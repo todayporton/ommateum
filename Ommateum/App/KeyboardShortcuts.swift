@@ -55,7 +55,7 @@ struct KeyShortcut: Codable, Equatable {
     }
 
     var displayText: String {
-        guard !isNone else { return "なし" }
+        guard !isNone else { return loc("None") }
         var text = ""
         if modifiers.contains(.control) { text += "⌃" }
         if modifiers.contains(.option) { text += "⌥" }
@@ -118,7 +118,7 @@ final class KeyboardShortcuts {
         self.fileURL = fileURL
         if let data = try? Data(contentsOf: fileURL),
            let stored = try? JSONDecoder().decode([String: KeyShortcut].self, from: data) {
-            overrides = stored
+            overrides = Self.migrated(stored)
         }
     }
 
@@ -145,9 +145,28 @@ final class KeyboardShortcuts {
 
     private static func commandID(of item: NSMenuItem) -> String? {
         guard let action = item.action, !item.hasSubmenu, !item.isAlternate, action != #selector(AppDelegate.openWorkspace(_:)) else { return nil }
-        // The 移動 menu's folders share one selector.
-        let location = item.representedObject is String ? "#\(item.title)" : ""
+        // The Go menu's places share one selector; their identifier tells them apart in any language.
+        // (Only theirs: AppKit gives other items an identifier of its own.)
+        let isPlace = action == #selector(MainWindowController.goToStandardLocation(_:))
+        let location = isPlace ? item.identifier.map { "#\($0.rawValue)" } ?? "" : ""
         return NSStringFromSelector(action) + location
+    }
+
+    /// Before the UI was localized, the Go menu's places were told apart by their Japanese titles.
+    static func migrated(_ stored: [String: KeyShortcut]) -> [String: KeyShortcut] {
+        let places = ["書類": "documents", "デスクトップ": "desktop", "ダウンロード": "downloads", "ホーム": "home",
+                      "コンピュータ": "computer", "アプリケーション": "applications", "ユーティリティ": "utilities",
+                      "iCloud Drive": "iCloudDrive"]
+        let prefix = NSStringFromSelector(#selector(MainWindowController.goToStandardLocation(_:))) + "#"
+        var result: [String: KeyShortcut] = [:]
+        for (id, shortcut) in stored {
+            if id.hasPrefix(prefix), let place = places[String(id.dropFirst(prefix.count))] {
+                result[prefix + place] = shortcut
+            } else {
+                result[id] = shortcut
+            }
+        }
+        return result
     }
 
     func shortcut(for id: String) -> KeyShortcut {
@@ -206,8 +225,8 @@ final class KeyboardShortcuts {
     /// ⌘↓ is handled by the browsers' keyDown, and actions set their keys in actions.json.
     static func fixedShortcuts() -> [FixedShortcut] {
         let open = KeyShortcut(key: String(Character(UnicodeScalar(NSDownArrowFunctionKey)!)), modifiers: .command)
-        return [FixedShortcut(title: "開く", shortcut: open)] + CustomActionsProvider.shared.shortcuts().map { title, combo in
-            FixedShortcut(title: "\(title)（actions.json）", shortcut: KeyShortcut(key: combo.character, modifiers: combo.modifiers))
+        return [FixedShortcut(title: loc("Open"), shortcut: open)] + CustomActionsProvider.shared.shortcuts().map { title, combo in
+            FixedShortcut(title: loc("%@ (actions.json)", title), shortcut: KeyShortcut(key: combo.character, modifiers: combo.modifiers))
         }
     }
 }

@@ -8,12 +8,12 @@ final class SearchBarView: NSView, NSSearchFieldDelegate {
     var onClose: (() -> Void)?
 
     private let field = NSSearchField()
-    private let scopeControl = NSSegmentedControl(labels: ["このフォルダ", "サブフォルダも含む"], trackingMode: .selectOne, target: nil, action: nil)
+    private let scopeControl = NSSegmentedControl(labels: [loc("This Folder"), loc("Including Subfolders")], trackingMode: .selectOne, target: nil, action: nil)
     private let countLabel = NSTextField(labelWithString: "")
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
-        field.placeholderString = "名前で検索"
+        field.placeholderString = loc("Search by Name")
         field.delegate = self
         field.sendsSearchStringImmediately = false
         field.target = self
@@ -24,7 +24,7 @@ final class SearchBarView: NSView, NSSearchFieldDelegate {
         scopeControl.controlSize = .small
         countLabel.textColor = .secondaryLabelColor
         countLabel.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
-        let close = NSButton(title: "完了", target: self, action: #selector(closeClicked))
+        let close = NSButton(title: loc("Done"), target: self, action: #selector(closeClicked))
         close.controlSize = .small
         let stack = NSStackView(views: [field, scopeControl, countLabel, close])
         stack.orientation = .horizontal
@@ -44,7 +44,7 @@ final class SearchBarView: NSView, NSSearchFieldDelegate {
             stack.leadingAnchor.constraint(equalTo: leadingAnchor),
             stack.trailingAnchor.constraint(equalTo: trailingAnchor),
         ])
-        setAccessibilityLabel("検索")
+        setAccessibilityLabel(loc("Search"))
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
@@ -58,7 +58,7 @@ final class SearchBarView: NSView, NSSearchFieldDelegate {
     }
 
     func setResultCount(_ count: Int?) {
-        countLabel.stringValue = count.map { "\($0)件" } ?? "検索中…"
+        countLabel.stringValue = count.map { loc("%ld found", $0) } ?? loc("Searching…")
     }
 
     @objc private func changed() {

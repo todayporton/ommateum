@@ -24,7 +24,7 @@ struct KeyboardShortcutsTests {
     @Test func displayFollowsMenuOrder() {
         #expect(KeyShortcut(key: "s", modifiers: [.command, .shift, .option, .control]).displayText == "⌃⌥⇧⌘S")
         #expect(KeyShortcut(key: "\u{8}", modifiers: .command).displayText == "⌘⌫")
-        #expect(KeyShortcut.none.displayText == "なし")
+        #expect(KeyShortcut.none.displayText == loc("None"))
     }
 
     @Test func bareKeysNeedCommandOrControlUnlessFunctionKey() {
@@ -128,13 +128,20 @@ struct KeyboardShortcutsTests {
 
     @Test func locationsWithSharedSelectorAreSeparate() {
         let store = KeyboardShortcuts(fileURL: FileManager.default.temporaryDirectory.appendingPathComponent("shortcuts-\(UUID()).json"))
-        let menu = NSMenu(title: "移動")
-        for title in ["書類", "ホーム"] {
-            let item = NSMenuItem(title: title, action: #selector(MainWindowController.goToStandardLocation(_:)), keyEquivalent: "")
-            item.representedObject = "/\(title)"
+        let menu = NSMenu(title: "Go")
+        for id in ["documents", "home"] {
+            let item = NSMenuItem(title: id, action: #selector(MainWindowController.goToStandardLocation(_:)), keyEquivalent: "")
+            item.representedObject = "/\(id)"
+            item.identifier = NSUserInterfaceItemIdentifier(id)
             menu.addItem(item)
         }
         store.adopt(menu)
-        #expect(store.commands.count == 2)
+        #expect(store.commands.map(\.id) == ["goToStandardLocation:#documents", "goToStandardLocation:#home"])
+    }
+
+    @Test func goMenuShortcutsSavedUnderJapaneseTitlesCarryOver() {
+        let shortcut = KeyShortcut(key: "k", modifiers: [.command, .option])
+        let migrated = KeyboardShortcuts.migrated(["goToStandardLocation:#書類": shortcut, "duplicate:": shortcut])
+        #expect(migrated == ["goToStandardLocation:#documents": shortcut, "duplicate:": shortcut])
     }
 }

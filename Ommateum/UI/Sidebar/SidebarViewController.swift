@@ -217,7 +217,7 @@ final class SidebarViewController: NSViewController {
         outlineView.setDraggingSourceOperationMask([.copy, .move, .generic], forLocal: true)
         outlineView.menu = NSMenu()
         outlineView.menu?.delegate = self
-        outlineView.setAccessibilityLabel("サイドバー")
+        outlineView.setAccessibilityLabel(loc("Sidebar"))
         scrollView.documentView = outlineView
         card.translatesAutoresizingMaskIntoConstraints = false
         scrollView.translatesAutoresizingMaskIntoConstraints = false
@@ -384,7 +384,7 @@ final class SidebarViewController: NSViewController {
             let section = SidebarSection(kind: .group(group.id), title: group.name)
             section.children = group.items.enumerated().map { index, ref in
                 let custom = group.customizations?[ref.path]
-                return SidebarEntry(url: ref.url, name: custom?.name ?? (ref.url.path == SidebarStore.trashURL.path ? "ゴミ箱" : nil),
+                return SidebarEntry(url: ref.url, name: custom?.name ?? (ref.url.path == SidebarStore.trashURL.path ? loc("Trash") : nil),
                                     icon: custom?.icon.map(Self.symbol) ?? Self.symbolIcon(for: ref.url), groupID: group.id, itemIndex: index, itemPath: ref.path)
             }
             return section
@@ -599,7 +599,7 @@ final class SidebarViewController: NSViewController {
         alert.messageText = message
         alert.informativeText = informative
         alert.addButton(withTitle: confirm)
-        alert.addButton(withTitle: "キャンセル")
+        alert.addButton(withTitle: loc("Cancel"))
         let field = NSTextField(string: initial)
         field.placeholderString = placeholder
         field.frame = NSRect(x: 0, y: 0, width: 300, height: 24)
@@ -611,18 +611,18 @@ final class SidebarViewController: NSViewController {
     }
 
     @objc private func newGroup(_ sender: Any?) {
-        prompt("新規グループ", placeholder: "グループ名", confirm: "作成") { [weak self] name in
+        prompt(loc("New Group"), placeholder: loc("Group Name"), confirm: loc("Create")) { [weak self] name in
             if SidebarStore.shared.addGroup(named: name) == nil { self?.showGroupNameError(name) }
         }
     }
 
     private func showGroupNameError(_ name: String) {
-        FileOperations.shared.showError(message: name.trimmingCharacters(in: .whitespaces).isEmpty ? "グループ名を入力してください。" : "「\(name)」という名前のグループはすでにあります。", window: view.window)
+        FileOperations.shared.showError(message: name.trimmingCharacters(in: .whitespaces).isEmpty ? loc("Enter a group name.") : loc("A group named “%@” already exists.", name), window: view.window)
     }
 
     @objc private func renameGroup(_ sender: NSMenuItem) {
         guard let section = sender.representedObject as? SidebarSection, let id = section.groupID else { return }
-        prompt("グループ名を変更", initial: section.title, confirm: "変更") { [weak self] name in
+        prompt(loc("Rename Group"), initial: section.title, confirm: loc("Change")) { [weak self] name in
             if !SidebarStore.shared.renameGroup(id, to: name) { self?.showGroupNameError(name) }
         }
     }
@@ -631,10 +631,10 @@ final class SidebarViewController: NSViewController {
         guard let section = sender.representedObject as? SidebarSection, let id = section.groupID else { return }
         guard !section.children.isEmpty, let window = view.window else { SidebarStore.shared.removeGroup(id); return }
         let alert = NSAlert()
-        alert.messageText = "グループ「\(section.title)」を削除しますか？"
-        alert.informativeText = "サイドバーから \(section.children.count) 項目がなくなります。フォルダ自体は削除されません。"
-        alert.addButton(withTitle: "削除")
-        alert.addButton(withTitle: "キャンセル")
+        alert.messageText = loc("Delete the group “%@”?", section.title)
+        alert.informativeText = loc("%ld items will be removed from the sidebar. The folders themselves are not deleted.", section.children.count)
+        alert.addButton(withTitle: loc("Delete"))
+        alert.addButton(withTitle: loc("Cancel"))
         alert.beginSheetModal(for: window) { response in
             if response == .alertFirstButtonReturn { SidebarStore.shared.removeGroup(id) }
         }
@@ -651,14 +651,14 @@ final class SidebarViewController: NSViewController {
     @objc private func importFromFinder(_ sender: NSMenuItem) {
         guard let section = sender.representedObject as? SidebarSection, let id = section.groupID else { return }
         guard let urls = FinderSidebarImporter.importFavorites(), !urls.isEmpty else {
-            FileOperations.shared.showError(message: "Finderのよく使う項目を読み込めませんでした。この機能はmacOSの非公開の保存形式に依存しており、お使いのmacOSでは利用できない可能性があります。", window: view.window)
+            FileOperations.shared.showError(message: loc("Couldn’t read Finder’s favorites. This relies on a private macOS file format and may not work on your version of macOS."), window: view.window)
             return
         }
         let alert = NSAlert()
-        alert.messageText = "「\(section.title)」をFinderのよく使う項目（\(urls.count)件）で置き換えますか？"
-        alert.informativeText = urls.map { FileManager.default.displayName(atPath: $0.path) }.joined(separator: "、")
-        alert.addButton(withTitle: "置き換える")
-        alert.addButton(withTitle: "キャンセル")
+        alert.messageText = loc("Replace “%@” with Finder’s favorites (%ld items)?", section.title, urls.count)
+        alert.informativeText = urls.map { FileManager.default.displayName(atPath: $0.path) }.joined(separator: loc(", "))
+        alert.addButton(withTitle: loc("Replace"))
+        alert.addButton(withTitle: loc("Cancel"))
         guard let window = view.window else { return }
         alert.beginSheetModal(for: window) { response in
             if response == .alertFirstButtonReturn { SidebarStore.shared.replaceItems(ofGroup: id, with: urls) }
@@ -681,8 +681,8 @@ final class SidebarViewController: NSViewController {
     @objc private func renameItem(_ sender: NSMenuItem) {
         guard let entry = sender.representedObject as? SidebarEntry, let id = entry.groupID, let path = entry.itemPath else { return }
         let folderName = FileManager.default.displayName(atPath: entry.url.path)
-        prompt("サイドバーでの表示名", informative: "「\(folderName)」のサイドバーでの表示だけを変えます。フォルダの名前は変わりません。空にすると元に戻ります。",
-               placeholder: folderName, initial: entry.name, confirm: "変更") { name in
+        prompt(loc("Name in the Sidebar"), informative: loc("Changes only how “%@” appears in the sidebar. The folder keeps its name. Leave it empty to restore the original.", folderName),
+               placeholder: folderName, initial: entry.name, confirm: loc("Change")) { name in
             SidebarStore.shared.setCustomName(name, ofItem: path, inGroup: id)
         }
     }
@@ -712,14 +712,14 @@ final class SidebarViewController: NSViewController {
     }
 
     @objc private func addServer(_ sender: Any?) {
-        prompt("サーバーを追加", informative: "アドレスの例: smb://MyNAS.local/music\n共有名を省くと、接続時に選べます。パスワードはシステムの画面で入力します。", placeholder: "smb://サーバー名/共有名", confirm: "接続") { [weak self] text in
+        prompt(loc("Add Server"), informative: loc("Example: smb://MyNAS.local/music\nLeave out the share to choose one when connecting. macOS asks for the password."), placeholder: loc("smb://server/share"), confirm: loc("Connect")) { [weak self] text in
             self?.registerAndConnect(text)
         }
     }
 
     private func registerAndConnect(_ text: String) {
         guard let address = ServerAddress(text) else {
-            FileOperations.shared.showError(message: "「\(text)」はサーバーのアドレスとして使えません。smb://, afp://, nfs://, http://, https:// に対応しています。", window: view.window)
+            FileOperations.shared.showError(message: loc("“%@” is not a server address. smb://, afp://, nfs://, http:// and https:// are supported.", text), window: view.window)
             return
         }
         SidebarStore.shared.addServer(address)
@@ -731,7 +731,7 @@ final class SidebarViewController: NSViewController {
 
     @objc private func addShare(_ sender: NSMenuItem) {
         guard let server = (sender.representedObject as? SidebarServerEntry)?.server else { return }
-        prompt("「\(server.name)」に共有を追加", placeholder: "共有名", confirm: "接続") { [weak self] name in
+        prompt(loc("Add a Share to “%@”", server.name), placeholder: loc("Share Name"), confirm: loc("Connect")) { [weak self] name in
             let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !trimmed.isEmpty, let url = server.mountURL(share: trimmed) else { return }
             self?.registerAndConnect(url.absoluteString)
@@ -809,56 +809,56 @@ extension SidebarViewController: NSMenuDelegate {
         }
         switch clickedItem {
         case let workspace as SidebarWorkspaceEntry:
-            add("新規ウインドウで開く", #selector(openWorkspaceInNewWindow(_:)), workspace)
-            add("URLをコピー", #selector(copyAppURL(_:)), AppURL.workspace(name: workspace.name).url)
-            add("ワークスペースを管理…", #selector(manageWorkspaces(_:)))
+            add(loc("Open in New Window"), #selector(openWorkspaceInNewWindow(_:)), workspace)
+            add(loc("Copy URL"), #selector(copyAppURL(_:)), AppURL.workspace(name: workspace.name).url)
+            add(loc("Manage Workspaces…"), #selector(manageWorkspaces(_:)))
         case let entry as SidebarEntry:
-            add("新規タブで開く", #selector(openInNewTab(_:)), entry)
-            add("Finderで表示", #selector(revealInFinder(_:)), entry)
-            add("URLをコピー", #selector(copyAppURL(_:)), AppURL.open(path: entry.url.path).url)
+            add(loc("Open in New Tab"), #selector(openInNewTab(_:)), entry)
+            add(loc("Show in Finder"), #selector(revealInFinder(_:)), entry)
+            add(loc("Copy URL"), #selector(copyAppURL(_:)), AppURL.open(path: entry.url.path).url)
             if let groupID = entry.groupID, let itemPath = entry.itemPath {
                 menu.addItem(.separator())
-                add("表示名を変更…", #selector(renameItem(_:)), entry)
-                add("アイコンを変更…", #selector(changeItemIcon(_:)), entry)
+                add(loc("Rename in Sidebar…"), #selector(renameItem(_:)), entry)
+                add(loc("Change Icon…"), #selector(changeItemIcon(_:)), entry)
                 if SidebarStore.shared.customization(ofItem: itemPath, inGroup: groupID) != nil {
-                    add("表示名とアイコンを元に戻す", #selector(resetItemCustomization(_:)), entry)
+                    add(loc("Restore Name and Icon"), #selector(resetItemCustomization(_:)), entry)
                 }
                 menu.addItem(.separator())
-                add("サイドバーから削除", #selector(removeFromGroup(_:)), entry)
+                add(loc("Remove from Sidebar"), #selector(removeFromGroup(_:)), entry)
             }
-            if entry.isEjectable { add("「\(entry.name)」を取り出す", #selector(ejectEntry(_:)), entry) }
+            if entry.isEjectable { add(loc("Eject “%@”", entry.name), #selector(ejectEntry(_:)), entry) }
         case let share as SidebarUnmountedShare:
-            add("接続", #selector(connectShare(_:)), share)
-            add("「\(share.name)」を登録から削除", #selector(removeShare(_:)), share)
+            add(loc("Connect"), #selector(connectShare(_:)), share)
+            add(loc("Remove “%@”", share.name), #selector(removeShare(_:)), share)
         case let server as SidebarServerEntry:
-            add("接続…", #selector(connectServer(_:)), server)
-            add("共有を追加…", #selector(addShare(_:)), server)
+            add(loc("Connect…"), #selector(connectServer(_:)), server)
+            add(loc("Add Share…"), #selector(addShare(_:)), server)
             if server.mountedShares.isEmpty {
-                add("サーバーを登録から削除", #selector(removeServer(_:)), server)
+                add(loc("Remove Server"), #selector(removeServer(_:)), server)
             } else {
-                add("接続を解除", #selector(disconnectServer(_:)), server)
+                add(loc("Disconnect"), #selector(disconnectServer(_:)), server)
             }
         case let section as SidebarSection where section.groupID != nil:
             let index = SidebarStore.shared.groups.firstIndex { $0.id == section.groupID } ?? 0
-            add("名前を変更…", #selector(renameGroup(_:)), section)
-            add("グループを削除…", #selector(deleteGroup(_:)), section)
-            if index > 0 { add("上へ移動", #selector(moveGroupUp(_:)), section) }
-            if index < SidebarStore.shared.groups.count - 1 { add("下へ移動", #selector(moveGroupDown(_:)), section) }
-            add("Finderのよく使う項目を読み込む（実験的）", #selector(importFromFinder(_:)), section)
+            add(loc("Rename…"), #selector(renameGroup(_:)), section)
+            add(loc("Delete Group…"), #selector(deleteGroup(_:)), section)
+            if index > 0 { add(loc("Move Up"), #selector(moveGroupUp(_:)), section) }
+            if index < SidebarStore.shared.groups.count - 1 { add(loc("Move Down"), #selector(moveGroupDown(_:)), section) }
+            add(loc("Import Finder Favorites (Experimental)"), #selector(importFromFinder(_:)), section)
         default:
             break
         }
         if menu.numberOfItems > 0 { menu.addItem(.separator()) }
-        add("新規グループ…", #selector(newGroup(_:)))
-        add("サーバーを追加…", #selector(addServer(_:)))
-        add("すべてのサーバーの接続を解除", #selector(disconnectAllServers(_:)))
-        add("すべての外部ディスクを取り出す", #selector(ejectAllExternalDrives(_:)))
+        add(loc("New Group…"), #selector(newGroup(_:)))
+        add(loc("Add Server…"), #selector(addServer(_:)))
+        add(loc("Disconnect All Servers"), #selector(disconnectAllServers(_:)))
+        add(loc("Eject All External Disks"), #selector(ejectAllExternalDrives(_:)))
         menu.addItem(.separator())
         for section in SidebarBuiltInSection.allCases {
             add(section.title, #selector(toggleSection(_:)), section.rawValue).state = SidebarStore.shared.hiddenSections.contains(section) ? .off : .on
         }
         menu.addItem(.separator())
-        add("ディスクの空き容量を表示", #selector(toggleCapacity(_:))).state = SidebarStore.shared.showsCapacity ? .on : .off
+        add(loc("Show Free Disk Space"), #selector(toggleCapacity(_:))).state = SidebarStore.shared.showsCapacity ? .on : .off
     }
 }
 
@@ -954,7 +954,7 @@ private final class RowIconButton: NSButton {
 
     /// Down while open, right while folded.
     func setDisclosure(isOpen: Bool) {
-        setSymbol(isOpen ? "chevron.down" : "chevron.right", label: isOpen ? "閉じる" : "開く")
+        setSymbol(isOpen ? "chevron.down" : "chevron.right", label: isOpen ? loc("Collapse") : loc("Expand"))
     }
 
     var normalTint: NSColor = .tertiaryLabelColor { didSet { updateStyle() } }
@@ -989,7 +989,7 @@ private final class RowIconButton: NSButton {
 
 /// A group name; its chevron appears at the right while the pointer is over the row.
 private final class SidebarHeaderCell: NSTableCellView {
-    private let disclosureButton = RowIconButton(symbol: "chevron.down", label: "閉じる")
+    private let disclosureButton = RowIconButton(symbol: "chevron.down", label: loc("Collapse"))
     private var onDisclosure: (() -> Void)?
 
     override init(frame: NSRect) {
@@ -1048,8 +1048,8 @@ private final class SidebarHeaderCell: NSTableCellView {
 /// A sidebar row: icon, name, free-space badge and eject button.
 private final class SidebarCell: NSTableCellView {
     private let badge = NSTextField(labelWithString: "")
-    private let ejectButton = RowIconButton(symbol: "eject.fill", label: "取り出す")
-    private let disclosureButton = RowIconButton(symbol: "chevron.down", label: "閉じる")
+    private let ejectButton = RowIconButton(symbol: "eject.fill", label: loc("Eject"))
+    private let disclosureButton = RowIconButton(symbol: "chevron.down", label: loc("Collapse"))
     private var onEject: (() -> Void)?
     private var onDisclosure: (() -> Void)?
     private var stackLeading: NSLayoutConstraint?
@@ -1193,7 +1193,7 @@ extension SidebarViewController: NSOutlineViewDataSource, NSOutlineViewDelegate 
             cell.configure(name: entry.name, icon: entry.icon, tooltip: entry.url.path, indent: outlineView.parent(forItem: entry) is SidebarServerEntry ? SidebarCell.shareIndent : 0, badgeText: badgeText(for: entry),
                            onEject: entry.isEjectable ? { [weak self] in self?.eject([entry.url]) } : nil)
         case let share as SidebarUnmountedShare:
-            cell.configure(name: share.name, icon: Self.symbol("externaldrive.connected.to.line.below"), tooltip: "未接続（クリックで接続）", indent: SidebarCell.shareIndent, dimmed: true)
+            cell.configure(name: share.name, icon: Self.symbol("externaldrive.connected.to.line.below"), tooltip: loc("Not connected (click to connect)"), indent: SidebarCell.shareIndent, dimmed: true)
         case let server as SidebarServerEntry:
             let disclosure = server.shares.isEmpty ? nil : (isOpen: !isFolded(server), action: { [weak self] in self?.toggleFolding(server) } as () -> Void)
             cell.configure(name: server.server.name, icon: Self.symbol("server.rack"), tooltip: server.server.url, dimmed: server.mountedShares.isEmpty,

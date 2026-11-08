@@ -8,10 +8,10 @@ enum SharingServices {
         return lookup.services(for: urls).first { $0.title.localizedCaseInsensitiveCompare(title) == .orderedSame }
     }
 
-    /// The standard "共有" submenu (macOS 13+).
+    /// The standard "Share" submenu (macOS 13+).
     static func shareMenuItem(for urls: [URL]) -> NSMenuItem {
         let item = NSSharingServicePicker(items: urls).standardShareMenuItem
-        item.title = "共有"
+        item.title = loc("Share")
         return item
     }
 

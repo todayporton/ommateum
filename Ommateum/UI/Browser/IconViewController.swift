@@ -142,7 +142,7 @@ final class IconViewController: NSViewController, BrowserContent {
             self?.onSelectionChange?()
             self?.contentDelegate?.contentSelectionDidChange()
         }
-        collectionView.setAccessibilityLabel("アイコン表示")
+        collectionView.setAccessibilityLabel(loc("Icon View"))
         collectionView.menuProvider = { [weak self] indexPath in
             guard let self else { return nil }
             guard let indexPath, self.items.indices.contains(indexPath.item) else {
@@ -338,7 +338,7 @@ final class IconItem: NSCollectionViewItem {
         field.layer?.cornerRadius = 3
         root.addSubview(field)
 
-        cloudBadge.image = NSImage(systemSymbolName: "icloud.and.arrow.down", accessibilityDescription: "未ダウンロード")
+        cloudBadge.image = NSImage(systemSymbolName: "icloud.and.arrow.down", accessibilityDescription: loc("Not Downloaded"))
         cloudBadge.contentTintColor = .secondaryLabelColor
         cloudBadge.translatesAutoresizingMaskIntoConstraints = false
         root.addSubview(cloudBadge)
@@ -369,7 +369,7 @@ final class IconItem: NSCollectionViewItem {
         imageView?.image = image
         imageView?.alphaValue = dimmed ? 0.5 : 1
         cloudBadge.isHidden = !cloudOnly
-        view.toolTip = cloudOnly ? "クラウド上のみ（未ダウンロード）" : nil
+        view.toolTip = cloudOnly ? loc("In the cloud only (not downloaded)") : nil
         updateSelection()
     }
 

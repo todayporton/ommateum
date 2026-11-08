@@ -56,17 +56,17 @@ final class FileOperations {
         let sources = sources.map(\.standardizedFileURL)
         let directory = directory.standardizedFileURL
         if let invalid = sources.first(where: { directory.path == $0.path || directory.path.hasPrefix($0.path + "/") }) {
-            showError(message: "「\(invalid.lastPathComponent)」をそれ自体の中に\(mode == .copy ? "コピー" : "移動")することはできません。", window: window)
+            showError(message: (mode == .copy ? loc("You can’t copy “%@” into itself.", invalid.lastPathComponent) : loc("You can’t move “%@” into itself.", invalid.lastPathComponent)), window: window)
             return
         }
         guard let plan = plan(sources, into: directory, mode: mode, window: window), !plan.isEmpty else { return }
-        run(plan, mode: mode, actionName: mode == .copy ? "コピー" : "移動", window: window, undoManager: undoManager, completion: completion)
+        run(plan, mode: mode, actionName: mode == .copy ? loc("Copy") : loc("Move"), window: window, undoManager: undoManager, completion: completion)
     }
 
     /// Duplicates items in place ("名前 のコピー"), like Finder's ⌘D.
     func duplicate(_ sources: [URL], window: NSWindow?, undoManager: UndoManager?, completion: (([URL]) -> Void)? = nil) {
         let plan = sources.map { Transfer(source: $0, destination: Self.availableURL(for: $0.lastPathComponent, in: $0.deletingLastPathComponent(), copySuffix: true), replacing: nil) }
-        run(plan, mode: .copy, actionName: "複製", window: window, undoManager: undoManager, completion: completion)
+        run(plan, mode: .copy, actionName: loc("Duplicate"), window: window, undoManager: undoManager, completion: completion)
     }
 
     /// Performs `plan` in the background. Undo reverts what completed; redo runs the same plan again.
@@ -168,17 +168,17 @@ final class FileOperations {
 
     private func askConflict(name: String, window: NSWindow?, multiple: Bool, deletes: Bool, applyToAll: inout NSApplication.ModalResponse?) -> NSApplication.ModalResponse {
         let alert = NSAlert()
-        alert.messageText = "「\(name)」という名前の項目がすでにこの場所にあります。"
+        alert.messageText = loc("An item named “%@” already exists in this location.", name)
         alert.informativeText = deletes
-            ? "置き換えると、既存の項目はすぐに削除されます。この操作は取り消せません。"
-            : "置き換えると、既存の項目はゴミ箱に移動されます。"
-        alert.addButton(withTitle: "両方とも残す")
-        alert.addButton(withTitle: "置き換える")
-        alert.addButton(withTitle: "スキップ")
-        alert.addButton(withTitle: "停止")
+            ? loc("If you replace it, the existing item is deleted immediately. You can’t undo this.")
+            : loc("If you replace it, the existing item is moved to the Trash.")
+        alert.addButton(withTitle: loc("Keep Both"))
+        alert.addButton(withTitle: loc("Replace"))
+        alert.addButton(withTitle: loc("Skip"))
+        alert.addButton(withTitle: loc("Stop"))
         if multiple {
             alert.showsSuppressionButton = true
-            alert.suppressionButton?.title = "すべてに適用"
+            alert.suppressionButton?.title = loc("Apply to All")
         }
         let response = alert.runModal()
         let stop = NSApplication.ModalResponse(rawValue: NSApplication.ModalResponse.alertThirdButtonReturn.rawValue + 1)
@@ -252,7 +252,7 @@ final class FileOperations {
         undoManager?.registerUndo(withTarget: self) { ops in
             ops.putBack(outcome.value, window: window, undoManager: undoManager)
         }
-        undoManager?.setActionName("ゴミ箱に入れる")
+        undoManager?.setActionName(loc("Move to Trash"))
         Task {
             let result = await Task.detached(priority: .userInitiated) { () -> (moved: [(original: URL, trashed: URL)], noTrash: [URL], error: Error?) in
                 var moved: [(original: URL, trashed: URL)] = []
@@ -311,12 +311,12 @@ final class FileOperations {
     private func deleteAfterConfirming(_ urls: [URL], window: NSWindow?) async {
         let alert = NSAlert()
         alert.alertStyle = .warning
-        alert.messageText = urls.count == 1 ? "“\(urls[0].lastPathComponent)”を削除しますか？" : "\(urls.count)項目を削除しますか？"
+        alert.messageText = urls.count == 1 ? loc("Delete “%@”?", urls[0].lastPathComponent) : loc("Delete %ld items?", urls.count)
         alert.informativeText = urls.count == 1
-            ? "この項目はすぐに削除されます。この操作は取り消せません。"
-            : "これらの項目はすぐに削除されます。この操作は取り消せません。"
-        alert.addButton(withTitle: "削除")
-        alert.addButton(withTitle: "キャンセル")
+            ? loc("This item will be deleted immediately. You can’t undo this.")
+            : loc("These items will be deleted immediately. You can’t undo this.")
+        alert.addButton(withTitle: loc("Delete"))
+        alert.addButton(withTitle: loc("Cancel"))
         alert.buttons[0].hasDestructiveAction = true
         alert.buttons[0].keyEquivalent = "" // a destructive default stays off Return, as in Finder
         alert.buttons[1].keyEquivalent = "\r"
@@ -362,7 +362,7 @@ final class FileOperations {
     private func putBack(_ items: [(original: URL, trashed: URL)], window: NSWindow?, undoManager: UndoManager?) {
         let originals = items.map(\.original)
         undoManager?.registerUndo(withTarget: self) { ops in ops.trash(originals, window: window, undoManager: undoManager) }
-        undoManager?.setActionName("ゴミ箱に入れる")
+        undoManager?.setActionName(loc("Move to Trash"))
         Task {
             let error = await Task.detached(priority: .userInitiated) { () -> Error? in
                 do {
@@ -384,14 +384,14 @@ final class FileOperations {
         let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, trimmed != url.lastPathComponent else { return nil }
         if trimmed.contains("/") || trimmed.hasPrefix(".") && !url.lastPathComponent.hasPrefix(".") {
-            showError(message: trimmed.contains("/") ? "名前に「/」は使用できません。" : "「.」で始まる名前はシステム用に予約されています。", window: window)
+            showError(message: trimmed.contains("/") ? loc("Names can’t contain “/”.") : loc("Names starting with “.” are reserved for the system."), window: window)
             return nil
         }
         let destination = url.deletingLastPathComponent().appendingPathComponent(trimmed)
         // Allow case-only renames on case-insensitive volumes.
         let caseOnly = destination.path.lowercased() == url.path.lowercased()
         if !caseOnly, FileManager.default.fileExists(atPath: destination.path) {
-            showError(message: "「\(trimmed)」という名前はすでに使用されています。別の名前を選択してください。", window: window)
+            showError(message: loc("The name “%@” is already taken. Please choose a different name.", trimmed), window: window)
             return nil
         }
         do {
@@ -404,13 +404,13 @@ final class FileOperations {
         undoManager?.registerUndo(withTarget: self) { ops in
             ops.rename(destination, to: oldName, window: window, undoManager: undoManager)
         }
-        undoManager?.setActionName("名称変更")
+        undoManager?.setActionName(loc("Rename"))
         postRestored([destination], undoManager: undoManager)
         return destination
     }
 
     func newFolder(in directory: URL, window: NSWindow?, undoManager: UndoManager?) -> URL? {
-        let url = Self.availableURL(for: "名称未設定フォルダ", in: directory, copySuffix: false)
+        let url = Self.availableURL(for: loc("untitled folder"), in: directory, copySuffix: false)
         do {
             try FileManager.default.createDirectory(at: url, withIntermediateDirectories: false)
         } catch {
@@ -418,7 +418,7 @@ final class FileOperations {
             return nil
         }
         undoManager?.registerUndo(withTarget: self) { ops in ops.trash([url], window: window, undoManager: undoManager) }
-        undoManager?.setActionName("新規フォルダ")
+        undoManager?.setActionName(loc("New Folder"))
         return url
     }
 
@@ -441,7 +441,7 @@ final class FileOperations {
         }
         if !created.isEmpty {
             undoManager?.registerUndo(withTarget: self) { ops in ops.trash(created, window: window, undoManager: undoManager) }
-            undoManager?.setActionName("エイリアスを作成")
+            undoManager?.setActionName(loc("Make Alias"))
         }
         return created
     }
@@ -449,7 +449,7 @@ final class FileOperations {
     /// The extension stays part of the name, as in Finder: "写真.jpg のエイリアス", "写真.jpg のエイリアス 2".
     nonisolated static func availableAliasURL(for url: URL) -> URL {
         let directory = url.deletingLastPathComponent()
-        let base = "\(url.lastPathComponent) のエイリアス"
+        let base = loc("%@ alias", url.lastPathComponent)
         var candidate = directory.appendingPathComponent(base)
         var index = 2
         while FileManager.default.fileExists(atPath: candidate.path) {
@@ -480,7 +480,7 @@ final class FileOperations {
                 ops.setTags({ _ in tags }, on: [url], window: window, undoManager: undoManager)
             }
         }
-        undoManager?.setActionName("タグ")
+        undoManager?.setActionName(loc("Change Tags"))
     }
 
     nonisolated static func tags(of url: URL) -> [String] {
@@ -499,11 +499,11 @@ final class FileOperations {
         func make(_ stem: String) -> URL {
             directory.appendingPathComponent(isFolderLike ? stem : "\(stem).\(ext)")
         }
-        let first = copySuffix ? make("\(base) のコピー") : make(base)
+        let first = copySuffix ? make(loc("%@ copy", base)) : make(base)
         if !FileManager.default.fileExists(atPath: first.path) { return first }
         var index = 2
         while true {
-            let candidate = copySuffix ? make("\(base) のコピー \(index)") : make("\(base) \(index)")
+            let candidate = copySuffix ? make(loc("%@ copy %ld", base, index)) : make("\(base) \(index)")
             if !FileManager.default.fileExists(atPath: candidate.path) { return candidate }
             index += 1
         }

@@ -17,7 +17,7 @@ struct SidebarIconPicker: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("アイコンを選択").font(.headline)
+            Text(loc("Choose an Icon")).font(.headline)
             LazyVGrid(columns: Array(repeating: GridItem(.fixed(36), spacing: 6), count: 8), spacing: 6) {
                 ForEach(Self.symbols, id: \.self) { symbol in
                     Button { choose(symbol) } label: {
@@ -32,9 +32,9 @@ struct SidebarIconPicker: View {
                 }
             }
             HStack {
-                Button("既定のアイコンに戻す") { choose(nil) }
+                Button(loc("Use Default Icon")) { choose(nil) }
                 Spacer()
-                Button("キャンセル", action: cancel).keyboardShortcut(.cancelAction)
+                Button(loc("Cancel"), action: cancel).keyboardShortcut(.cancelAction)
             }
         }
         .padding(16)

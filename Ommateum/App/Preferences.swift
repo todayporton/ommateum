@@ -33,6 +33,7 @@ enum Preferences {
             "NSQuitAlwaysKeepsWindows": false,
         ])
         migrateDefaultWindow()
+        _ = AppLanguage.atLaunch
     }
 
     /// Before these settings existed, a saved default window always applied its layout and size.
@@ -88,9 +89,9 @@ enum ListRowHeight: String, CaseIterable {
 
     var title: String {
         switch self {
-        case .compact: return "小（Finder と同じ）"
-        case .standard: return "標準"
-        case .large: return "大"
+        case .compact: return loc("Small (same as Finder)")
+        case .standard: return loc("Standard")
+        case .large: return loc("Large")
         }
     }
 
@@ -112,8 +113,8 @@ enum NewWindowSource: String, CaseIterable {
 
     var title: String {
         switch self {
-        case .last: "前回のウインドウ"
-        case .saved: "保存したウインドウ"
+        case .last: loc("Last window")
+        case .saved: loc("Saved window")
         }
     }
 }
@@ -124,8 +125,8 @@ enum NewWindowScreen: String, CaseIterable {
 
     var title: String {
         switch self {
-        case .cursor: "マウスカーソルのある画面"
-        case .activeWindow: "前面のウインドウがある画面"
+        case .cursor: loc("Display with the pointer")
+        case .activeWindow: loc("Display with the front window")
         }
     }
 }

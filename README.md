@@ -7,7 +7,7 @@ It keeps the feel of Finder as much as possible and adds three things:
 2. **Split and rearrange panes freely by dragging tabs**, like editor groups in VS Code (each pane has its own tabs)
 3. Save and restore the layout, folders and tabs as **named workspaces**
 
-The user interface is in Japanese. Menu and setting names below are given in Japanese, with English in parentheses.
+The user interface is available in English and Japanese. It follows the system language; Settings ▸ General ▸ Language picks one for this app (System, English or 日本語).
 
 ## Building
 
@@ -42,7 +42,7 @@ The environment variable `OMMATEUM_SUPPORT_DIR` points the app at another locati
 | Undo / redo | ⌘Z / ⇧⌘Z |
 | View | ⌘1 icons / ⌘2 list / ⌘3 columns / ⌘4 gallery |
 | Search | ⌘F (this folder, or including subfolders) |
-| Change shortcuts | 設定 ▸ ショートカット (Settings ▸ Shortcuts) |
+| Change shortcuts | Settings ▸ Shortcuts |
 | Get info / make alias | ⌘I / ⌃⌘A |
 | New tab / close tab | ⌘T / ⌘W |
 | Split right / split down / close pane | ⌘\ / ⇧⌘\ / ⌥⇧⌘W |
@@ -51,7 +51,11 @@ The environment variable `OMMATEUM_SUPPORT_DIR` points the app at another locati
 | Move or split with a tab | Drag a tab onto another pane's tab bar (move), onto a pane's edge (split), or out of the window (new window) |
 | Save workspace / save as | ⌘S / ⇧⌘S; open one from the menu (hold ⌥ to open it in a new window) |
 | Show hidden files | ⇧⌘. |
-| Dropbox "Send a copy" | Context menu / ファイル ▸ アクション (File ▸ Actions) |
+| Dropbox "Send a Copy" | Context menu / File ▸ Actions |
+
+## Localization
+
+UI text is written in English in the code as `loc("…")` and translated in [Ommateum/Localizable.xcstrings](Ommateum/Localizable.xcstrings). To add a string, call `loc` with the English text and add its Japanese translation to the catalog. Text with values uses `%@` / `%ld`; a translation can reorder them with `%1$@`.
 
 ## Release build
 
@@ -63,7 +67,7 @@ OMMATEUM_BUNDLE_ID=... DEVELOPER_ID="Developer ID Application: ..." NOTARY_PROFI
 ## Custom actions
 
 You can add your own commands (scripts, Shortcuts, sharing services) to the context menu.
-ファイル ▸ アクション ▸ アクションを編集… (File ▸ Actions ▸ Edit Actions…) opens `actions.json`. The format is described in [docs/actions.md](docs/actions.md).
+File ▸ Actions ▸ Edit Actions… opens `actions.json`. The format is described in [docs/actions.md](docs/actions.md).
 
 ## Status
 

@@ -73,7 +73,7 @@ enum ServerConnector {
             break
         default:
             let reason = String(cString: strerror(status))
-            FileOperations.shared.showError(message: "「\(url.absoluteString)」に接続できませんでした（\(status): \(reason)）。", window: window)
+            FileOperations.shared.showError(message: loc("Couldn’t connect to “%@” (%ld: %@).", url.absoluteString, Int(status), reason), window: window)
         }
     }
 }

@@ -108,15 +108,15 @@ struct FileItemGroup: Equatable, Sendable {
 }
 
 extension Array where Element == FileItem {
-    /// Groups already-sorted items, keeping their order inside each group, like Finder's "グループ分け".
+    /// Groups already-sorted items, keeping their order inside each group, like Finder's "Group By".
     nonisolated func grouped(by key: GroupKey, now: Date = Date(), calendar: Calendar = .current) -> [FileItemGroup] {
         switch key {
         case .kind:
             return Dictionary(grouping: self, by: \.kind)
                 .sorted { $0.key.localizedStandardCompare($1.key) == .orderedAscending }
-                .map { FileItemGroup(title: $0.key.isEmpty ? "その他" : $0.key, items: $0.value) }
+                .map { FileItemGroup(title: $0.key.isEmpty ? loc("Other") : $0.key, items: $0.value) }
         case .dateModified:
-            return buckets(["今日", "昨日", "過去7日間", "過去30日間", "それ以前"]) { item in
+            return buckets([loc("Today"), loc("Yesterday"), loc("Previous 7 Days"), loc("Previous 30 Days"), loc("Earlier")]) { item in
                 guard let date = item.dateModified else { return 4 }
                 let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: date), to: calendar.startOfDay(for: now)).day ?? 0
                 switch days {
@@ -128,7 +128,7 @@ extension Array where Element == FileItem {
                 }
             }
         case .size:
-            return buckets(["1 GB 以上", "100 MB〜1 GB", "1 MB〜100 MB", "1 MB 未満", "フォルダ"]) { item in
+            return buckets([loc("1 GB or more"), loc("100 MB to 1 GB"), loc("1 MB to 100 MB"), loc("Less than 1 MB"), loc("Folders")]) { item in
                 guard let size = item.size else { return 4 }
                 switch size {
                 case 1_000_000_000...: return 0

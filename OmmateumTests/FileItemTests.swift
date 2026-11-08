@@ -96,11 +96,11 @@ struct FileItemTests {
         let items = [try make("a.txt", daysAgo: 0), try make("b.txt", daysAgo: 1), try make("c.png", daysAgo: 5),
                      try make("d.txt", daysAgo: 20), try make("e.png", daysAgo: 400), try make("f.txt", daysAgo: 0)]
         let byDate = items.grouped(by: .dateModified, now: now, calendar: calendar)
-        #expect(byDate.map(\.title) == ["今日", "昨日", "過去7日間", "過去30日間", "それ以前"])
+        #expect(byDate.map(\.title) == ["Today", "Yesterday", "Previous 7 Days", "Previous 30 Days", "Earlier"].map { loc($0) })
         #expect(byDate[0].items.map(\.url.lastPathComponent) == ["a.txt", "f.txt"])
         let byKind = items.grouped(by: .kind)
         #expect(byKind.count == 2)
         #expect(byKind.flatMap(\.items).count == items.count)
-        #expect(items.grouped(by: .size).map(\.title) == ["1 MB 未満"])
+        #expect(items.grouped(by: .size).map(\.title) == [loc("Less than 1 MB")])
     }
 }

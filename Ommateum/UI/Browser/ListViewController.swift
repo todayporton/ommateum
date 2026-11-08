@@ -188,16 +188,16 @@ final class ListViewController: NSViewController, BrowserContent {
         outlineView.delegate = self
         outlineView.target = self
         outlineView.doubleAction = #selector(doubleClicked(_:))
-        outlineView.setAccessibilityLabel("ファイル一覧")
+        outlineView.setAccessibilityLabel(loc("Files"))
         outlineView.setDraggingSourceOperationMask([.copy, .move, .link, .generic], forLocal: false)
         outlineView.setDraggingSourceOperationMask([.copy, .move, .generic], forLocal: true)
         outlineView.registerForDraggedTypes([.fileURL])
         outlineView.draggingDestinationFeedbackStyle = .regular
 
-        addColumn(Column.name, title: "名前", width: 280, sortKey: .name)
-        addColumn(Column.date, title: "変更日", width: 170, sortKey: .dateModified)
-        addColumn(Column.size, title: "サイズ", width: 80, sortKey: .size)
-        addColumn(Column.kind, title: "種類", width: 140, sortKey: .kind)
+        addColumn(Column.name, title: loc("Name"), width: 280, sortKey: .name)
+        addColumn(Column.date, title: loc("Date Modified"), width: 170, sortKey: .dateModified)
+        addColumn(Column.size, title: loc("Size"), width: 80, sortKey: .size)
+        addColumn(Column.kind, title: loc("Kind"), width: 140, sortKey: .kind)
         outlineView.outlineTableColumn = outlineView.tableColumns.first
 
         outlineView.onEmptyDoubleClick = { [weak self] in self?.contentDelegate?.contentDidDoubleClickEmptyArea() }
@@ -407,7 +407,7 @@ extension ListViewController: NSOutlineViewDataSource, NSOutlineViewDelegate, NS
     func outlineView(_ outlineView: NSOutlineView, viewFor tableColumn: NSTableColumn?, item: Any) -> NSView? {
         if let group = item as? ListGroupNode {
             let cell = (outlineView.makeView(withIdentifier: Column.group, owner: nil) as? ListCellView) ?? ListCellView(identifier: Column.group, hasImage: false)
-            cell.textField?.stringValue = "\(group.title)（\(group.children.count)）"
+            cell.textField?.stringValue = loc("%@ (%ld)", group.title, group.children.count)
             cell.textField?.font = .boldSystemFont(ofSize: NSFont.smallSystemFontSize)
             cell.textField?.textColor = .secondaryLabelColor
             return cell
@@ -422,7 +422,7 @@ extension ListViewController: NSOutlineViewDataSource, NSOutlineViewDelegate, NS
             cell.imageView?.image = thumbnail(for: fileItem) ?? IconCache.shared.icon(for: fileItem)
             cell.imageView?.alphaValue = fileItem.isHidden ? 0.5 : 1
             cell.setBadges(tags: fileItem.tags, cloudOnly: fileItem.isCloudOnly)
-            cell.toolTip = fileItem.isCloudOnly ? "クラウド上のみ（未ダウンロード）" : nil
+            cell.toolTip = fileItem.isCloudOnly ? loc("In the cloud only (not downloaded)") : nil
         case Column.size:
             cell.textField?.stringValue = text(of: fileItem, in: id)
             cell.textField?.alignment = .right
@@ -625,7 +625,7 @@ final class ListCellView: NSTableCellView {
             badges.addArrangedSubview(TagDot(color: color))
         }
         if cloudOnly {
-            let cloud = NSImageView(image: NSImage(systemSymbolName: "icloud.and.arrow.down", accessibilityDescription: "未ダウンロード") ?? NSImage())
+            let cloud = NSImageView(image: NSImage(systemSymbolName: "icloud.and.arrow.down", accessibilityDescription: loc("Not Downloaded")) ?? NSImage())
             cloud.contentTintColor = .secondaryLabelColor
             cloud.symbolConfiguration = .init(pointSize: 11, weight: .regular)
             badges.addArrangedSubview(cloud)

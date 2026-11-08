@@ -83,9 +83,9 @@ struct FileTransferTests {
         let file = dir.appendingPathComponent("写真.jpg")
         try Data("x".utf8).write(to: file)
         let first = FileOperations.availableAliasURL(for: file)
-        #expect(first.lastPathComponent == "写真.jpg のエイリアス")
+        #expect(first.lastPathComponent == loc("%@ alias", "写真.jpg"))
         try Data("x".utf8).write(to: first)
-        #expect(FileOperations.availableAliasURL(for: file).lastPathComponent == "写真.jpg のエイリアス 2")
+        #expect(FileOperations.availableAliasURL(for: file).lastPathComponent == loc("%@ alias", "写真.jpg") + " 2")
     }
 
     @Test func aliasResolvesToOriginalAndTagsRoundTrip() throws {
