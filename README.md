@@ -20,7 +20,7 @@ xcodebuild -project Ommateum.xcodeproj -scheme Ommateum -derivedDataPath build t
 open build/Build/Products/Debug/Ommateum.app
 ```
 
-Bundle ID は仮の `com.example.Ommateum` です。配布前に変更してください。
+Bundle ID は `online.todayporton.ommateum` です。
 App Sandbox は使用していません（理由は [docs/feasibility.md](docs/feasibility.md) §5）。
 
 設定・セッション・ワークスペースは `~/Library/Application Support/Ommateum/` に JSON で保存されます。

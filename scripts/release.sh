@@ -1,7 +1,7 @@
 #!/bin/sh
 # Builds a release of Ommateum. With Developer ID settings it also signs, notarizes and staples.
 #
-#   OMMATEUM_BUNDLE_ID   final bundle identifier (default: the placeholder from the project)
+#   OMMATEUM_BUNDLE_ID   final bundle identifier (default: the one in the project)
 #   DEVELOPER_ID         e.g. "Developer ID Application: Name (TEAMID)"; omit for an ad-hoc signed local build
 #   NOTARY_PROFILE       keychain profile created with `xcrun notarytool store-credentials`
 set -eu

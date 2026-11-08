@@ -9,7 +9,7 @@
 | 言語 / UI | Swift 6（既定アクター分離 = `MainActor`）+ AppKit。SwiftUIは設定画面など周辺のみで使う可能性あり |
 | 最低OS | macOS 14 Sonoma |
 | 配布形態 | Sandboxなし + Hardened Runtime（Developer ID想定） |
-| Bundle ID | `com.example.Ommateum`（仮。配布前に変更すること） |
+| Bundle ID | `online.todayporton.ommateum` |
 | プロジェクト | `Ommateum.xcodeproj`（フォルダ同期グループ。`Ommateum/` 以下のファイルは自動でビルド対象） |
 | 外部ライブラリ | なし |
 

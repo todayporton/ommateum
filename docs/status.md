@@ -135,7 +135,7 @@
 | アクセシビリティ | 🟡 | 一覧・ペイン・タブ・検索にラベルを追加。VoiceOver での通し確認は未実施 |
 | アプリアイコン | ✅ | `scripts/make-icon.swift` で生成。採用は `c-f`（Finder のアイコンの配色に合わせたフォルダ）。候補だった `c-dark-f`・`c-dark`・`c`・`c2`・`c2-f` も引数で生成できる。見比べ用のページは `docs/icon-candidates.html` |
 | Release ビルド | ✅ | Swift 6.3.3 の最適化クラッシュを回避。`scripts/release.sh` で ad-hoc 署名まで確認 |
-| Developer ID 署名・公証 | 🟡 | スクリプトのみ。証明書が必要なため未実行。Bundle ID は仮のまま |
+| Developer ID 署名・公証 | 🟡 | スクリプトのみ。証明書が必要なため未実行 |
 
 ## 未検証（実際の操作が必要）
 
