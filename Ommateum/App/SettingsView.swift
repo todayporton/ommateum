@@ -311,6 +311,8 @@ struct WorkspaceManagerView: View {
     @State private var renaming: String?
     @State private var newName = ""
     @State private var errorMessage: String?
+    /// Bumped when open options change; the store is not observable, so this redraws the editor.
+    @State private var optionsRevision = 0
 
     var body: some View {
         VStack(spacing: 0) {
@@ -338,6 +340,10 @@ struct WorkspaceManagerView: View {
             }
             .onDeleteCommand { if let selection { delete(selection) } }
             Divider()
+            if let selection {
+                openOptionsEditor(for: selection)
+                Divider()
+            }
             HStack {
                 Button("開く") { if let selection { open(selection, false) } }
                     .keyboardShortcut(.defaultAction)
@@ -349,7 +355,7 @@ struct WorkspaceManagerView: View {
             .disabled(selection == nil)
             .padding(10)
         }
-        .frame(minWidth: 380, minHeight: 260)
+        .frame(minWidth: 420, minHeight: 360)
         .onReceive(NotificationCenter.default.publisher(for: .workspacesChanged)) { _ in
             names = WorkspaceStore.shared.names
         }
@@ -372,6 +378,33 @@ struct WorkspaceManagerView: View {
         } message: {
             Text(errorMessage ?? "")
         }
+    }
+
+    /// 「開くときに復元」 for the selected workspace. Saved as soon as it changes.
+    private func openOptionsEditor(for name: String) -> some View {
+        let binding = Binding<WorkspaceOpenOptions>(
+            get: { _ = optionsRevision; return WorkspaceStore.shared.workspace(named: name)?.openOptions ?? WorkspaceOpenOptions() },
+            set: { options in
+                perform { try WorkspaceStore.shared.setOpenOptions(options, for: name) }
+                optionsRevision += 1
+            })
+        return Form {
+            LabeledContent("開くときに復元") {
+                HStack(spacing: 14) {
+                    Toggle("位置", isOn: binding.position)
+                    Toggle("サイズ", isOn: binding.size)
+                    Toggle("ディスプレイ", isOn: binding.display)
+                }
+                .toggleStyle(.checkbox)
+            }
+            Picker("ウインドウを開くディスプレイ", selection: binding.screen) {
+                ForEach(NewWindowScreen.allCases, id: \.rawValue) { Text($0.title).tag($0.rawValue) }
+            }
+            .help("「ディスプレイ」を復元しないとき、または保存時のディスプレイが接続されていないとき")
+        }
+        .padding(.horizontal, 10)
+        .padding(.top, 8)
+        .id(name)
     }
 
     private struct RenameTarget: Identifiable {

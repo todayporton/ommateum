@@ -152,21 +152,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         case .last: front?.snapshot() ?? store.lastWindow
         }
 
-        let screen: NSScreen? = {
-            if uses.display, let id = source?.display, let screen = NSScreen.withDisplayUUID(id) { return screen }
-            switch Preferences.newWindowScreen {
-            case .cursor: return NSScreen.underMouse ?? NSScreen.main
-            case .activeWindow: return front?.window?.screen ?? NSScreen.main
-            }
-        }()
-        var frame: CGRect?
-        if let target = screen?.visibleFrame {
-            let frontWindow = front?.window.flatMap { $0.screen == screen && !$0.styleMask.contains(.fullScreen) ? $0 : nil }
-            frame = NewWindowPlacement.frame(
-                source: source?.windowFrame.map { ($0.rect, source?.displayFrame?.rect) },
-                uses: uses, target: target, front: frontWindow?.frame,
-                occupied: windowControllers.compactMap { $0.window?.frame })
-        }
+        let frame = newWindowFrame(from: source, uses: uses, screen: Preferences.newWindowScreen)
 
         if folder == nil, uses.layout, var snapshot = source {
             snapshot.name = nil
@@ -176,6 +162,49 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         let controller = openWindow(snapshot: nil, frame: frame)
         controller?.activeBrowser?.navigate(to: url, recordHistory: false, select: select)
         return controller
+    }
+
+    /// Frame for a new window copying `source`: on `source`'s display when `uses.display` and it is connected,
+    /// otherwise on the display chosen by `screen`.
+    private func newWindowFrame(from source: WorkspaceSnapshot?, uses: NewWindowPlacement.Uses, screen preference: NewWindowScreen,
+                                replacing window: NSWindow? = nil) -> CGRect? {
+        let front = window ?? keyWindowController?.window
+        var display = source?.display
+        var displayFrame = source?.displayFrame?.rect
+        // Saved before the display was recorded: take the display the window was on, if it is still there.
+        if display == nil, let frame = source?.windowFrame?.rect,
+           let screen = NSScreen.screens.first(where: { $0.frame.contains(CGPoint(x: frame.midX, y: frame.midY)) }) {
+            display = screen.displayUUID
+            displayFrame = screen.visibleFrame
+        }
+        let screen: NSScreen? = {
+            if uses.display, let display, let screen = NSScreen.withDisplayUUID(display) { return screen }
+            switch preference {
+            case .cursor: return NSScreen.underMouse ?? NSScreen.main
+            case .activeWindow: return front?.screen ?? NSScreen.main
+            }
+        }()
+        guard let target = screen?.visibleFrame else { return nil }
+        let others = windowControllers.compactMap(\.window).filter { $0 !== window }
+
+        if let window {
+            // Loading into an open window: what is not restored stays as the window is now.
+            guard let saved = source?.windowFrame?.rect else { return nil }
+            let current = window.frame
+            let size = uses.size ? saved.size : current.size
+            // Without the position, the top-left corner stays where it is.
+            let origin = uses.position ? saved.origin : CGPoint(x: current.minX, y: current.maxY - size.height)
+            let from = uses.position ? (displayFrame ?? target) : (window.screen?.visibleFrame ?? target)
+            return NewWindowPlacement.frame(
+                source: (CGRect(origin: origin, size: size), from),
+                uses: .init(layout: true, position: true, size: true, display: uses.display),
+                target: target, front: nil, occupied: others.map(\.frame))
+        }
+        let frontWindow = front.flatMap { $0.screen == screen && !$0.styleMask.contains(.fullScreen) ? $0 : nil }
+        return NewWindowPlacement.frame(
+            source: source?.windowFrame.map { ($0.rect, displayFrame) },
+            uses: uses, target: target, front: frontWindow?.frame,
+            occupied: others.map(\.frame))
     }
 
     /// Saves the front window as 「保存したウインドウ」 (設定 ▸ 一般).
@@ -264,10 +293,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             FileOperations.shared.showError(message: "ワークスペース「\(snapshot.name ?? "")」は破損しているため開けません。", window: keyWindowController?.window)
             return
         }
+        let options = snapshot.openOptions ?? WorkspaceOpenOptions()
+        let uses = NewWindowPlacement.Uses(layout: true, position: options.position, size: options.size, display: options.display)
+        let screen = NewWindowScreen(rawValue: options.screen) ?? .activeWindow
         if inNewWindow || keyWindowController == nil {
-            openWindow(snapshot: snapshot)
-        } else {
-            keyWindowController?.load(snapshot)
+            openWindow(snapshot: snapshot, frame: newWindowFrame(from: snapshot, uses: uses, screen: screen))
+        } else if let controller = keyWindowController {
+            controller.load(snapshot, frame: controller.window.flatMap { newWindowFrame(from: snapshot, uses: uses, screen: screen, replacing: $0) })
         }
     }
 

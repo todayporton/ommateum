@@ -16,6 +16,9 @@ struct WorkspaceSnapshot: Codable, Equatable, Sendable {
     /// The display the window was on (`NSScreen.displayUUID`) and its visible frame, for new windows.
     var display: String?
     var displayFrame: CodableRect?
+    /// For named workspaces: which of the saved window's position, size and display opening it restores.
+    /// `nil` restores all of them (the behaviour before this option existed).
+    var openOptions: WorkspaceOpenOptions?
 
     /// Repairs inconsistencies between `layout` and `panes` (e.g. hand-edited or partially corrupted files).
     /// Panes missing from the layout are dropped, layout leaves without a pane are removed, empty panes are removed.
@@ -74,6 +77,15 @@ extension WorkspaceSnapshot {
         copy.activePaneID = activePaneID.flatMap { paneIDs[$0] }
         return copy
     }
+}
+
+/// Set per workspace in ワークスペースを管理.
+struct WorkspaceOpenOptions: Codable, Equatable, Sendable {
+    var position = true
+    var size = true
+    var display = true
+    /// `NewWindowScreen` raw value: where it opens when the display is not restored or is not connected.
+    var screen = "activeWindow"
 }
 
 /// Container for the automatically saved session (all open windows).

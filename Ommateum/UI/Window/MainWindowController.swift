@@ -80,9 +80,11 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
     }
 
     /// Replaces the whole window state with a saved workspace.
-    func load(_ snapshot: WorkspaceSnapshot) {
+    /// `frame` replaces the saved frame (see the workspace's open options).
+    func load(_ snapshot: WorkspaceSnapshot, frame: CGRect? = nil) {
         workspace.replace(with: snapshot)
         apply(windowState: snapshot)
+        if let frame { window?.setFrame(frame, display: true) }
         workspaceName = snapshot.name
         updateForActiveBrowser()
         workspace.activePane?.focus()

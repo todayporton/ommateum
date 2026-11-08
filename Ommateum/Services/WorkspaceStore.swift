@@ -61,6 +61,8 @@ final class WorkspaceStore {
         var snapshot = snapshot
         snapshot.name = name
         if let index = workspaces.firstIndex(where: { $0.name == name }) {
+            // Saving the window again keeps how the workspace opens.
+            snapshot.openOptions = snapshot.openOptions ?? workspaces[index].openOptions
             workspaces[index] = snapshot
         } else {
             workspaces.append(snapshot)
@@ -75,6 +77,12 @@ final class WorkspaceStore {
         if let index = workspaces.firstIndex(where: { $0.name == name }) {
             workspaces[index].name = newName
         }
+        try persist()
+    }
+
+    func setOpenOptions(_ options: WorkspaceOpenOptions, for name: String) throws {
+        guard let index = workspaces.firstIndex(where: { $0.name == name }) else { return }
+        workspaces[index].openOptions = options
         try persist()
     }
 
