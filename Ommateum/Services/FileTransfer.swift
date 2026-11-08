@@ -6,6 +6,9 @@ nonisolated final class TransferProgress: @unchecked Sendable {
         var completedBytes: Int64 = 0
         var totalBytes: Int64 = 0
         var currentName = ""
+        /// Top-level items in the operation, and how many of them have been started (1-based while running).
+        var totalItems = 0
+        var currentItem = 0
         var isCancelled = false
     }
 
@@ -18,6 +21,7 @@ nonisolated final class TransferProgress: @unchecked Sendable {
     func cancel() { lock.withLock { state.isCancelled = true } }
     func setTotal(_ bytes: Int64) { lock.withLock { state.totalBytes = bytes } }
     func setCurrent(_ name: String) { lock.withLock { state.currentName = name } }
+    func setItems(current: Int, total: Int) { lock.withLock { state.currentItem = current; state.totalItems = total } }
     func setCompleted(_ bytes: Int64) { lock.withLock { state.completedBytes = bytes } }
 }
 

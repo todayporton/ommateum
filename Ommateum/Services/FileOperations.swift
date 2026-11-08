@@ -77,10 +77,11 @@ final class FileOperations {
         }
         undoManager?.setActionName(actionName)
         let progress = TransferProgress()
-        TransferProgressPanel.shared.track(progress, title: actionName)
+        let destination = plan.first?.destination.deletingLastPathComponent()
+        TransferCenter.shared.track(progress, title: actionName, destination: destination)
         Task {
             let result = await Self.perform(plan, mode: mode, progress: progress)
-            TransferProgressPanel.shared.finish(progress)
+            TransferCenter.shared.finish(progress)
             outcome.value = result.completed
             if result.error == nil, !progress.isCancelled, !result.completed.isEmpty { Self.playSound(.transferDone) }
             if let error = result.error { showError(error, window: window) }
@@ -193,9 +194,10 @@ final class FileOperations {
             let fm = FileManager.default
             let copied = plan.filter { mode == .copy || !isSameVolume($0.source, $0.destination) }.map(\.source)
             progress.setTotal(FileCopier.totalSize(of: copied, progress: progress))
-            for transfer in plan {
+            for (index, transfer) in plan.enumerated() {
                 if progress.isCancelled { break }
                 progress.setCurrent(transfer.source.lastPathComponent)
+                progress.setItems(current: index + 1, total: plan.count)
                 var trashed: NSURL?
                 var setAside: URL?
                 do {

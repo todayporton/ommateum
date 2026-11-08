@@ -16,10 +16,12 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         static let viewMode = NSToolbarItem.Identifier("viewMode")
         static let split = NSToolbarItem.Identifier("split")
         static let sidebar = NSToolbarItem.Identifier("sidebar")
+        static let transfers = NSToolbarItem.Identifier("transfers")
     }
 
     private var viewModeControl: NSSegmentedControl?
     private var navigationControl: NSSegmentedControl?
+    private var transferObserver: NSObjectProtocol?
 
     init(snapshot: WorkspaceSnapshot?) {
         workspace = WorkspaceViewController(snapshot: snapshot)
@@ -47,6 +49,10 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         toolbar.displayMode = .iconOnly
         toolbar.allowsUserCustomization = false
         window.toolbar = toolbar
+        transferObserver = NotificationCenter.default.addObserver(forName: TransferCenter.didChange, object: TransferCenter.shared, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.updateTransferIndicator() }
+        }
+        updateTransferIndicator()
 
         apply(windowState: snapshot)
         firstResponderObservation = window.observe(\.firstResponder, options: [.new]) { [weak self] _, _ in
@@ -248,12 +254,25 @@ extension MainWindowController: WorkspaceHost, SidebarHost {
 // MARK: - Toolbar
 
 extension MainWindowController: NSToolbarDelegate {
+    /// The progress indicator is only in the toolbar while copies or moves are running, left of the view buttons.
+    private func updateTransferIndicator() {
+        guard let toolbar = window?.toolbar else { return }
+        let index = toolbar.items.firstIndex { $0.itemIdentifier == ToolbarID.transfers }
+        let running = !TransferCenter.shared.transfers.isEmpty
+        if running, index == nil {
+            let at = toolbar.items.firstIndex { $0.itemIdentifier == ToolbarID.viewMode } ?? toolbar.items.count
+            toolbar.insertItem(withItemIdentifier: ToolbarID.transfers, at: at)
+        } else if !running, let index {
+            toolbar.removeItem(at: index)
+        }
+    }
+
     func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
         [ToolbarID.sidebar, ToolbarID.navigation, .flexibleSpace, ToolbarID.viewMode, ToolbarID.split]
     }
 
     func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-        toolbarDefaultItemIdentifiers(toolbar) + [.space]
+        toolbarDefaultItemIdentifiers(toolbar) + [.space, ToolbarID.transfers]
     }
 
     func toolbar(_ toolbar: NSToolbar, itemForItemIdentifier itemIdentifier: NSToolbarItem.Identifier, willBeInsertedIntoToolbar flag: Bool) -> NSToolbarItem? {
@@ -300,6 +319,12 @@ extension MainWindowController: NSToolbarDelegate {
             item.target = self
             item.action = #selector(toolbarSplit(_:))
             item.isBordered = true
+            return item
+        case ToolbarID.transfers:
+            let item = NSToolbarItem(itemIdentifier: itemIdentifier)
+            item.view = TransferIndicatorButton()
+            item.label = "進行状況"
+            item.visibilityPriority = .high
             return item
         default:
             return nil
