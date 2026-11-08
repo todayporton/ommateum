@@ -2,17 +2,19 @@
 // Renders the app icon into the asset catalog.
 //
 // Usage: swift scripts/make-icon.swift <AppIcon.appiconset> [variant]
-//   variant: c-dark (default, the adopted icon), c, c2
+//   variant: c-f (default, the adopted icon), c-dark, c, c2
 //
-//   c-dark  Folder on a navy ground. The folder front carries a hexagonal lattice whose centre seven cells are white.
-//   c       The same folder on a pale blue ground.
+//   c-f     Folder on a pale blue ground, coloured like Finder's icon: a three-step blue front, and centre cells that
+//           fade from white to pale blue. The folder front carries a hexagonal lattice whose centre seven cells are light.
+//   c-dark  The folder in a quieter blue with plain white centre cells, on a navy ground.
+//   c       As c-dark, on a pale blue ground.
 //   c2      No folder: the lattice fills the whole tile, and the centre seven cells stand out with a soft shadow.
 //
 // Geometry is written on a 1024-unit canvas with y pointing down, the same as the SVG mock-ups it came from,
 // so numbers here can be compared with those directly.
 import AppKit
 
-enum Variant: String, CaseIterable { case cDark = "c-dark", c, c2 }
+enum Variant: String, CaseIterable { case cF = "c-f", cDark = "c-dark", c, c2 }
 
 func color(_ hex: UInt32, _ alpha: CGFloat = 1) -> CGColor {
     CGColor(srgbRed: CGFloat((hex >> 16) & 0xff) / 255, green: CGFloat((hex >> 8) & 0xff) / 255,
@@ -45,10 +47,11 @@ func hexagon(_ x: CGFloat, _ y: CGFloat, _ r: CGFloat) -> CGPath {
     return path
 }
 
-/// Fills the current clip with a top-to-bottom gradient between y0 and y1.
-func verticalGradient(_ ctx: CGContext, _ top: UInt32, _ bottom: UInt32, _ y0: CGFloat, _ y1: CGFloat) {
-    let gradient = CGGradient(colorsSpace: CGColorSpace(name: CGColorSpace.sRGB), colors: [color(top), color(bottom)] as CFArray,
-                              locations: [0, 1])!
+/// Fills the current clip with a top-to-bottom gradient between y0 and y1, its stops spaced evenly.
+func verticalGradient(_ ctx: CGContext, _ stops: [UInt32], _ y0: CGFloat, _ y1: CGFloat) {
+    let locations = stops.indices.map { CGFloat($0) / CGFloat(stops.count - 1) }
+    let gradient = CGGradient(colorsSpace: CGColorSpace(name: CGColorSpace.sRGB), colors: stops.map { color($0) } as CFArray,
+                              locations: locations)!
     ctx.drawLinearGradient(gradient, start: CGPoint(x: 0, y: y0), end: CGPoint(x: 0, y: y1),
                            options: [.drawsBeforeStartLocation, .drawsAfterEndLocation])
 }
@@ -65,7 +68,19 @@ func lattice(radius r: CGFloat, center: CGPoint, rows: ClosedRange<Int>, columns
     return points
 }
 
-func drawFolder(_ ctx: CGContext) {
+struct FolderColors {
+    var back: UInt32
+    var front: [UInt32]
+    /// Gradients for the centre cell and the six around it; nil draws them flat white.
+    var centre: (inner: [UInt32], ring: [UInt32])?
+}
+
+/// Colours picked from Finder's icon.
+let finderFolder = FolderColors(back: 0x2479ee, front: [0x00c2ff, 0x339cfa, 0x3173f6],
+                                centre: ([0xfbfefe, 0xc8e6fd], [0xeef8fe, 0xb0d4fb]))
+let plainFolder = FolderColors(back: 0x3d7fd4, front: [0x78b6f7, 0x3b80d9], centre: nil)
+
+func drawFolder(_ ctx: CGContext, _ colors: FolderColors) {
     // Back of the folder, with its tab.
     let back = CGMutablePath()
     back.move(to: CGPoint(x: 236, y: 262))
@@ -80,7 +95,7 @@ func drawFolder(_ ctx: CGContext) {
     back.addCurve(to: CGPoint(x: 236, y: 262), control1: CGPoint(x: 192, y: 280), control2: CGPoint(x: 210, y: 262))
     back.closeSubpath()
     ctx.addPath(back)
-    ctx.setFillColor(color(0x3d7fd4))
+    ctx.setFillColor(color(colors.back))
     ctx.fillPath()
 
     // Front of the folder.
@@ -89,14 +104,19 @@ func drawFolder(_ ctx: CGContext) {
     ctx.saveGState()
     ctx.addPath(front)
     ctx.clip()
-    verticalGradient(ctx, 0x78b6f7, 0x3b80d9, frontRect.minY, frontRect.maxY)
+    verticalGradient(ctx, colors.front, frontRect.minY, frontRect.maxY)
 
     // Lattice on the front; the seven cells around the centre are filled white.
     let r: CGFloat = 54, center = CGPoint(x: 512, y: 590), dx = sqrt(3) * r
     for p in lattice(radius: r, center: center, rows: -5...5, columns: -8...8) {
         let d = hypot(p.x - center.x, p.y - center.y)
         ctx.addPath(hexagon(p.x, p.y, r * 0.9))
-        if d < dx * 1.05 {
+        if d < dx * 1.05, let centre = colors.centre {
+            ctx.saveGState()
+            ctx.clip()
+            verticalGradient(ctx, d < 1 ? centre.inner : centre.ring, p.y - r * 0.9, p.y + r * 0.9)
+            ctx.restoreGState()
+        } else if d < dx * 1.05 {
             ctx.setFillColor(color(0xffffff, d < 1 ? 0.95 : 0.75))
             ctx.fillPath()
         } else {
@@ -135,9 +155,9 @@ func drawFilledLattice(_ ctx: CGContext, scale: CGFloat) {
         ctx.addPath(hex)
         ctx.clip()
         if isCenter {
-            verticalGradient(ctx, 0xffffff, 0xd6e6f8, p.y - r * 0.9, p.y + r * 0.9)
+            verticalGradient(ctx, [0xffffff, 0xd6e6f8], p.y - r * 0.9, p.y + r * 0.9)
         } else {
-            verticalGradient(ctx, 0xf4f9ff, 0xc3daf4, p.y - r * 0.9, p.y + r * 0.9)
+            verticalGradient(ctx, [0xf4f9ff, 0xc3daf4], p.y - r * 0.9, p.y + r * 0.9)
         }
         ctx.restoreGState()
         ctx.addPath(hex)
@@ -160,10 +180,10 @@ func render(_ variant: Variant, size: Int) -> Data {
 
     // Apple's macOS icon grid: the tile is 824 units inside the 1024 canvas.
     let body = squircle(x: 100, y: 100, size: 824)
-    let ground: (UInt32, UInt32) = switch variant {
-    case .cDark: (0x22355c, 0x0b1226)
-    case .c: (0xeef4fb, 0xcddcee)
-    case .c2: (0x78b6f7, 0x3b80d9)
+    let ground: [UInt32] = switch variant {
+    case .cDark: [0x22355c, 0x0b1226]
+    case .c, .cF: [0xeef4fb, 0xcddcee]
+    case .c2: [0x78b6f7, 0x3b80d9]
     }
 
     // Tile with its drop shadow.
@@ -172,7 +192,7 @@ func render(_ variant: Variant, size: Int) -> Data {
     ctx.beginTransparencyLayer(auxiliaryInfo: nil)
     ctx.addPath(body)
     ctx.clip()
-    verticalGradient(ctx, ground.0, ground.1, 100, 924)
+    verticalGradient(ctx, ground, 100, 924)
     ctx.endTransparencyLayer()
     ctx.restoreGState()
 
@@ -180,7 +200,8 @@ func render(_ variant: Variant, size: Int) -> Data {
     ctx.addPath(body)
     ctx.clip()
     switch variant {
-    case .cDark, .c: drawFolder(ctx)
+    case .cF: drawFolder(ctx, finderFolder)
+    case .cDark, .c: drawFolder(ctx, plainFolder)
     case .c2: drawFilledLattice(ctx, scale: scale)
     }
     ctx.restoreGState()
@@ -198,7 +219,7 @@ func render(_ variant: Variant, size: Int) -> Data {
 // arguments after "--".
 let all = CommandLine.arguments
 let arguments = all.firstIndex(of: "--").map { Array(all[($0 + 1)...]) } ?? Array(all.dropFirst())
-guard arguments.count >= 1, let variant = Variant(rawValue: arguments.count >= 2 ? arguments[1] : Variant.cDark.rawValue) else {
+guard arguments.count >= 1, let variant = Variant(rawValue: arguments.count >= 2 ? arguments[1] : Variant.cF.rawValue) else {
     FileHandle.standardError.write("usage: swift scripts/make-icon.swift <AppIcon.appiconset> [\(Variant.allCases.map(\.rawValue).joined(separator: "|"))]\n".data(using: .utf8)!)
     exit(1)
 }
