@@ -108,8 +108,12 @@ private final class SidebarOutlineView: NSOutlineView {
         onDragStateChanged?(false)
     }
 
+    // NSOutlineView does not implement draggingEnded:, so calling super unconditionally raises an
+    // unrecognized-selector exception when a drag that passed over the sidebar ends.
     override func draggingEnded(_ sender: any NSDraggingInfo) {
-        super.draggingEnded(sender)
+        if NSOutlineView.instancesRespond(to: #selector(NSDraggingDestination.draggingEnded(_:))) {
+            super.draggingEnded(sender)
+        }
         onDragStateChanged?(false)
     }
 
