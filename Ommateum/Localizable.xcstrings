@@ -45,6 +45,17 @@
         }
       }
     },
+    "%@ (Default)": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@（デフォルト）"
+          }
+        }
+      }
+    },
     "%@ (New Window)": {
       "extractionState": "manual",
       "localizations": {
@@ -338,6 +349,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "サイドバーに追加"
+          }
+        }
+      }
+    },
+    "Alert Sounds": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通知音"
           }
         }
       }
@@ -701,6 +723,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "URLをコピー"
+          }
+        }
+      }
+    },
+    "Copy and Move Finished": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "コピー・移動の完了"
           }
         }
       }
@@ -1706,6 +1739,17 @@
         }
       }
     },
+    "Move to Trash and Delete": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ゴミ箱に入れる・削除"
+          }
+        }
+      }
+    },
     "Name": {
       "extractionState": "manual",
       "localizations": {
@@ -2054,6 +2098,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "権限"
+          }
+        }
+      }
+    },
+    "Play": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "再生"
           }
         }
       }
@@ -2740,6 +2795,17 @@
         }
       }
     },
+    "Sounds": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "サウンド"
+          }
+        }
+      }
+    },
     "Split": {
       "extractionState": "manual",
       "localizations": {
@@ -3253,6 +3319,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "「%@」を表示するためのアクセス権がありません。"
+          }
+        }
+      }
+    },
+    "Your Sounds": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "追加したサウンド"
           }
         }
       }

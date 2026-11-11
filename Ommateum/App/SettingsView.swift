@@ -1,7 +1,7 @@
 import SwiftUI
 
 private enum SettingsSection: String, CaseIterable, Identifiable {
-    case general, sidebar, shortcuts
+    case general, sidebar, sounds, shortcuts
 
     var id: Self { self }
 
@@ -9,6 +9,7 @@ private enum SettingsSection: String, CaseIterable, Identifiable {
         switch self {
         case .general: return loc("General")
         case .sidebar: return loc("Sidebar")
+        case .sounds: return loc("Sounds")
         case .shortcuts: return loc("Shortcuts")
         }
     }
@@ -17,6 +18,7 @@ private enum SettingsSection: String, CaseIterable, Identifiable {
         switch self {
         case .general: return "gearshape"
         case .sidebar: return "sidebar.left"
+        case .sounds: return "speaker.wave.2"
         case .shortcuts: return "command"
         }
     }
@@ -44,6 +46,7 @@ struct SettingsView: View {
                 switch section {
                 case .general: GeneralSettingsView()
                 case .sidebar: SidebarSettingsView()
+                case .sounds: SoundSettingsView()
                 case .shortcuts: ShortcutSettingsView()
                 }
                 Spacer(minLength: 0)
@@ -166,6 +169,68 @@ private struct GeneralSettingsView: View {
                     .map { FileManager.default.displayName(atPath: $0.location.path) }
             }
         }.joined(separator: " | ")
+    }
+}
+
+/// One sound per event, played when chosen so it can be heard before closing the settings.
+private struct SoundSettingsView: View {
+    private let groups = SoundLibrary.groups()
+    @State private var choices = Dictionary(uniqueKeysWithValues: SoundEvent.allCases.map { ($0, Preferences.sound(for: $0)) })
+
+    var body: some View {
+        Form {
+            ForEach(SoundEvent.allCases, id: \.self) { event in
+                LabeledContent(event.title) {
+                    HStack {
+                        Picker(event.title, selection: binding(for: event)) {
+                            Text(loc("None")).tag(URL?.none)
+                            if let chosen = choices[event] ?? nil, !groups.contains(where: { $0.sounds.contains(chosen) }) {
+                                // A file that has since been moved or deleted stays selectable so the picker is not blank.
+                                Text(SoundLibrary.name(of: chosen)).tag(URL?.some(chosen))
+                            }
+                            ForEach(groups) { group in
+                                Section(group.title) {
+                                    ForEach(group.sounds, id: \.self) { sound in
+                                        Text(title(of: sound, for: event)).tag(URL?.some(sound))
+                                    }
+                                }
+                            }
+                        }
+                        .labelsHidden()
+                        .fixedSize()
+                        Button { play(choices[event] ?? nil) } label: { Image(systemName: "play.fill") }
+                            .help(loc("Play"))
+                            .accessibilityLabel(loc("Play"))
+                            .disabled((choices[event] ?? nil) == nil)
+                        Button(loc("Restore Default")) { choose(event.defaultSound, for: event) }
+                            .disabled(choices[event] == event.defaultSound)
+                    }
+                }
+            }
+        }
+        .formStyle(.grouped)
+        .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private func binding(for event: SoundEvent) -> Binding<URL?> {
+        Binding(get: { choices[event] ?? nil }, set: { choose($0, for: event) })
+    }
+
+    private func choose(_ sound: URL?, for event: SoundEvent) {
+        Preferences.setSound(sound, for: event)
+        choices[event] = sound
+        play(sound)
+    }
+
+    private func play(_ sound: URL?) {
+        guard let sound else { return }
+        NSSound(contentsOf: sound, byReference: true)?.play()
+    }
+
+    /// Marks the Finder's sound, since the names of the system files say little.
+    private func title(of sound: URL, for event: SoundEvent) -> String {
+        let name = SoundLibrary.name(of: sound)
+        return sound == event.defaultSound ? loc("%@ (Default)", name) : name
     }
 }
 

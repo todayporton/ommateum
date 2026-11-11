@@ -97,6 +97,16 @@ enum Preferences {
         }
     }
 
+    /// The file played for `event`, or nil for no sound. Unset means the Finder's sound; an empty path means none.
+    static func sound(for event: SoundEvent) -> URL? {
+        guard let path = UserDefaults.standard.string(forKey: event.preferenceKey) else { return event.defaultSound }
+        return path.isEmpty ? nil : URL(fileURLWithPath: path)
+    }
+
+    static func setSound(_ sound: URL?, for event: SoundEvent) {
+        UserDefaults.standard.set(sound?.path ?? "", forKey: event.preferenceKey)
+    }
+
     static var hiddenFileWhitelist: HiddenFileWhitelist { HiddenFileWhitelist(patterns: hiddenFilePatterns) }
 
     static var defaultViewMode: ViewMode {

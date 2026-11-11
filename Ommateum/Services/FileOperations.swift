@@ -343,19 +343,10 @@ final class FileOperations {
         if let error = result.error { showError(error, window: window) }
     }
 
-    /// System sounds, by path under SystemSounds.
-    enum Sound: String {
-        /// The Finder's sound for moving to the Trash, also played for deleting without it.
-        case trash = "finder/move to trash.aif"
-        /// Copy, move and duplicate, when every item made it. The Finder plays this file when a move finishes
-        /// (found in the system sound server's log; the name is misleading).
-        case transferDone = "system/Volume Mount.aif"
-        /// Ejecting from the sidebar; the pair of `transferDone`.
-        case eject = "system/Volume Unmount.aif"
-    }
-
-    static func playSound(_ sound: Sound) {
-        NSSound(contentsOfFile: "/System/Library/Components/CoreAudio.component/Contents/SharedSupport/SystemSounds/" + sound.rawValue, byReference: true)?.play()
+    /// Plays the sound chosen in 設定 ▸ サウンド for `event`, if any.
+    static func playSound(_ event: SoundEvent) {
+        guard let url = Preferences.sound(for: event) else { return }
+        NSSound(contentsOf: url, byReference: true)?.play()
     }
 
     /// Undo of "move to Trash": moves items back to where they were. Redo trashes them again.
