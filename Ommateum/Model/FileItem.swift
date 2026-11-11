@@ -26,7 +26,7 @@ struct FileItem: Hashable, Sendable {
     let isCloudOnly: Bool
 
     /// Folders that the user navigates into (packages such as .app behave like files, as in Finder).
-    var isNavigable: Bool { isDirectory && !isPackage }
+    nonisolated var isNavigable: Bool { isDirectory && !isPackage }
 
     /// Whether the list view shows a thumbnail instead of the icon. Like Finder, only for pictures and movies:
     /// at 16 points a document's thumbnail is a blank page.
@@ -70,8 +70,10 @@ struct FileItem: Hashable, Sendable {
 
 extension Array where Element == FileItem {
     /// Sorts like Finder: localized "natural" name comparison; ties are broken by name.
-    nonisolated func sorted(by spec: SortSpec) -> [FileItem] {
+    /// - Parameter foldersFirst: Puts folders (not packages, as in Finder) above files in either order.
+    nonisolated func sorted(by spec: SortSpec, foldersFirst: Bool = false) -> [FileItem] {
         sorted { lhs, rhs in
+            if foldersFirst, lhs.isNavigable != rhs.isNavigable { return lhs.isNavigable }
             let order: ComparisonResult
             switch spec.key {
             case .name:

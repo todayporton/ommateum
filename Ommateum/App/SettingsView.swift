@@ -68,6 +68,7 @@ private struct GeneralSettingsView: View {
     @AppStorage(Preferences.Key.newWindowScreen) private var newWindowScreen = NewWindowScreen.activeWindow.rawValue
     @State private var savedWindow = WorkspaceStore.shared.defaultWindow
     @State private var language = AppLanguage.current
+    @State private var foldersFirst = Preferences.foldersFirst
 
     var body: some View {
         Form {
@@ -81,6 +82,7 @@ private struct GeneralSettingsView: View {
             }
             Toggle(loc("Double-click an empty area to go to the parent folder"), isOn: $doubleClickGoesUp)
             Toggle(loc("Restore windows and tabs from the last session at launch"), isOn: $restoreSession)
+            Toggle(loc("Keep folders on top when sorting"), isOn: Binding(get: { foldersFirst }, set: { Preferences.foldersFirst = $0; foldersFirst = $0 }))
             Picker(loc("View for new tabs"), selection: $defaultViewMode) {
                 ForEach(ViewMode.allCases, id: \.rawValue) { mode in
                     Text(mode.title).tag(mode.rawValue)

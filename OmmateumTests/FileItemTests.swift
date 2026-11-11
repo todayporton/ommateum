@@ -27,6 +27,21 @@ struct FileItemTests {
         #expect(sorted[0].size == 1)
     }
 
+    @Test func foldersFirstKeepsFoldersOnTopInEitherOrder() async throws {
+        let dir = try makeTempDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        try Data("x".utf8).write(to: dir.appendingPathComponent("a.txt"))
+        try Data("x".utf8).write(to: dir.appendingPathComponent("c.txt"))
+        try FileManager.default.createDirectory(at: dir.appendingPathComponent("b"), withIntermediateDirectories: false)
+        try FileManager.default.createDirectory(at: dir.appendingPathComponent("d"), withIntermediateDirectories: false)
+        try FileManager.default.createDirectory(at: dir.appendingPathComponent("e.app"), withIntermediateDirectories: false)
+        let items = try await DirectoryLoader.load(dir, showHidden: false)
+
+        #expect(items.sorted(by: SortSpec(), foldersFirst: true).map(\.url.lastPathComponent) == ["b", "d", "a.txt", "c.txt", "e.app"])
+        #expect(items.sorted(by: SortSpec(ascending: false), foldersFirst: true).map(\.url.lastPathComponent) == ["d", "b", "e.app", "c.txt", "a.txt"])
+        #expect(items.sorted(by: SortSpec(), foldersFirst: false).map(\.url.lastPathComponent) == ["a.txt", "b", "c.txt", "d", "e.app"])
+    }
+
     /// `standardizedFileURL` turns `/private/var/…` into `/var/…`; listed items must keep the folder's spelling
     /// so that path comparisons (selection, pending rename) match.
     @Test func itemURLsUseTheListedFolderSpelling() async throws {

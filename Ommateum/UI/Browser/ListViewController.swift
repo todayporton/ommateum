@@ -252,7 +252,7 @@ final class ListViewController: NSViewController, BrowserContent {
         self.directory = directory
         self.sort = sort
         outlineView.sortDescriptors = [NSSortDescriptor(key: sort.key.rawValue, ascending: sort.ascending)]
-        let sorted = items.sorted(by: sort)
+        let sorted = items.sorted(by: sort, foldersFirst: Preferences.foldersFirst)
         roots = sorted.map(ListNode.init)
         if let groupKey {
             let nodes = Dictionary(uniqueKeysWithValues: zip(sorted.map(\.url), roots))
@@ -355,7 +355,7 @@ final class ListViewController: NSViewController, BrowserContent {
             // A refresh replaces the child rows: carry over what was open and selected among them.
             pendingExpansion.formUnion(expandedNodes().filter { $0.item.url.path.hasPrefix(url.path + "/") }.map(\.item.url.path))
             if pendingSelectionPaths.isEmpty { pendingSelectionPaths = Set(selectedItems.map(\.url.path)) }
-            node.children = items.sorted(by: sort).map(ListNode.init)
+            node.children = items.sorted(by: sort, foldersFirst: Preferences.foldersFirst).map(ListNode.init)
             outlineView.reloadItem(node, reloadChildren: true)
             restoreExpansion(among: node.children ?? [])
             applyPendingSelection()

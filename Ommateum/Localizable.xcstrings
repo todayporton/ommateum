@@ -1442,6 +1442,17 @@
         }
       }
     },
+    "Keep folders on top when sorting": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "並べ替えるときにフォルダを先頭に表示"
+          }
+        }
+      }
+    },
     "Kind": {
       "extractionState": "manual",
       "localizations": {

@@ -145,14 +145,14 @@ final class ColumnViewController: NSViewController, BrowserContent {
             guard renamingNode == nil else { return }
             // Refresh the first column in place, keeping the deeper path selected if it still exists.
             let path = browser.path()
-            root.children = items.sorted(by: sort).map { ColumnNode(url: $0.url, item: $0) }
+            root.children = items.sorted(by: sort, foldersFirst: Preferences.foldersFirst).map { ColumnNode(url: $0.url, item: $0) }
             browser.reloadColumn(0)
             browser.setPath(path)
             return
         }
         monitors.removeAll()
         let node = ColumnNode(url: directory, item: nil)
-        node.children = items.sorted(by: sort).map { ColumnNode(url: $0.url, item: $0) }
+        node.children = items.sorted(by: sort, foldersFirst: Preferences.foldersFirst).map { ColumnNode(url: $0.url, item: $0) }
         root = node
         browser.loadColumnZero()
     }
@@ -270,7 +270,7 @@ final class ColumnViewController: NSViewController, BrowserContent {
             let items = (try? await DirectoryLoader.load(url, showHidden: Preferences.showHiddenFiles)) ?? []
             node.isLoading = false
             if renamingNode == nil {
-                node.children = items.sorted(by: sort).map { ColumnNode(url: $0.url, item: $0) }
+                node.children = items.sorted(by: sort, foldersFirst: Preferences.foldersFirst).map { ColumnNode(url: $0.url, item: $0) }
                 for column in 0..<max(browser.lastColumn + 1, 0) where parentNode(inColumn: column) === node {
                     if pendingSelectionPaths.isEmpty, browser.selectedColumn == column {
                         pendingSelectionPaths = Set(selectedItems.map(\.url.path))

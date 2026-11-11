@@ -120,13 +120,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             if self.windowControllers.count == 1 { self.saveSession() }
             if !self.isRunningTests, !self.isTerminating { WorkspaceStore.shared.saveLastWindow(closed.snapshot()) }
             self.windowControllers.removeAll { $0 === closed }
-            self.updateTabBarsForWindowCount()
         }
-        updateTabBarsForWindowCount()
-    }
-
-    private func updateTabBarsForWindowCount() {
-        windowControllers.forEach { $0.workspace.showsTabBarsForOtherWindows = windowControllers.count > 1 }
     }
 
     /// Finder's "Merge All Windows": all tabs move to the frontmost window.

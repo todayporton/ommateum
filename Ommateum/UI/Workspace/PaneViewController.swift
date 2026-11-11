@@ -47,13 +47,9 @@ final class PaneViewController: NSViewController {
     private(set) var activeIndex = 0
     private let tabBar = TabBarView()
     private let contentView = PaneDropView()
-    private var tabBarHeight: NSLayoutConstraint?
 
     var activeTab: FileBrowserViewController? { tabs.indices.contains(activeIndex) ? tabs[activeIndex] : nil }
 
-    /// Whether the tab bar is shown with a single tab (always shown when there are several panes, like VS Code;
-    /// hidden for a lone pane with one tab, like Finder).
-    var showsTabBarForSingleTab = false { didSet { updateTabBarVisibility() } }
     var isActive = false {
         didSet {
             tabBar.isActivePane = isActive
@@ -93,13 +89,11 @@ final class PaneViewController: NSViewController {
         root.setAccessibilityLabel(loc("Pane"))
         root.addSubview(tabBar)
         root.addSubview(contentView)
-        let height = tabBar.heightAnchor.constraint(equalToConstant: TabBarView.height)
-        tabBarHeight = height
         NSLayoutConstraint.activate([
             tabBar.topAnchor.constraint(equalTo: root.topAnchor),
             tabBar.leadingAnchor.constraint(equalTo: root.leadingAnchor),
             tabBar.trailingAnchor.constraint(equalTo: root.trailingAnchor),
-            height,
+            tabBar.heightAnchor.constraint(equalToConstant: TabBarView.height),
             contentView.topAnchor.constraint(equalTo: tabBar.bottomAnchor),
             contentView.leadingAnchor.constraint(equalTo: root.leadingAnchor),
             contentView.trailingAnchor.constraint(equalTo: root.trailingAnchor),
@@ -191,13 +185,6 @@ final class PaneViewController: NSViewController {
     func refreshTabBar() {
         tabBar.tabs = tabs.map { TabBarView.Tab(id: $0.id, title: $0.displayTitle, icon: $0.tabIcon) }
         tabBar.selectedIndex = activeIndex
-        updateTabBarVisibility()
-    }
-
-    private func updateTabBarVisibility() {
-        let visible = tabs.count > 1 || showsTabBarForSingleTab
-        tabBar.isHidden = !visible
-        tabBarHeight?.constant = visible ? TabBarView.height : 0
     }
 
     func focus() { activeTab?.focus() }

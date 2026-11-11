@@ -144,6 +144,7 @@ final class FileBrowserViewController: NSViewController, NSMenuItemValidation {
         }
         reload()
         NotificationCenter.default.addObserver(self, selector: #selector(showHiddenChanged), name: .showHiddenFilesChanged, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(showHiddenChanged), name: .foldersFirstChanged, object: nil)
         NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(volumesChanged), name: NSWorkspace.didUnmountNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(itemsRestored(_:)), name: FileOperations.didRestoreItems, object: nil)
     }
@@ -429,6 +430,7 @@ final class FileBrowserViewController: NSViewController, NSMenuItemValidation {
         }
     }
 
+    /// Hidden files or folders-first changed in the menu or settings.
     @objc private func showHiddenChanged() { reload() }
 
     /// An undo or redo brought items back or renamed them: select those shown in this tab.

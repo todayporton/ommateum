@@ -6,6 +6,7 @@ enum Preferences {
         static let doubleClickEmptyAreaGoesUp = "doubleClickEmptyAreaGoesUp"
         static let restoreSession = "restoreSession"
         static let showHiddenFiles = "showHiddenFiles"
+        static let foldersFirst = "foldersFirst"
         static let defaultViewMode = "defaultViewMode"
         static let listRowHeight = "listRowHeight"
         static let newWindowSource = "newWindowSource"
@@ -21,6 +22,7 @@ enum Preferences {
             Key.doubleClickEmptyAreaGoesUp: true,
             Key.restoreSession: true,
             Key.showHiddenFiles: false,
+            Key.foldersFirst: false,
             Key.defaultViewMode: ViewMode.list.rawValue,
             Key.listRowHeight: ListRowHeight.standard.rawValue,
             Key.newWindowSource: NewWindowSource.last.rawValue,
@@ -71,6 +73,15 @@ enum Preferences {
         set {
             UserDefaults.standard.set(newValue, forKey: Key.showHiddenFiles)
             NotificationCenter.default.post(name: .showHiddenFilesChanged, object: nil)
+        }
+    }
+
+    /// Keeps folders above files whatever the sort order, like Finder's "Keep folders on top".
+    static var foldersFirst: Bool {
+        get { UserDefaults.standard.bool(forKey: Key.foldersFirst) }
+        set {
+            UserDefaults.standard.set(newValue, forKey: Key.foldersFirst)
+            NotificationCenter.default.post(name: .foldersFirstChanged, object: nil)
         }
     }
 
@@ -133,4 +144,5 @@ enum NewWindowScreen: String, CaseIterable {
 
 extension Notification.Name {
     static let showHiddenFilesChanged = Notification.Name("OmmateumShowHiddenFilesChanged")
+    static let foldersFirstChanged = Notification.Name("OmmateumFoldersFirstChanged")
 }

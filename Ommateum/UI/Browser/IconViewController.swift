@@ -172,7 +172,7 @@ final class IconViewController: NSViewController, BrowserContent {
         let keepSelection = sameDirectory ? Set(selectedItems.map(\.url)) : []
         if !sameDirectory { thumbnails.removeAll() }
         self.directory = directory
-        self.items = items.sorted(by: sort)
+        self.items = items.sorted(by: sort, foldersFirst: Preferences.foldersFirst)
         collectionView.reloadData()
         select(keepSelection)
         if !sameDirectory { collectionView.scroll(.zero) }
