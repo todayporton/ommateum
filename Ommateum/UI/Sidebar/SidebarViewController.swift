@@ -90,7 +90,7 @@ struct MountedShare {
 
 /// Lines every row up with the group names. Disclosure chevrons are drawn by the cells, on the right.
 /// Shares are indented inside their cells (`SidebarCell.shareIndent`).
-private final class SidebarOutlineView: NSOutlineView {
+private final class SidebarOutlineView: OwnDisclosureOutlineView {
     private let groupNameX: CGFloat = 14
     /// Moves free space and eject buttons toward the sidebar's right edge.
     private let trailingExtension: CGFloat = 7

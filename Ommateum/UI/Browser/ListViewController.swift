@@ -17,7 +17,7 @@ final class BrowserRowView: NSTableRowView {
     }
 }
 
-final class BrowserOutlineView: NSOutlineView {
+final class BrowserOutlineView: OwnDisclosureOutlineView {
     static let stripeInset: CGFloat = 6
     /// Keeps row contents inside the rounded bands.
     private static let contentInset: CGFloat = 8

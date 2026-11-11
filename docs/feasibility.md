@@ -132,6 +132,8 @@
 
 - 理由: Swift Concurrency・`Observation` 等の現行APIを無理なく使える一方、Sonomaは2023年リリースで利用者が多い。
   macOS 15/26 固有APIは必須としない（必要なら `#available` で分岐）。
+- macOS 27.2 の AppKit の不具合: `NSOutlineView` が自分で作る開閉三角（`_makeOutlineControl`）は、登録した通知ブロックに捕まれたまま解放されない。
+  `makeView(withIdentifier: NSOutlineView.disclosureButtonIdentifier)` で渡したボタンは解放されるが、クリックの target/action は付かないので自分で付ける。macOS 26.6 では起きない。
 - Apple Silicon ネイティブ（arm64）。Intel（x86_64）もビルド設定上は除外しない。
 
 ## 7. 外部ライブラリ
