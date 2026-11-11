@@ -45,7 +45,15 @@ struct FileItemTests {
         let paths = try await DirectoryLoader.load(dir, showHidden: false, alwaysShown: byPath).map(\.url.lastPathComponent)
         #expect(Set(paths) == ["visible.txt", ".config"])
 
-        #expect(HiddenFileWhitelist.invalidPatterns(in: ["(", "ok", ""]) == ["("])
+        #expect(HiddenFileWhitelist.invalidPatterns(in: ["(", "ok", "", "/(/i"]) == ["(", "/(/i"])
+
+        // A literal `/body/flags` may match part of the name, with its flags.
+        let literal = HiddenFileWhitelist(patterns: [#"/\.GITIG/i"#])
+        let literalNames = try await DirectoryLoader.load(dir, showHidden: false, alwaysShown: literal).map(\.url.lastPathComponent)
+        #expect(Set(literalNames) == ["visible.txt", ".gitignore"])
+        let literalPath = HiddenFileWhitelist(patterns: [#"/ommateum-tests-[^/]+\/\.CON/i"#])
+        let literalPaths = try await DirectoryLoader.load(dir, showHidden: false, alwaysShown: literalPath).map(\.url.lastPathComponent)
+        #expect(Set(literalPaths) == ["visible.txt", ".config"])
     }
 
     @Test func foldersFirstKeepsFoldersOnTopInEitherOrder() async throws {

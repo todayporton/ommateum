@@ -113,7 +113,7 @@ private struct GeneralSettingsView: View {
             } header: {
                 Text(loc("Hidden Files to Show Anyway"))
             } footer: {
-                Text(loc("Shown even while hidden files are hidden. One regular expression per line, matched against the whole name (e.g. \\.gitignore, \\.env.*). A pattern containing / is matched against the whole path."))
+                Text(loc("Shown even while hidden files are hidden. One regular expression per line, matched against the whole name (e.g. \\.gitignore, \\.env.*). A pattern containing / is matched against the whole path. Written as /pattern/i, it may match part of the name, with the flags i, m, s and x."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

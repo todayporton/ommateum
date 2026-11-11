@@ -2674,13 +2674,13 @@
         }
       }
     },
-    "Shown even while hidden files are hidden. One regular expression per line, matched against the whole name (e.g. \\.gitignore, \\.env.*). A pattern containing / is matched against the whole path.": {
+    "Shown even while hidden files are hidden. One regular expression per line, matched against the whole name (e.g. \\.gitignore, \\.env.*). A pattern containing / is matched against the whole path. Written as /pattern/i, it may match part of the name, with the flags i, m, s and x.": {
       "extractionState": "manual",
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "不可視ファイルを表示していないときも表示します。1行に1つの正規表現で、名前全体と照合します（例: \\.gitignore、\\.env.*）。/ を含むパターンはパス全体と照合します。"
+            "value": "不可視ファイルを表示していないときも表示します。1行に1つの正規表現で、名前全体と照合します（例: \\.gitignore、\\.env.*）。/ を含むパターンはパス全体と照合します。/パターン/i の形で書くと名前の一部との一致でよく、i・m・s・x のフラグを使えます。"
           }
         }
       }

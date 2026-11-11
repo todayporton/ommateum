@@ -30,6 +30,8 @@ enum DirectoryLoader {
 ///
 /// Each pattern is a regular expression that must match the whole name (e.g. `\.gitignore`, `\.env.*`).
 /// A pattern containing `/` is matched against the whole path instead (e.g. `/Users/.+/\.config`).
+/// A pattern written as a literal, `/body/flags` with flags from `imsx` (e.g. `/\.claude/i`), may match any
+/// part of the name, or of the path when the body contains `/`.
 /// Blank lines and invalid patterns are ignored.
 nonisolated struct HiddenFileWhitelist: @unchecked Sendable {
     // NSRegularExpression is immutable and safe to share between threads.
@@ -43,8 +45,8 @@ nonisolated struct HiddenFileWhitelist: @unchecked Sendable {
         var paths: [NSRegularExpression] = []
         for pattern in patterns {
             let trimmed = pattern.trimmingCharacters(in: .whitespaces)
-            guard !trimmed.isEmpty, let expression = Self.expression(trimmed) else { continue }
-            if trimmed.contains("/") { paths.append(expression) } else { names.append(expression) }
+            guard !trimmed.isEmpty, let (expression, matchesPath) = Self.expression(trimmed) else { continue }
+            if matchesPath { paths.append(expression) } else { names.append(expression) }
         }
         nameExpressions = names
         pathExpressions = paths
@@ -64,9 +66,33 @@ nonisolated struct HiddenFileWhitelist: @unchecked Sendable {
         }
     }
 
-    private static func expression(_ pattern: String) -> NSRegularExpression? {
+    /// The compiled pattern, and whether it is matched against the path rather than the name.
+    private static func expression(_ pattern: String) -> (NSRegularExpression, matchesPath: Bool)? {
+        if let (body, options) = literal(pattern) {
+            guard let expression = try? NSRegularExpression(pattern: body, options: options) else { return nil }
+            return (expression, body.contains("/"))
+        }
         // Anchored so that a plain name such as `.git` does not also match `.github`.
-        try? NSRegularExpression(pattern: "^(?:\(pattern))$")
+        guard let expression = try? NSRegularExpression(pattern: "^(?:\(pattern))$") else { return nil }
+        return (expression, pattern.contains("/"))
+    }
+
+    /// Splits `/body/flags` into its body and options. Only the flags `imsx` count, so that a path pattern such as
+    /// `/Users/.+/\.config` is not taken for a literal.
+    private static func literal(_ pattern: String) -> (String, NSRegularExpression.Options)? {
+        guard pattern.count >= 3, pattern.hasPrefix("/"), let close = pattern.lastIndex(of: "/"), close > pattern.startIndex else { return nil }
+        let body = String(pattern[pattern.index(after: pattern.startIndex)..<close])
+        var options: NSRegularExpression.Options = []
+        for flag in pattern[pattern.index(after: close)...] {
+            switch flag {
+            case "i": options.insert(.caseInsensitive)
+            case "m": options.insert(.anchorsMatchLines)
+            case "s": options.insert(.dotMatchesLineSeparators)
+            case "x": options.insert(.allowCommentsAndWhitespace)
+            default: return nil
+            }
+        }
+        return body.isEmpty ? nil : (body, options)
     }
 
     private static func matches(_ expressions: [NSRegularExpression], _ string: String) -> Bool {
