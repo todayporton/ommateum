@@ -27,6 +27,27 @@ struct FileItemTests {
         #expect(sorted[0].size == 1)
     }
 
+    @Test func whitelistShowsMatchingHiddenItems() async throws {
+        let dir = try makeTempDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        for name in [".gitignore", ".env", ".env.local", ".github", "visible.txt"] {
+            try Data("x".utf8).write(to: dir.appendingPathComponent(name))
+        }
+        try FileManager.default.createDirectory(at: dir.appendingPathComponent(".config"), withIntermediateDirectories: false)
+
+        // Names must match whole (".git" does not show ".github"); invalid and blank patterns are ignored.
+        let byName = HiddenFileWhitelist(patterns: [#"\.gitignore"#, #"\.env.*"#, ".git", "(", " "])
+        let names = try await DirectoryLoader.load(dir, showHidden: false, alwaysShown: byName).map(\.url.lastPathComponent)
+        #expect(Set(names) == ["visible.txt", ".gitignore", ".env", ".env.local"])
+
+        // A pattern with a slash matches the whole path.
+        let byPath = HiddenFileWhitelist(patterns: [".*/ommateum-tests-[^/]+/\\.config"])
+        let paths = try await DirectoryLoader.load(dir, showHidden: false, alwaysShown: byPath).map(\.url.lastPathComponent)
+        #expect(Set(paths) == ["visible.txt", ".config"])
+
+        #expect(HiddenFileWhitelist.invalidPatterns(in: ["(", "ok", ""]) == ["("])
+    }
+
     @Test func foldersFirstKeepsFoldersOnTopInEitherOrder() async throws {
         let dir = try makeTempDir()
         defer { try? FileManager.default.removeItem(at: dir) }

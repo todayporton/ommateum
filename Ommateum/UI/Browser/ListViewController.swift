@@ -350,7 +350,7 @@ final class ListViewController: NSViewController, BrowserContent {
         node.isLoading = true
         let url = node.item.url
         Task {
-            let items = (try? await DirectoryLoader.load(url, showHidden: Preferences.showHiddenFiles)) ?? []
+            let items = (try? await DirectoryLoader.load(url, showHidden: Preferences.showHiddenFiles, alwaysShown: Preferences.hiddenFileWhitelist)) ?? []
             node.isLoading = false
             // A refresh replaces the child rows: carry over what was open and selected among them.
             pendingExpansion.formUnion(expandedNodes().filter { $0.item.url.path.hasPrefix(url.path + "/") }.map(\.item.url.path))

@@ -267,7 +267,7 @@ final class ColumnViewController: NSViewController, BrowserContent {
         node.isLoading = true
         let url = node.url
         Task {
-            let items = (try? await DirectoryLoader.load(url, showHidden: Preferences.showHiddenFiles)) ?? []
+            let items = (try? await DirectoryLoader.load(url, showHidden: Preferences.showHiddenFiles, alwaysShown: Preferences.hiddenFileWhitelist)) ?? []
             node.isLoading = false
             if renamingNode == nil {
                 node.children = items.sorted(by: sort, foldersFirst: Preferences.foldersFirst).map { ColumnNode(url: $0.url, item: $0) }

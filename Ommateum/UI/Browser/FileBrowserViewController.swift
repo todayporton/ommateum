@@ -350,9 +350,10 @@ final class FileBrowserViewController: NSViewController, NSMenuItemValidation {
         loadTask?.cancel()
         let url = currentURL
         let showHidden = Preferences.showHiddenFiles
+        let alwaysShown = Preferences.hiddenFileWhitelist
         loadTask = Task { [weak self] in
             do {
-                let loaded = try await DirectoryLoader.load(url, showHidden: showHidden)
+                let loaded = try await DirectoryLoader.load(url, showHidden: showHidden, alwaysShown: alwaysShown)
                 guard !Task.isCancelled, let self, self.currentURL == url else { return }
                 self.didLoad(loaded)
             } catch is CancellationError {

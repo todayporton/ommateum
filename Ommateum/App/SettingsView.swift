@@ -69,6 +69,7 @@ private struct GeneralSettingsView: View {
     @State private var savedWindow = WorkspaceStore.shared.defaultWindow
     @State private var language = AppLanguage.current
     @State private var foldersFirst = Preferences.foldersFirst
+    @State private var hiddenPatterns = Preferences.hiddenFilePatterns.joined(separator: "\n")
 
     var body: some View {
         Form {
@@ -92,6 +93,29 @@ private struct GeneralSettingsView: View {
                 ForEach(ListRowHeight.allCases, id: \.rawValue) { height in
                     Text(height.title).tag(height.rawValue)
                 }
+            }
+            Section {
+                TextEditor(text: $hiddenPatterns)
+                    .font(.body.monospaced())
+                    .autocorrectionDisabled()
+                    .frame(height: 72)
+                    .onChange(of: hiddenPatterns) { _, text in
+                        Preferences.hiddenFilePatterns = text.components(separatedBy: .newlines)
+                            .map { $0.trimmingCharacters(in: .whitespaces) }
+                            .filter { !$0.isEmpty }
+                    }
+                let invalid = HiddenFileWhitelist.invalidPatterns(in: hiddenPatterns.components(separatedBy: .newlines))
+                if !invalid.isEmpty {
+                    Text(loc("Invalid regular expression: %@", invalid.joined(separator: ", ")))
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
+            } header: {
+                Text(loc("Hidden Files to Show Anyway"))
+            } footer: {
+                Text(loc("Shown even while hidden files are hidden. One regular expression per line, matched against the whole name (e.g. \\.gitignore, \\.env.*). A pattern containing / is matched against the whole path."))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
             Section(loc("New Windows")) {
                 Picker(loc("Default window"), selection: $newWindowSource) {

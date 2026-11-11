@@ -1310,6 +1310,17 @@
         }
       }
     },
+    "Hidden Files to Show Anyway": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "非表示でも表示する不可視ファイル"
+          }
+        }
+      }
+    },
     "Hide Ommateum": {
       "extractionState": "manual",
       "localizations": {
@@ -1427,6 +1438,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "サブフォルダも含む"
+          }
+        }
+      }
+    },
+    "Invalid regular expression: %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正規表現が正しくありません: %@"
           }
         }
       }
@@ -2648,6 +2670,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "サイドバーを表示/非表示"
+          }
+        }
+      }
+    },
+    "Shown even while hidden files are hidden. One regular expression per line, matched against the whole name (e.g. \\.gitignore, \\.env.*). A pattern containing / is matched against the whole path.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "不可視ファイルを表示していないときも表示します。1行に1つの正規表現で、名前全体と照合します（例: \\.gitignore、\\.env.*）。/ を含むパターンはパス全体と照合します。"
           }
         }
       }

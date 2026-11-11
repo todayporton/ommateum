@@ -7,6 +7,7 @@ enum Preferences {
         static let restoreSession = "restoreSession"
         static let showHiddenFiles = "showHiddenFiles"
         static let foldersFirst = "foldersFirst"
+        static let hiddenFileWhitelist = "hiddenFileWhitelist"
         static let defaultViewMode = "defaultViewMode"
         static let listRowHeight = "listRowHeight"
         static let newWindowSource = "newWindowSource"
@@ -23,6 +24,7 @@ enum Preferences {
             Key.restoreSession: true,
             Key.showHiddenFiles: false,
             Key.foldersFirst: false,
+            Key.hiddenFileWhitelist: [String](),
             Key.defaultViewMode: ViewMode.list.rawValue,
             Key.listRowHeight: ListRowHeight.standard.rawValue,
             Key.newWindowSource: NewWindowSource.last.rawValue,
@@ -84,6 +86,18 @@ enum Preferences {
             NotificationCenter.default.post(name: .foldersFirstChanged, object: nil)
         }
     }
+
+    /// Regular expressions for hidden items to list while hidden files are not shown. See `HiddenFileWhitelist`.
+    static var hiddenFilePatterns: [String] {
+        get { UserDefaults.standard.stringArray(forKey: Key.hiddenFileWhitelist) ?? [] }
+        set {
+            guard newValue != hiddenFilePatterns else { return }
+            UserDefaults.standard.set(newValue, forKey: Key.hiddenFileWhitelist)
+            NotificationCenter.default.post(name: .showHiddenFilesChanged, object: nil)
+        }
+    }
+
+    static var hiddenFileWhitelist: HiddenFileWhitelist { HiddenFileWhitelist(patterns: hiddenFilePatterns) }
 
     static var defaultViewMode: ViewMode {
         ViewMode(rawValue: UserDefaults.standard.string(forKey: Key.defaultViewMode) ?? "") ?? .list
