@@ -551,6 +551,17 @@
         }
       }
     },
+    "Choose": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "選択"
+          }
+        }
+      }
+    },
     "Choose an Icon": {
       "extractionState": "manual",
       "localizations": {
@@ -2054,6 +2065,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "その他"
+          }
+        }
+      }
+    },
+    "Other…": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "その他…"
           }
         }
       }

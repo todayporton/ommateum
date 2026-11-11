@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 private enum SettingsSection: String, CaseIterable, Identifiable {
     case general, sidebar, sounds, shortcuts
@@ -195,6 +196,8 @@ private struct SoundSettingsView: View {
                                     }
                                 }
                             }
+                            Divider()
+                            Text(loc("Other…")).tag(URL?.some(Self.chooseFileTag))
                         }
                         .labelsHidden()
                         .fixedSize()
@@ -212,8 +215,29 @@ private struct SoundSettingsView: View {
         .fixedSize(horizontal: false, vertical: true)
     }
 
+    /// Stands for the "Other…" item; choosing it opens a file panel instead of being stored.
+    private static let chooseFileTag = URL(string: "ommateum-choose-sound:")!
+
     private func binding(for event: SoundEvent) -> Binding<URL?> {
-        Binding(get: { choices[event] ?? nil }, set: { choose($0, for: event) })
+        Binding(get: { choices[event] ?? nil }, set: { new in
+            if new == Self.chooseFileTag {
+                // Leave the picker's update before running a modal panel.
+                DispatchQueue.main.async { chooseFile(for: event) }
+            } else { choose(new, for: event) }
+        })
+    }
+
+    /// Any audio file. The app is not sandboxed, so the stored path stays readable.
+    private func chooseFile(for event: SoundEvent) {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.audio]
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.prompt = loc("Choose")
+        if let current = choices[event] ?? nil { panel.directoryURL = current.deletingLastPathComponent() }
+        // The picker shows the old choice again whether or not a file is picked.
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        choose(url, for: event)
     }
 
     private func choose(_ sound: URL?, for event: SoundEvent) {
