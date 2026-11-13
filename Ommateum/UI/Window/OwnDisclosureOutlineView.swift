@@ -20,7 +20,11 @@ class OwnDisclosureOutlineView: NSOutlineView {
 
     /// ⌥-click also opens or closes everything inside, as with the standard triangle. Going through the animator
     /// makes the rows slide in and out the way they do with the standard triangle.
+    /// The click lands on the button, not on the outline view, and the button refuses first responder, so focus
+    /// would stay wherever it was (say, the other pane after dropping files here). The standard triangle is clicked
+    /// through the outline view, which takes focus; do the same.
     @objc private func toggleDisclosure(_ sender: NSButton) {
+        if acceptsFirstResponder, window?.firstResponder !== self { window?.makeFirstResponder(self) }
         let row = row(for: sender)
         guard row >= 0, let item = item(atRow: row) else { return }
         let deep = NSApp.currentEvent?.modifierFlags.contains(.option) == true
