@@ -508,6 +508,32 @@ final class FileBrowserViewController: NSViewController, NSMenuItemValidation {
         }
     }
 
+    /// Moves the selection into a new folder next to it and starts renaming the folder.
+    @objc func newFolderWithSelection(_ sender: Any?) {
+        let urls = selectedItems.map(\.url)
+        guard !urls.isEmpty else { return }
+        let parents = Set(urls.map { $0.deletingLastPathComponent().standardizedFileURL.path })
+        // Items from several levels of an expanded list: the folder goes where the list is.
+        let directory = parents.count == 1 ? urls[0].deletingLastPathComponent() : currentURL
+        FileOperations.shared.newFolder(with: urls, in: directory, window: view.window, undoManager: undoManager) { [weak self] folder in
+            guard let self else { return }
+            if directory.standardizedFileURL.path == currentURL.standardizedFileURL.path {
+                pendingRename = folder
+                reload()
+            } else {
+                content?.beginRename(folder)
+            }
+        }
+    }
+
+    /// Moves the contents of the selected folders up into the folder holding each, and removes the folders.
+    @objc func expandFolderContents(_ sender: Any?) {
+        FileOperations.shared.expandFolders(selectedItems.map(\.url), window: view.window, undoManager: undoManager) { [weak self] moved in
+            self?.pendingSelection = Set(moved)
+            self?.reload()
+        }
+    }
+
     @objc func duplicate(_ sender: Any?) {
         FileOperations.shared.duplicate(selectedItems.map(\.url), window: view.window, undoManager: undoManager) { [weak self] created in
             self?.pendingSelection = Set(created)
@@ -637,6 +663,9 @@ final class FileBrowserViewController: NSViewController, NSMenuItemValidation {
         case #selector(openSelection(_:)), #selector(duplicate(_:)), #selector(moveToTrash(_:)), #selector(deleteImmediately(_:)), #selector(copy(_:)), #selector(makeAlias(_:)):
             return hasSelection
         case #selector(renameSelection(_:)): return selectedItems.count == 1
+        case #selector(newFolderWithSelection(_:)): return hasSelection
+        case #selector(expandFolderContents(_:)):
+            return hasSelection && selectedItems.allSatisfy { FileOperations.isMergeableFolder($0.url) }
         case #selector(paste(_:)), #selector(pasteAndMove(_:)):
             return !DropPolicy.fileURLs(from: .general).isEmpty
         case #selector(showAsIcons(_:)): menuItem.state = viewMode == .icon ? .on : .off

@@ -134,6 +134,11 @@ enum BrowserMenus {
             add(loc("Open in Split Down"), #selector(FileBrowserViewController.openSelectionInSplitDown(_:)))
         }
         menu.addItem(.separator())
+        add(loc("New Folder with Selection"), #selector(FileBrowserViewController.newFolderWithSelection(_:)))
+        if items.allSatisfy({ FileOperations.isMergeableFolder($0.url) }) {
+            add(loc("Expand Folder Contents"), #selector(FileBrowserViewController.expandFolderContents(_:)))
+        }
+        menu.addItem(.separator())
         add(loc("Move to Trash"), #selector(FileBrowserViewController.moveToTrash(_:)), key: "\u{8}")
         menu.addItem(deleteAlternate(for: menu.items[menu.items.count - 1], target: browser))
         menu.addItem(.separator())

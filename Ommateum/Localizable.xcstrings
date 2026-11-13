@@ -1200,6 +1200,17 @@
         }
       }
     },
+    "Expand Folder Contents": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "フォルダの中身を展開"
+          }
+        }
+      }
+    },
     "File": {
       "extractionState": "manual",
       "localizations": {
@@ -1845,6 +1856,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "新規フォルダ"
+          }
+        }
+      }
+    },
+    "New Folder with Selection": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "選択項目から新規フォルダ"
           }
         }
       }

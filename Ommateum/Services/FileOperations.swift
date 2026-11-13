@@ -60,16 +60,72 @@ final class FileOperations {
             return
         }
         guard let plan = plan(sources, into: directory, mode: mode, window: window), !plan.transfers.isEmpty else { return }
-        // Items moved into a merged folder are reported as that folder, which is what the browser shows.
-        let shown = completion.map { completion in { (urls: [URL]) in
-            var seen = Set<String>()
-            completion(urls.compactMap { url in
-                guard url.path.hasPrefix(directory.path + "/") else { return url }
-                let name = url.path.dropFirst(directory.path.count + 1).split(separator: "/").first.map(String.init) ?? url.lastPathComponent
-                return seen.insert(name).inserted ? directory.appendingPathComponent(name) : nil
-            })
-        } }
-        run(plan.transfers, mode: mode, emptiedFolders: plan.emptiedFolders, actionName: mode == .copy ? loc("Copy") : loc("Move"), window: window, undoManager: undoManager, completion: shown)
+        run(plan.transfers, mode: mode, emptiedFolders: plan.emptiedFolders, actionName: mode == .copy ? loc("Copy") : loc("Move"), window: window, undoManager: undoManager,
+            completion: completion.map { completion in { completion(Self.topLevel($0, in: [directory])) } })
+    }
+
+    /// Items moved into a merged folder are reported as that folder, which is what the browser shows.
+    private nonisolated static func topLevel(_ urls: [URL], in directories: [URL]) -> [URL] {
+        var seen = Set<String>()
+        return urls.compactMap { url in
+            guard let directory = directories.first(where: { url.path.hasPrefix($0.path + "/") }) else { return url }
+            let name = url.path.dropFirst(directory.path.count + 1).split(separator: "/").first.map(String.init) ?? url.lastPathComponent
+            let shown = directory.appendingPathComponent(name)
+            return seen.insert(shown.path).inserted ? shown : nil
+        }
+    }
+
+    /// Moves the contents of each folder into the folder that holds it, then removes the folder.
+    /// Name conflicts are asked about as for a move. An item named like a folder being expanded is kept as "名前 2".
+    func expandFolders(_ folders: [URL], window: NSWindow?, undoManager: UndoManager?, completion: (([URL]) -> Void)? = nil) {
+        var folders = folders.map(\.standardizedFileURL).filter(Self.isMergeableFolder)
+        // A folder inside another one being expanded moves with its parent's contents.
+        folders = folders.filter { folder in !folders.contains { folder.path.hasPrefix($0.path + "/") } }
+        guard !folders.isEmpty else { return }
+        var plan = Plan()
+        plan.reserved = Set(folders.map(\.path))
+        var defaults = ConflictDefaults()
+        do {
+            let contents = try folders.map { folder in
+                try FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)
+                    .filter { $0.lastPathComponent != ".DS_Store" } // the folder's own view settings
+                    .sorted { $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedAscending }
+            }
+            let conflicts = zip(folders, contents).map { folder, children in
+                children.filter { Self.exists(folder.deletingLastPathComponent().appendingPathComponent($0.lastPathComponent)) }.count
+            }
+            for (index, folder) in folders.enumerated() {
+                let parent = folder.deletingLastPathComponent()
+                let later = conflicts[(index + 1)...].reduce(0, +)
+                guard try resolve(contents[index], into: parent, isInner: false, laterConflicts: later, mode: .move, noTrash: Self.isWithoutTrash(parent), window: window, defaults: &defaults, plan: &plan) else { return }
+                plan.emptiedFolders.append(folder)
+            }
+        } catch {
+            showError(error, window: window)
+            return
+        }
+        let parents = folders.map { $0.deletingLastPathComponent() }
+        run(plan.transfers, mode: .move, emptiedFolders: plan.emptiedFolders, actionName: loc("Expand Folder Contents"), window: window, undoManager: undoManager,
+            completion: completion.map { completion in { completion(Self.topLevel($0, in: parents)) } })
+    }
+
+    /// Creates a folder in `directory` and moves `items` into it, like Finder's "New Folder with Selection".
+    /// The folder is created by the operation itself, so undo removes it after moving the items back.
+    func newFolder(with items: [URL], in directory: URL, window: NSWindow?, undoManager: UndoManager?, completion: @escaping (URL) -> Void) {
+        let items = items.map(\.standardizedFileURL)
+        let directory = directory.standardizedFileURL
+        guard !items.isEmpty else { return }
+        let folder = Self.availableURL(for: loc("untitled folder"), in: directory, copySuffix: false)
+        var plan = Plan()
+        var defaults = ConflictDefaults()
+        do {
+            // Only items from different folders can share a name here.
+            guard try resolve(items, into: folder, isInner: false, laterConflicts: 0, mode: .move, noTrash: Self.isWithoutTrash(directory), window: window, defaults: &defaults, plan: &plan) else { return }
+        } catch {
+            showError(error, window: window)
+            return
+        }
+        run(plan.transfers, mode: .move, newFolder: folder, actionName: loc("New Folder with Selection"), window: window, undoManager: undoManager) { _ in completion(folder) }
     }
 
     /// Duplicates items in place ("名前 のコピー"), like Finder's ⌘D.
@@ -80,31 +136,32 @@ final class FileOperations {
 
     /// Performs `plan` in the background. Undo reverts what completed; redo runs the same plan again.
     /// `emptiedFolders` are merged source folders of a move, removed once the move left them empty.
-    private func run(_ plan: [Transfer], mode: Mode, emptiedFolders: [URL] = [], actionName: String, window: NSWindow?, undoManager: UndoManager?, completion: (([URL]) -> Void)? = nil) {
+    /// `newFolder` is created first and removed by undo once it is empty again.
+    private func run(_ plan: [Transfer], mode: Mode, emptiedFolders: [URL] = [], newFolder: URL? = nil, actionName: String, window: NSWindow?, undoManager: UndoManager?, completion: (([URL]) -> Void)? = nil) {
         let outcome = Outcome<[Done]>([])
         undoManager?.registerUndo(withTarget: self) { ops in
-            ops.revert(outcome.value, mode: mode, emptiedFolders: emptiedFolders, actionName: actionName, window: window, undoManager: undoManager)
+            ops.revert(outcome.value, mode: mode, emptiedFolders: emptiedFolders, newFolder: newFolder, actionName: actionName, window: window, undoManager: undoManager)
         }
         undoManager?.setActionName(actionName)
         let progress = TransferProgress()
-        let destination = plan.first?.destination.deletingLastPathComponent()
+        let destination = newFolder ?? plan.first?.destination.deletingLastPathComponent()
         TransferCenter.shared.track(progress, title: actionName, destination: destination)
         Task {
-            let result = await Self.perform(plan, mode: mode, progress: progress, emptiedFolders: emptiedFolders)
+            let result = await Self.perform(plan, mode: mode, progress: progress, emptiedFolders: emptiedFolders, newFolder: newFolder)
             TransferCenter.shared.finish(progress)
             outcome.value = result.completed
             if result.error == nil, !progress.isCancelled, !result.completed.isEmpty { Self.playSound(.transferDone) }
             if let error = result.error { showError(error, window: window) }
-            if !result.completed.isEmpty { completion?(result.completed.map(\.transfer.destination)) }
+            if !result.completed.isEmpty || plan.isEmpty && result.error == nil { completion?(result.completed.map(\.transfer.destination)) }
         }
     }
 
     /// Undoes completed transfers: removes copies (to the Trash) or moves items back, then restores replaced items.
-    private func revert(_ done: [Done], mode: Mode, emptiedFolders: [URL], actionName: String, window: NSWindow?, undoManager: UndoManager?) {
+    private func revert(_ done: [Done], mode: Mode, emptiedFolders: [URL], newFolder: URL?, actionName: String, window: NSWindow?, undoManager: UndoManager?) {
         let redoPlan = done.map { Transfer(source: $0.transfer.source, destination: $0.transfer.destination, replacing: $0.trashedReplacement == nil ? nil : $0.transfer.destination) }
         undoManager?.registerUndo(withTarget: self) { ops in
-            ops.run(redoPlan, mode: mode, emptiedFolders: emptiedFolders, actionName: actionName, window: window, undoManager: undoManager) { [weak ops] created in
-                ops?.postRestored(created)
+            ops.run(redoPlan, mode: mode, emptiedFolders: emptiedFolders, newFolder: newFolder, actionName: actionName, window: window, undoManager: undoManager) { [weak ops] created in
+                ops?.postRestored(newFolder.map { [$0] } ?? created)
             }
         }
         undoManager?.setActionName(actionName)
@@ -113,6 +170,10 @@ final class FileOperations {
                 let fm = FileManager.default
                 var noTrash: [URL] = []
                 do {
+                    // Removed after the move, even when it had nothing to move (an expanded empty folder).
+                    for folder in emptiedFolders where mode == .move && !Self.exists(folder) {
+                        try fm.createDirectory(at: folder, withIntermediateDirectories: true)
+                    }
                     for item in done.reversed() {
                         switch mode {
                         case .copy:
@@ -131,6 +192,7 @@ final class FileOperations {
                             try fm.moveItem(at: trashed, to: item.transfer.destination)
                         }
                     }
+                    if let newFolder, Self.isEmptyFolder(newFolder) { try fm.removeItem(at: newFolder) }
                     return (noTrash, nil)
                 } catch {
                     return (noTrash, error)
@@ -139,7 +201,7 @@ final class FileOperations {
             if let error = result.error {
                 showError(error, window: window)
             } else if mode == .move {
-                postRestored(done.map(\.transfer.source))
+                postRestored(done.map(\.transfer.source) + emptiedFolders)
             } else if !result.noTrash.isEmpty {
                 await deleteAfterConfirming(result.noTrash.reversed(), window: window)
             }
@@ -151,6 +213,15 @@ final class FileOperations {
         var transfers: [Transfer] = []
         /// Source folders merged by a move, deepest first: removed afterwards if nothing was left in them.
         var emptiedFolders: [URL] = []
+        /// Destinations already taken by earlier transfers of the plan (expanding several folders into one place).
+        var claimed: Set<String> = []
+        /// Folders the operation removes: an item with the same name is kept as "名前 2" rather than asked about.
+        var reserved: Set<String> = []
+
+        mutating func add(_ transfer: Transfer) {
+            transfers.append(transfer)
+            claimed.insert(transfer.destination.path)
+        }
     }
 
     enum ConflictChoice { case keepBoth, merge, replace, skip, cancel }
@@ -171,7 +242,7 @@ final class FileOperations {
             if source.deletingLastPathComponent().standardizedFileURL.path == directory.path {
                 // Same folder: moving is a no-op, copying creates "のコピー" like Finder.
                 if mode == .copy {
-                    plan.transfers.append(Transfer(source: source, destination: Self.availableURL(for: source.lastPathComponent, in: directory, copySuffix: true), replacing: nil))
+                    plan.add(Transfer(source: source, destination: Self.availableURL(for: source.lastPathComponent, in: directory, copySuffix: true), replacing: nil))
                 }
             } else {
                 rest.append(source)
@@ -190,15 +261,19 @@ final class FileOperations {
     /// Plans `sources` into `directory`, asking about each conflict; merging two folders recurses into them.
     /// `laterConflicts` counts conflicts known to follow outside this folder. Returns false if cancelled.
     private func resolve(_ sources: [URL], into directory: URL, isInner: Bool, laterConflicts: Int, mode: Mode, noTrash: Bool, window: NSWindow?, defaults: inout ConflictDefaults, plan: inout Plan) throws -> Bool {
-        let conflicting = sources.filter { Self.exists(directory.appendingPathComponent($0.lastPathComponent)) }
-        var remaining = conflicting.count
+        func taken(_ url: URL) -> Bool { Self.exists(url) || plan.claimed.contains(url.path) }
+        var remaining = sources.filter { taken(directory.appendingPathComponent($0.lastPathComponent)) }.count
         for source in sources {
             let target = directory.appendingPathComponent(source.lastPathComponent)
-            guard Self.exists(target) else {
-                plan.transfers.append(Transfer(source: source, destination: target, replacing: nil))
+            guard taken(target) else {
+                plan.add(Transfer(source: source, destination: target, replacing: nil))
                 continue
             }
             remaining -= 1
+            if plan.reserved.contains(target.path) {
+                plan.add(Transfer(source: source, destination: Self.availableURL(for: source.lastPathComponent, in: directory, copySuffix: false, excluding: plan.claimed), replacing: nil))
+                continue
+            }
             // Finder's folder settings: keep the destination's rather than asking.
             if isInner, source.lastPathComponent == ".DS_Store" { continue }
             let folders = Self.isMergeableFolder(source) && Self.isMergeableFolder(target)
@@ -220,9 +295,9 @@ final class FileOperations {
             }
             switch choice {
             case .keepBoth:
-                plan.transfers.append(Transfer(source: source, destination: Self.availableURL(for: source.lastPathComponent, in: directory, copySuffix: false), replacing: nil))
+                plan.add(Transfer(source: source, destination: Self.availableURL(for: source.lastPathComponent, in: directory, copySuffix: false, excluding: plan.claimed), replacing: nil))
             case .replace:
-                plan.transfers.append(Transfer(source: source, destination: target, replacing: target, deletesReplacement: noTrash))
+                plan.add(Transfer(source: source, destination: target, replacing: target, deletesReplacement: noTrash))
             case .skip:
                 continue
             case .cancel:
@@ -280,10 +355,13 @@ final class FileOperations {
         return names.contains { $0 != ".DS_Store" && exists(target.appendingPathComponent($0)) }
     }
 
-    nonisolated static func perform(_ plan: [Transfer], mode: Mode, progress: TransferProgress, emptiedFolders: [URL] = []) async -> (completed: [Done], error: Error?) {
+    nonisolated static func perform(_ plan: [Transfer], mode: Mode, progress: TransferProgress, emptiedFolders: [URL] = [], newFolder: URL? = nil) async -> (completed: [Done], error: Error?) {
         await Task.detached(priority: .userInitiated) {
             var done: [Done] = []
             let fm = FileManager.default
+            if let newFolder, !fm.fileExists(atPath: newFolder.path) {
+                do { try fm.createDirectory(at: newFolder, withIntermediateDirectories: false) } catch { return ([], error) }
+            }
             let copied = plan.filter { mode == .copy || !isSameVolume($0.source, $0.destination) }.map(\.source)
             progress.setTotal(FileCopier.totalSize(of: copied, progress: progress))
             for (index, transfer) in plan.enumerated() {
@@ -323,12 +401,17 @@ final class FileOperations {
                 }
             }
             // Deepest first, as listed. A folder still holding a skipped item stays.
-            for folder in emptiedFolders {
-                let contents = (try? fm.contentsOfDirectory(atPath: folder.path)) ?? ["?"]
-                if contents.allSatisfy({ $0 == ".DS_Store" }) { try? fm.removeItem(at: folder) }
+            for folder in emptiedFolders where isEmptyFolder(folder) {
+                try? fm.removeItem(at: folder)
             }
             return (done, nil)
         }.value
+    }
+
+    /// Nothing but Finder's view settings left in it.
+    private nonisolated static func isEmptyFolder(_ folder: URL) -> Bool {
+        let contents = (try? FileManager.default.contentsOfDirectory(atPath: folder.path)) ?? ["?"]
+        return contents.allSatisfy { $0 == ".DS_Store" }
     }
 
     private nonisolated static func isSameVolume(_ source: URL, _ destination: URL) -> Bool {
@@ -580,7 +663,8 @@ final class FileOperations {
 
     /// Returns a URL in `directory` that does not exist yet, based on `name`.
     /// `copySuffix` produces Finder-style "名前 のコピー", "名前 のコピー 2"; otherwise "名前 2", "名前 3".
-    nonisolated static func availableURL(for name: String, in directory: URL, copySuffix: Bool) -> URL {
+    /// `excluding` holds paths that are about to be taken.
+    nonisolated static func availableURL(for name: String, in directory: URL, copySuffix: Bool, excluding: Set<String> = []) -> URL {
         let ext = (name as NSString).pathExtension
         let isFolderLike = ext.isEmpty
         let base = isFolderLike ? name : (name as NSString).deletingPathExtension
@@ -588,11 +672,12 @@ final class FileOperations {
             directory.appendingPathComponent(isFolderLike ? stem : "\(stem).\(ext)")
         }
         let first = copySuffix ? make(loc("%@ copy", base)) : make(base)
-        if !FileManager.default.fileExists(atPath: first.path) { return first }
+        let free = { (url: URL) in !FileManager.default.fileExists(atPath: url.path) && !excluding.contains(url.path) }
+        if free(first) { return first }
         var index = 2
         while true {
             let candidate = copySuffix ? make(loc("%@ copy %ld", base, index)) : make("\(base) \(index)")
-            if !FileManager.default.fileExists(atPath: candidate.path) { return candidate }
+            if free(candidate) { return candidate }
             index += 1
         }
     }

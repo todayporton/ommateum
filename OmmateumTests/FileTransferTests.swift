@@ -172,6 +172,73 @@ struct FileTransferTests {
         #expect(try fm.contentsOfDirectory(atPath: kept.path) == ["skipped.txt"])
     }
 
+    private func waitUntil(_ condition: () -> Bool) async throws {
+        for _ in 0..<200 where !condition() { try await Task.sleep(for: .milliseconds(20)) }
+        #expect(condition())
+    }
+
+    private func names(_ dir: URL) throws -> [String] {
+        try FileManager.default.contentsOfDirectory(atPath: dir.path).sorted()
+    }
+
+    /// Expanding moves the contents up and removes the folders; an item named like its folder becomes "名前 2",
+    /// and undo puts everything back, including an expanded empty folder.
+    @MainActor @Test func expandsFolderContentsAndUndoes() async throws {
+        let dir = try makeTempDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let fm = FileManager.default
+        let a = dir.appendingPathComponent("a"), empty = dir.appendingPathComponent("empty")
+        try fm.createDirectory(at: a.appendingPathComponent("a"), withIntermediateDirectories: true)
+        try fm.createDirectory(at: empty, withIntermediateDirectories: true)
+        try Data("1".utf8).write(to: a.appendingPathComponent("one.txt"))
+        try Data().write(to: a.appendingPathComponent(".DS_Store"))
+        try Data().write(to: empty.appendingPathComponent(".DS_Store"))
+
+        let undo = UndoManager()
+        undo.groupsByEvent = false
+        undo.beginUndoGrouping()
+        let moved = await withCheckedContinuation { continuation in
+            FileOperations.shared.expandFolders([a, empty], window: nil, undoManager: undo) { continuation.resume(returning: $0) }
+        }
+        undo.endUndoGrouping()
+        #expect(Set(moved.map(\.lastPathComponent)) == ["a 2", "one.txt"])
+        try await waitUntil { (try? names(dir)) == ["a 2", "one.txt"] }
+
+        undo.undo()
+        try await waitUntil { (try? names(dir)) == ["a", "empty"] }
+        #expect(try names(a) == ["a", "one.txt"])
+    }
+
+    /// The new folder is created by the move, and undo removes it after moving the items back.
+    @MainActor @Test func newFolderWithSelectionAndUndo() async throws {
+        let dir = try makeTempDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let fm = FileManager.default
+        let file = dir.appendingPathComponent("one.txt"), sub = dir.appendingPathComponent("sub")
+        try Data("1".utf8).write(to: file)
+        try fm.createDirectory(at: sub, withIntermediateDirectories: true)
+
+        let undo = UndoManager()
+        undo.groupsByEvent = false
+        undo.beginUndoGrouping()
+        let folder = await withCheckedContinuation { continuation in
+            FileOperations.shared.newFolder(with: [file, sub], in: dir, window: nil, undoManager: undo) { continuation.resume(returning: $0) }
+        }
+        undo.endUndoGrouping()
+        #expect(try names(dir) == [folder.lastPathComponent])
+        #expect(try names(folder) == ["one.txt", "sub"])
+
+        undo.undo()
+        try await waitUntil { (try? names(dir)) == ["one.txt", "sub"] }
+    }
+
+    @Test func availableURLSkipsClaimedNames() throws {
+        let dir = try makeTempDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let claimed: Set<String> = [dir.appendingPathComponent("x.txt").path, dir.appendingPathComponent("x 2.txt").path]
+        #expect(FileOperations.availableURL(for: "x.txt", in: dir, copySuffix: false, excluding: claimed).lastPathComponent == "x 3.txt")
+    }
+
     @Test func localFoldersAreNotTreatedAsWithoutTrash() throws {
         let dir = try makeTempDir()
         defer { try? FileManager.default.removeItem(at: dir) }
