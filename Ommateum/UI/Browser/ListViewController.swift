@@ -247,6 +247,7 @@ final class ListViewController: NSViewController, BrowserContent {
         }
         let sameDirectory = self.directory?.path == directory.path
         let keepSelection = sameDirectory ? Set(selectedItems.map(\.url)) : []
+        let selectedBefore = selectedPaths
         pendingExpansion = sameDirectory ? Set(expandedNodes().map(\.item.url.path)) : []
         if !sameDirectory { childMonitors.removeAll() }
         self.directory = directory
@@ -267,6 +268,15 @@ final class ListViewController: NSViewController, BrowserContent {
         restoreExpansion(among: roots)
         select(keepSelection)
         if !sameDirectory { outlineView.scrollRowToVisible(0) }
+        reportSelectionIfChanged(from: selectedBefore)
+    }
+
+    private var selectedPaths: Set<String> { Set(selectedItems.map(\.url.path)) }
+
+    /// NSOutlineView posts no selection change when a reload drops selected rows, so the path bar would keep
+    /// showing an item that is gone.
+    private func reportSelectionIfChanged(from before: Set<String>) {
+        if selectedPaths != before { contentDelegate?.contentSelectionDidRefresh() }
     }
 
     var selectedItems: [FileItem] {
@@ -367,11 +377,13 @@ final class ListViewController: NSViewController, BrowserContent {
             node.isLoading = false
             // A refresh replaces the child rows: carry over what was open and selected among them.
             pendingExpansion.formUnion(expandedNodes().filter { $0.item.url.path.hasPrefix(url.path + "/") }.map(\.item.url.path))
-            if pendingSelectionPaths.isEmpty { pendingSelectionPaths = Set(selectedItems.map(\.url.path)) }
+            let selectedBefore = selectedPaths
+            if pendingSelectionPaths.isEmpty { pendingSelectionPaths = selectedBefore }
             node.children = items.sorted(by: sort, foldersFirst: Preferences.foldersFirst).map(ListNode.init)
             outlineView.reloadItem(node, reloadChildren: true)
             restoreExpansion(among: node.children ?? [])
             applyPendingSelection()
+            reportSelectionIfChanged(from: selectedBefore)
             // Replaced on every load: the old monitor only knows the node from before a reload.
             childMonitors[url] = DirectoryMonitor(url: url) { [weak self, weak node] in
                 guard let self, let node, self.outlineView.isItemExpanded(node) else { return }

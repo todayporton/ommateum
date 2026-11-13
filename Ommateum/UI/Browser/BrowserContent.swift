@@ -6,6 +6,8 @@ protocol BrowserContentDelegate: AnyObject {
     func contentOpen(_ items: [FileItem], inNewTab: Bool)
     func contentDidDoubleClickEmptyArea()
     func contentSelectionDidChange()
+    /// A reload dropped selected items that are gone. Not the user's doing, so the pane is not made active.
+    func contentSelectionDidRefresh()
     func contentRename(_ item: FileItem, to newName: String) -> URL?
     /// Files were dropped onto `directory`. Returns whether the drop was accepted.
     func contentAcceptDrop(_ urls: [URL], into directory: URL, operation: NSDragOperation) -> Bool

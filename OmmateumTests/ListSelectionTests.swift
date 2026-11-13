@@ -34,4 +34,49 @@ struct ListSelectionTests {
         #expect(node.children?.count == 1)
         #expect(controller.selectedItems.map(\.url.lastPathComponent) == ["F"])
     }
+
+    /// The path bar shows the selected item. When a reload drops it, NSOutlineView posts no selection change,
+    /// so the list has to say so itself, without making the pane active (it may be a pane in the background).
+    @Test func aReloadThatDropsTheSelectionReportsIt() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("ommateum-tests-\(UUID())")
+        let file = dir.appendingPathComponent("a.txt")
+        let other = dir.appendingPathComponent("b.txt")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        let controller = ListViewController()
+        let delegate = RecordingDelegate()
+        controller.contentDelegate = delegate
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 800, height: 400), styleMask: [.titled], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        defer { window.close() }
+        window.contentViewController = controller
+
+        controller.show([FileItem(url: file), FileItem(url: other)], in: dir, sort: SortSpec())
+        controller.select([file])
+        delegate.refreshes = 0
+        controller.show([FileItem(url: other)], in: dir, sort: SortSpec())
+
+        #expect(controller.selectedItems.isEmpty)
+        #expect(delegate.refreshes == 1)
+
+        // Nothing selected changes on an ordinary reload.
+        controller.show([FileItem(url: other)], in: dir, sort: SortSpec())
+        #expect(delegate.refreshes == 1)
+    }
+}
+
+@MainActor
+private final class RecordingDelegate: BrowserContentDelegate {
+    var refreshes = 0
+    func contentSelectionDidRefresh() { refreshes += 1 }
+    func contentOpen(_ items: [FileItem], inNewTab: Bool) {}
+    func contentDidDoubleClickEmptyArea() {}
+    func contentSelectionDidChange() {}
+    func contentRename(_ item: FileItem, to newName: String) -> URL? { nil }
+    func contentAcceptDrop(_ urls: [URL], into directory: URL, operation: NSDragOperation) -> Bool { false }
+    func contentMenu(for clickedItems: [FileItem]) -> NSMenu { NSMenu() }
+    func contentToggleQuickLook() {}
+    func contentSortDidChange(_ sort: SortSpec) {}
+    func contentTargetDirectoryDidChange() {}
 }

@@ -738,6 +738,10 @@ extension FileBrowserViewController: BrowserContentDelegate {
 
     func contentSelectionDidChange() {
         host?.browserDidBecomeActive(self)
+        contentSelectionDidRefresh()
+    }
+
+    func contentSelectionDidRefresh() {
         updatePathBar()
         if let panel = QLPreviewPanel.sharedPreviewPanelExists() ? QLPreviewPanel.shared() : nil, panel.isVisible {
             panel.reloadData()
