@@ -12,10 +12,18 @@ final class BrowserCollectionView: NSCollectionView {
     /// A press changed the selection. Setting `selectionIndexPaths` does not call the delegate.
     var onPressSelect: (() -> Void)?
     var menuProvider: ((_ indexPath: IndexPath?) -> NSMenu?)?
+    /// Set when a press turns into dragging files (by the controller, which hears of it as the delegate).
+    var dragBegan = false
+    private let clickToRename = ClickToRename()
 
     override func mouseDown(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
         let hit = indexPathForItem(at: point)
+        dragBegan = false
+        clickToRename.mouseDown(event, onName: hit.map { selectionIndexPaths == [$0] && nameFrame(of: $0)?.contains(point) == true } ?? false,
+                                hasFocus: { [weak self] in self != nil && self?.window?.firstResponder === self },
+                                dragged: { [weak self] in self?.dragBegan ?? true },
+                                rename: { [weak self] in self?.onRename?() })
         if event.clickCount == 2 {
             if let hit { onItemDoubleClick?(hit) } else { onEmptyDoubleClick?() }
             return
@@ -29,7 +37,18 @@ final class BrowserCollectionView: NSCollectionView {
         super.mouseDown(with: event)
     }
 
+    /// Where the name's text is drawn for an item, in this view's coordinates.
+    private func nameFrame(of indexPath: IndexPath) -> NSRect? {
+        guard let item = item(at: indexPath), let field = item.textField else { return nil }
+        let size = field.cell?.cellSize(forBounds: field.bounds) ?? field.bounds.size
+        var frame = field.frame
+        frame.origin.x += max(0, (frame.width - size.width) / 2)
+        frame.size.width = min(frame.width, size.width)
+        return convert(frame, from: item.view)
+    }
+
     override func keyDown(with event: NSEvent) {
+        clickToRename.cancel()
         let flags = event.modifierFlags.intersection([.command, .shift, .option, .control])
         switch event.keyCode {
         case 49 where flags.isEmpty: onQuickLook?()
@@ -87,6 +106,12 @@ final class IconViewController: NSViewController, BrowserContent {
         }
     }
     private var deferredShow: (items: [FileItem], directory: URL, sort: SortSpec)?
+    /// Positions of the items being dragged from this view, as the collection view knows them.
+    private var draggedIndexes: Set<Int> = []
+    private lazy var springLoader = SpringLoader(view: collectionView) { [weak self] folder in
+        guard let self, let item = self.items.first(where: { $0.url.path == folder.path }) else { return }
+        self.contentDelegate?.contentOpen([item], inNewTab: false)
+    }
 
     override func loadView() {
         let scrollView = NSScrollView()
@@ -251,6 +276,15 @@ extension IconViewController: NSCollectionViewDataSource, NSCollectionViewDelega
 
     // MARK: Drag & drop
 
+    func collectionView(_ collectionView: NSCollectionView, draggingSession session: NSDraggingSession, willBeginAt screenPoint: NSPoint, forItemsAt indexPaths: Set<IndexPath>) {
+        self.collectionView.dragBegan = true
+        draggedIndexes = Set(indexPaths.map(\.item))
+    }
+
+    func collectionView(_ collectionView: NSCollectionView, draggingSession session: NSDraggingSession, endedAt screenPoint: NSPoint, dragOperation operation: NSDragOperation) {
+        draggedIndexes = []
+    }
+
     func collectionView(_ collectionView: NSCollectionView, pasteboardWriterForItemAt indexPath: IndexPath) -> NSPasteboardWriting? {
         items[indexPath.item].url as NSURL
     }
@@ -259,16 +293,24 @@ extension IconViewController: NSCollectionViewDataSource, NSCollectionViewDelega
         let urls = DropPolicy.fileURLs(from: draggingInfo.draggingPasteboard)
         guard !urls.isEmpty else { return [] }
         let index = proposedIndexPath.pointee.item
-        if dropOperation.pointee == .on, items.indices.contains(index), items[index].isNavigable {
+        let onFolder = dropOperation.pointee == .on && items.indices.contains(index) && items[index].isNavigable
+        // Resting on a folder opens it, unless the folder is one of the items being dragged.
+        springLoader.hover(onFolder && !urls.contains(where: { $0.path == items[index].url.path }) ? items[index].url : nil, drag: draggingInfo.draggingSequenceNumber)
+        if onFolder {
             return DropPolicy.operation(for: draggingInfo, urls: urls, destination: items[index].url)
         }
         guard let directory else { return [] }
-        // Treat drops between items as drops into the shown folder.
+        // Treat drops between items as drops into the shown folder. The gap is irrelevant, but one next to an item
+        // being dragged reads to NSCollectionView as putting it back where it was, and it then drops nothing.
+        // That matters once a resting drag has opened another folder in this view.
         dropOperation.pointee = .before
+        let gap = (0...items.count).first { !draggedIndexes.contains($0) && !draggedIndexes.contains($0 - 1) } ?? 0
+        proposedIndexPath.pointee = IndexPath(item: gap, section: 0) as NSIndexPath
         return DropPolicy.operation(for: draggingInfo, urls: urls, destination: directory)
     }
 
     func collectionView(_ collectionView: NSCollectionView, acceptDrop draggingInfo: NSDraggingInfo, indexPath: IndexPath, dropOperation: NSCollectionView.DropOperation) -> Bool {
+        springLoader.cancel()
         let urls = DropPolicy.fileURLs(from: draggingInfo.draggingPasteboard)
         let destination: URL?
         if dropOperation == .on, items.indices.contains(indexPath.item), items[indexPath.item].isNavigable {
@@ -288,6 +330,7 @@ extension IconViewController: NSCollectionViewDataSource, NSCollectionViewDelega
         guard let field = obj.object as? NSTextField, let url = renamingURL,
               let index = items.firstIndex(where: { $0.url.path == url.path }) else { return }
         field.isEditable = false
+        field.isSelectable = false
         renamingURL = nil
         let movement = (obj.userInfo?["NSTextMovement"] as? Int).flatMap(NSTextMovement.init(rawValue:))
         if movement == .cancel || field.stringValue == items[index].name
@@ -301,6 +344,7 @@ extension IconViewController: NSCollectionViewDataSource, NSCollectionViewDelega
         guard commandSelector == #selector(NSResponder.cancelOperation(_:)) else { return false }
         control.abortEditing()
         (control as? NSTextField)?.isEditable = false
+        (control as? NSTextField)?.isSelectable = false
         if let url = renamingURL, let item = items.first(where: { $0.url.path == url.path }) {
             (control as? NSTextField)?.stringValue = item.name
         }
@@ -328,6 +372,8 @@ final class IconItem: NSCollectionViewItem {
         root.addSubview(image)
 
         let field = NSTextField(wrappingLabelWithString: "")
+        // A wrapping label is selectable, which would keep clicks on the name from reaching the collection view.
+        field.isSelectable = false
         field.alignment = .center
         field.maximumNumberOfLines = 2
         field.lineBreakMode = .byTruncatingMiddle
@@ -366,6 +412,7 @@ final class IconItem: NSCollectionViewItem {
     func configure(name: String, image: NSImage, dimmed: Bool, cloudOnly: Bool) {
         textField?.stringValue = name
         textField?.isEditable = false
+        textField?.isSelectable = false
         imageView?.image = image
         imageView?.alphaValue = dimmed ? 0.5 : 1
         cloudBadge.isHidden = !cloudOnly

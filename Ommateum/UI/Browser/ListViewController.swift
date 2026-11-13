@@ -62,14 +62,89 @@ final class BrowserOutlineView: OwnDisclosureOutlineView {
     var onQuickLook: (() -> Void)?
     var menuProvider: ((_ clickedRow: Int) -> NSMenu?)?
 
+    private let clickToRename = ClickToRename()
+    private let marquee = MarqueeView()
+    /// Set when a press turns into dragging files (by the controller, which hears of it as the delegate).
+    var dragBegan = false
+
     override func mouseDown(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
-        if event.clickCount == 2, row(at: point) < 0 {
+        let row = row(at: point)
+        if event.clickCount == 2, row < 0 {
+            clickToRename.cancel()
             onEmptyDoubleClick?()
             return
         }
-        selectOnMouseDown(row(at: point), event: event)
+        dragBegan = false
+        clickToRename.mouseDown(event, onName: row >= 0 && selectedRowIndexes == IndexSet(integer: row) && nameFrame(ofRow: row)?.contains(point) == true,
+                                hasFocus: { [weak self] in self != nil && self?.window?.firstResponder === self },
+                                dragged: { [weak self] in self?.dragBegan ?? true },
+                                rename: { [weak self] in self?.onRename?() })
+        let marqueeAllowed = event.clickCount == 1 && startsMarquee(at: point, row: row)
+        let selectionBefore = selectedRowIndexes
+        selectOnMouseDown(row, event: event)
+        if marqueeAllowed, trackMarquee(from: event, selectionBefore: selectionBefore) { return }
         super.mouseDown(with: event)
+    }
+
+    /// Where the name's text is drawn in a row, in this view's coordinates.
+    private func nameFrame(ofRow row: Int) -> NSRect? {
+        guard let cell = view(atColumn: 0, row: row, makeIfNecessary: false) as? NSTableCellView, let field = cell.textField else { return nil }
+        var frame = field.frame
+        frame.size.width = min(frame.width, field.cell?.cellSize.width ?? frame.width)
+        return convert(frame, from: cell)
+    }
+
+    /// Like Finder, dragging from an unselected row's blank part, or from below the rows, selects with a rectangle.
+    /// Dragging the icon or the name, or anything already selected, drags the files.
+    private func startsMarquee(at point: NSPoint, row: Int) -> Bool {
+        guard row >= 0 else { return true }
+        guard !selectedRowIndexes.contains(row), item(atRow: row) is ListNode else { return false }
+        if nameFrame(ofRow: row)?.contains(point) == true { return false }
+        if let cell = view(atColumn: 0, row: row, makeIfNecessary: false) as? NSTableCellView, let image = cell.imageView,
+           convert(image.frame, from: cell).contains(point) { return false }
+        return true
+    }
+
+    /// Follows the mouse until it is released. Returns false, leaving the click to NSTableView, if it is released
+    /// before moving far enough to count as a drag.
+    private func trackMarquee(from event: NSEvent, selectionBefore: IndexSet) -> Bool {
+        guard let window else { return false }
+        let start = event.locationInWindow
+        while true {
+            guard let next = window.nextEvent(matching: [.leftMouseUp, .leftMouseDragged], until: .distantFuture, inMode: .eventTracking, dequeue: false),
+                  next.type == .leftMouseDragged else { return false }
+            if hypot(next.locationInWindow.x - start.x, next.locationInWindow.y - start.y) >= 3 { break }
+            _ = window.nextEvent(matching: .leftMouseDragged, until: .distantFuture, inMode: .eventTracking, dequeue: true)
+        }
+        let flags = event.modifierFlags
+        let initial: IndexSet = flags.contains(.command) || flags.contains(.shift) ? selectionBefore : []
+        let origin = convert(start, from: nil)
+        var location = start
+        addSubview(marquee)
+        // Keeps scrolling while the mouse rests beyond the edge.
+        NSEvent.startPeriodicEvents(afterDelay: 0.1, withPeriod: 0.05)
+        defer {
+            NSEvent.stopPeriodicEvents()
+            marquee.removeFromSuperview()
+        }
+        while let next = window.nextEvent(matching: [.leftMouseUp, .leftMouseDragged, .periodic], until: .distantFuture, inMode: .eventTracking, dequeue: true),
+              next.type != .leftMouseUp {
+            if next.type == .leftMouseDragged { location = next.locationInWindow }
+            if let drag = NSEvent.mouseEvent(with: .leftMouseDragged, location: location, modifierFlags: [], timestamp: next.timestamp,
+                                             windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1) {
+                autoscroll(with: drag)
+            }
+            let current = convert(location, from: nil)
+            let rect = NSRect(x: min(origin.x, current.x), y: min(origin.y, current.y),
+                              width: max(abs(current.x - origin.x), 1), height: max(abs(current.y - origin.y), 1))
+            marquee.frame = rect
+            let rows = rows(in: rect)
+            let hit = IndexSet((rows.lowerBound..<rows.upperBound).filter { item(atRow: $0) is ListNode })
+            let selection = flags.contains(.command) ? initial.symmetricDifference(hit) : initial.union(hit)
+            if selection != selectedRowIndexes { selectRowIndexes(selection, byExtendingSelection: false) }
+        }
+        return true
     }
 
     /// With dragging enabled NSTableView selects on mouse-up; Finder highlights the item as soon as it is pressed.
@@ -83,6 +158,7 @@ final class BrowserOutlineView: OwnDisclosureOutlineView {
     }
 
     override func keyDown(with event: NSEvent) {
+        clickToRename.cancel()
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         switch event.keyCode {
         case 49 where flags.isEmpty: // Space
@@ -103,7 +179,8 @@ final class BrowserOutlineView: OwnDisclosureOutlineView {
     }
 
     // Name fields only take focus while a rename is in progress (they are made editable just for that).
-    // Clicking a name never starts editing by itself; NSTableView would otherwise refuse keyboard-initiated edits.
+    // Clicking a name never starts editing through NSTableView (ClickToRename starts it the same way the Return
+    // key does); NSTableView would otherwise refuse keyboard-initiated edits.
     override func validateProposedFirstResponder(_ responder: NSResponder, for event: NSEvent?) -> Bool {
         if let field = responder as? NSTextField { return field.isEditable }
         return super.validateProposedFirstResponder(responder, for: event)
@@ -156,6 +233,10 @@ final class ListViewController: NSViewController, BrowserContent {
     private var deferredShow: (items: [FileItem], directory: URL, sort: SortSpec)?
 
     private static let sortIndicatorWidth: CGFloat = 16
+    private lazy var springLoader = SpringLoader(view: outlineView) { [weak self] folder in
+        guard let self, let item = self.listedItem(at: folder) else { return }
+        self.contentDelegate?.contentOpen([item], inNewTab: false)
+    }
 
     private enum Column {
         static let name = NSUserInterfaceItemIdentifier("name")
@@ -337,6 +418,10 @@ final class ListViewController: NSViewController, BrowserContent {
             return window.convertToScreen(imageView.convert(imageView.bounds, to: nil))
         }
         return nil
+    }
+
+    private func listedItem(at url: URL) -> FileItem? {
+        (0..<outlineView.numberOfRows).lazy.compactMap { (self.outlineView.item(atRow: $0) as? ListNode)?.item }.first { $0.url.path == url.path }
     }
 
     // MARK: Actions
@@ -548,6 +633,10 @@ extension ListViewController: NSOutlineViewDataSource, NSOutlineViewDelegate, NS
 
     // MARK: Drag & drop
 
+    func outlineView(_ outlineView: NSOutlineView, draggingSession session: NSDraggingSession, willBeginAt screenPoint: NSPoint, forItems draggedItems: [Any]) {
+        self.outlineView.dragBegan = true
+    }
+
     func outlineView(_ outlineView: NSOutlineView, pasteboardWriterForItem item: Any) -> NSPasteboardWriting? {
         (item as? ListNode)?.item.url as NSURL?
     }
@@ -558,12 +647,20 @@ extension ListViewController: NSOutlineViewDataSource, NSOutlineViewDelegate, NS
         // Decide from the row under the cursor, not from the proposal: near a row's edge NSOutlineView proposes
         // "insert into the folder above", which would highlight a folder the cursor is not on.
         let (node, destination) = dropTarget(for: info)
+        // Resting on a folder opens it, unless the folder is one of the items being dragged.
+        // A file row hands the drop to its folder, which is not under the cursor and so is not opened.
+        let underCursor = outlineView.item(atRow: outlineView.row(at: outlineView.convert(info.draggingLocation, from: nil)))
+        let springFolder = node.flatMap { folder in
+            (underCursor as? ListNode) === folder && !urls.contains(where: { $0.path == folder.item.url.path }) ? folder.item.url : nil
+        }
+        springLoader.hover(springFolder, drag: info.draggingSequenceNumber)
         guard let destination else { return [] }
         outlineView.setDropItem(node, dropChildIndex: NSOutlineViewDropOnItemIndex)
         return DropPolicy.operation(for: info, urls: urls, destination: destination)
     }
 
     func outlineView(_ outlineView: NSOutlineView, acceptDrop info: NSDraggingInfo, item: Any?, childIndex index: Int) -> Bool {
+        springLoader.cancel()
         let urls = DropPolicy.fileURLs(from: info.draggingPasteboard)
         guard let destination = dropTarget(for: info).destination else { return false }
         let operation = DropPolicy.operation(for: info, urls: urls, destination: destination)
@@ -688,4 +785,25 @@ final class TagDot: NSView {
         color.setFill()
         NSBezierPath(ovalIn: bounds.insetBy(dx: 0.5, dy: 0.5)).fill()
     }
+}
+
+/// The rectangle drawn while selecting by dragging over the list.
+final class MarqueeView: NSView {
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        wantsLayer = true
+        layer?.borderWidth = 1
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    override var wantsUpdateLayer: Bool { true }
+
+    override func updateLayer() {
+        layer?.backgroundColor = NSColor.selectedContentBackgroundColor.withAlphaComponent(0.15).cgColor
+        layer?.borderColor = NSColor.selectedContentBackgroundColor.withAlphaComponent(0.6).cgColor
+    }
+
+    // Clicks and drops pass through to the list.
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
 }

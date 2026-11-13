@@ -55,13 +55,28 @@ final class ColumnViewController: NSViewController, BrowserContent {
     /// Items to select once their column has loaded: a refresh replaces the deeper columns' nodes.
     private var pendingSelectionPaths: Set<String> = []
     private let renameField = NSTextField()
+    private let clickToRename = ClickToRename()
+    /// Opens a folder a drag rests on as the next column.
+    private lazy var springLoader = SpringLoader(view: browser) { [weak self] folder in
+        guard let self else { return }
+        for column in stride(from: self.browser.lastColumn, through: 0, by: -1) {
+            guard let row = self.parentNode(inColumn: column)?.children?.firstIndex(where: { $0.url.path == folder.path }) else { continue }
+            self.browser.selectRow(row, inColumn: column)
+            self.selectionChanged(nil)
+            return
+        }
+    }
 
     override func viewDidAppear() {
         super.viewDidAppear()
         guard mouseMonitor == nil else { return }
         // NSBrowser's columns are private views that swallow mouse events, so watch them from outside.
-        mouseMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
-            self?.handleMouseDown(event)
+        mouseMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .keyDown]) { [weak self] event in
+            if event.type == .keyDown {
+                self?.clickToRename.cancel()
+            } else {
+                self?.handleMouseDown(event)
+            }
             return event
         }
     }
@@ -74,6 +89,12 @@ final class ColumnViewController: NSViewController, BrowserContent {
 
     private func handleMouseDown(_ event: NSEvent) {
         guard event.window === view.window, view.window != nil else { return }
+        clickToRename.mouseDown(event, onName: isOnSelectedName(event),
+                                hasFocus: { [weak self] in
+                                    guard let self, let responder = self.view.window?.firstResponder as? NSView else { return false }
+                                    return responder.isDescendant(of: self.browser) && self.renamingNode == nil
+                                },
+                                rename: { [weak self] in self?.renameSelection() })
         if event.clickCount == 1 {
             selectOnPress(event)
             return
@@ -89,6 +110,21 @@ final class ColumnViewController: NSViewController, BrowserContent {
         var row = -1, column = -1
         if browser.getRow(&row, column: &column, for: point), row >= 0 { return }
         DispatchQueue.main.async { [weak self] in self?.contentDelegate?.contentDidDoubleClickEmptyArea() }
+    }
+
+    /// Whether the press is on the name of the only selected item. The name starts after the icon; how far it
+    /// reaches is measured from the text, since NSBrowser's cells are not views.
+    private func isOnSelectedName(_ event: NSEvent) -> Bool {
+        let point = browser.convert(event.locationInWindow, from: nil)
+        var row = -1, column = -1
+        guard browser.bounds.contains(point), browser.getRow(&row, column: &column, for: point), row >= 0,
+              column == browser.selectedColumn, browser.selectedRowIndexes(inColumn: column) == IndexSet(integer: row),
+              let children = parentNode(inColumn: column)?.children, children.indices.contains(row),
+              let name = children[row].item?.name else { return false }
+        let frame = browser.frame(ofRow: row, inColumn: column)
+        let textStart = frame.minX + 4 + SmallThumbnailCache.size + 4
+        let width = (name as NSString).size(withAttributes: [.font: NSFont.systemFont(ofSize: NSFont.systemFontSize)]).width
+        return point.x >= textStart - 2 && point.x <= min(textStart + width + 4, frame.maxX)
     }
 
     /// Highlights the pressed row right away, like Finder; NSBrowser otherwise waits for mouse-up.
@@ -358,11 +394,19 @@ extension ColumnViewController: NSBrowserDelegate {
 
     func browser(_ browser: NSBrowser, validateDrop info: NSDraggingInfo, proposedRow row: UnsafeMutablePointer<Int>, column: UnsafeMutablePointer<Int>, dropOperation: UnsafeMutablePointer<NSBrowser.DropOperation>) -> NSDragOperation {
         let urls = DropPolicy.fileURLs(from: info.draggingPasteboard)
-        guard !urls.isEmpty, let destination = dropDestination(row: &row.pointee, column: column.pointee, operation: &dropOperation.pointee) else { return [] }
+        let onFolder = dropOperation.pointee == .on
+        guard !urls.isEmpty, let destination = dropDestination(row: &row.pointee, column: column.pointee, operation: &dropOperation.pointee) else {
+            springLoader.hover(nil, drag: info.draggingSequenceNumber)
+            return []
+        }
+        // Resting on a folder opens it as the next column, unless the folder is one of the items being dragged.
+        let isFolderRow = onFolder && dropOperation.pointee == .on
+        springLoader.hover(isFolderRow && !urls.contains(where: { $0.path == destination.path }) ? destination : nil, drag: info.draggingSequenceNumber)
         return DropPolicy.operation(for: info, urls: urls, destination: destination)
     }
 
     func browser(_ browser: NSBrowser, acceptDrop info: NSDraggingInfo, atRow row: Int, column: Int, dropOperation: NSBrowser.DropOperation) -> Bool {
+        springLoader.cancel()
         var row = row, operation = dropOperation
         let urls = DropPolicy.fileURLs(from: info.draggingPasteboard)
         guard let destination = dropDestination(row: &row, column: column, operation: &operation) else { return false }
