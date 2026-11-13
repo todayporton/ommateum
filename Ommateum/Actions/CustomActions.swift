@@ -78,17 +78,23 @@ final class CustomActionsProvider: FileActionProvider {
                 FileOperations.shared.showError(message: loc("Can’t read actions.json: %@", error.localizedDescription), window: context.window)
             }]
         case .success(let definitions):
-            let items = context.items.map { url in
-                (url: url, isDirectory: (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) ?? false)
-            }
-            return definitions.filter { definition in
-                items.isEmpty ? definition.whenNoSelection == true : definition.applies(to: items)
-            }.map { definition in
-                FileAction(title: definition.title, key: definition.shortcut.flatMap(KeyCombo.init)) { context in
-                    var context = context
-                    if context.items.isEmpty { context = FileActionContext(items: [context.directory], directory: context.directory, window: context.window) }
-                    CustomActionRunner.run(definition, context: context)
-                }
+            return Self.fileActions(for: definitions, context: context)
+        }
+    }
+
+    /// The definitions that apply to the selection, as menu actions. Shared with plugins, whose relative
+    /// commands resolve against `pluginDirectory`.
+    static func fileActions(for definitions: [CustomAction], context: FileActionContext, pluginDirectory: URL? = nil) -> [FileAction] {
+        let items = context.items.map { url in
+            (url: url, isDirectory: (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) ?? false)
+        }
+        return definitions.filter { definition in
+            items.isEmpty ? definition.whenNoSelection == true : definition.applies(to: items)
+        }.map { definition in
+            FileAction(title: definition.title, key: definition.shortcut.flatMap(KeyCombo.init)) { context in
+                var context = context
+                if context.items.isEmpty { context = FileActionContext(items: [context.directory], directory: context.directory, window: context.window) }
+                CustomActionRunner.run(definition, context: context, pluginDirectory: pluginDirectory)
             }
         }
     }
@@ -146,7 +152,7 @@ final class CustomActionsProvider: FileActionProvider {
 }
 
 enum CustomActionRunner {
-    static func run(_ action: CustomAction, context: FileActionContext) {
+    static func run(_ action: CustomAction, context: FileActionContext, pluginDirectory: URL? = nil) {
         switch action.type {
         case .shareService:
             guard let name = action.name, let service = SharingServices.service(titled: name, for: context.items) else {
@@ -157,16 +163,40 @@ enum CustomActionRunner {
         case .shortcut:
             guard let name = action.name else { return missing("name", in: action, context: context) }
             let arguments = ["run", name] + context.items.flatMap { ["--input-path", $0.path] }
-            launch(URL(fileURLWithPath: "/usr/bin/shortcuts"), arguments, action: action, context: context)
+            launch(URL(fileURLWithPath: "/usr/bin/shortcuts"), arguments, action: action, context: context, pluginDirectory: pluginDirectory)
         case .script:
             guard let command = action.command, !command.isEmpty else { return missing("command", in: action, context: context) }
             let arguments = action.expandedArguments(items: context.items, directory: context.directory)
-            if command.contains("/") {
-                launch(URL(fileURLWithPath: (command as NSString).expandingTildeInPath), arguments, action: action, context: context)
-            } else {
-                launch(URL(fileURLWithPath: "/usr/bin/env"), [command] + arguments, action: action, context: context)
+            switch resolve(command, pluginDirectory: pluginDirectory) {
+            case .file(let executable):
+                if pluginDirectory != nil, !FileManager.default.isExecutableFile(atPath: executable.path) {
+                    // Files copied from a zip or the web often lose the executable bit.
+                    FileOperations.shared.showError(message: loc("“%@” isn’t executable. Run chmod +x on it.", executable.path), window: context.window)
+                    return
+                }
+                launch(executable, arguments, action: action, context: context, pluginDirectory: pluginDirectory)
+            case .path(let name):
+                launch(URL(fileURLWithPath: "/usr/bin/env"), [name] + arguments, action: action, context: context, pluginDirectory: pluginDirectory)
             }
         }
+    }
+
+    enum Command: Equatable {
+        case file(URL)
+        /// A command name looked up in PATH.
+        case path(String)
+    }
+
+    /// A plugin's relative command means a file in the plugin folder ("run.sh", "bin/tool"); a bare name that
+    /// is not there falls back to PATH, so "open" or "python3" still work.
+    static func resolve(_ command: String, pluginDirectory: URL?) -> Command {
+        let expanded = (command as NSString).expandingTildeInPath
+        if expanded.hasPrefix("/") { return .file(URL(fileURLWithPath: expanded)) }
+        if let pluginDirectory {
+            let local = pluginDirectory.appendingPathComponent(expanded).standardizedFileURL
+            if expanded.contains("/") || FileManager.default.fileExists(atPath: local.path) { return .file(local) }
+        }
+        return expanded.contains("/") ? .file(URL(fileURLWithPath: expanded)) : .path(expanded)
     }
 
     private static func missing(_ key: String, in action: CustomAction, context: FileActionContext) {
@@ -174,7 +204,7 @@ enum CustomActionRunner {
     }
 
     /// Runs off the main thread and reports a non-zero exit with the end of stderr.
-    private static func launch(_ executable: URL, _ arguments: [String], action: CustomAction, context: FileActionContext) {
+    private static func launch(_ executable: URL, _ arguments: [String], action: CustomAction, context: FileActionContext, pluginDirectory: URL?) {
         let directory = context.directory
         let title = action.title
         Task { [weak window = context.window] in
@@ -183,6 +213,12 @@ enum CustomActionRunner {
                 process.executableURL = executable
                 process.arguments = arguments
                 process.currentDirectoryURL = directory
+                if let pluginDirectory {
+                    // The working directory is the shown folder, so scripts find their own files through this.
+                    var environment = ProcessInfo.processInfo.environment
+                    environment["OMMATEUM_PLUGIN_DIR"] = pluginDirectory.path
+                    process.environment = environment
+                }
                 let errorPipe = Pipe()
                 process.standardError = errorPipe
                 process.standardOutput = FileHandle.nullDevice

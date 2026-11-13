@@ -106,6 +106,8 @@
 | 共有メニュー（AirDrop 等の共有拡張） | ✅ | 標準の `NSSharingServicePicker` メニュー |
 | Dropbox「コピーを転送」 | ✅ | Dropbox の共有拡張 Dropbox Transfer を直接実行（ユーザーが送信まで確認）。組み込みアクションとして実装 |
 | アクションの拡張（プロバイダ方式・actions.json） | ✅ | スクリプト / ショートカット / 共有サービス。docs/actions.md。script は実アプリで実行・エラー表示まで確認。shortcut / shareService 種別、`shortcut` キー、`whenNoSelection` の画面からの実行は未検証（解析は単体テスト済み） |
+| プラグイン（plugins フォルダ） | ✅ | 1プラグイン = 1フォルダ（`plugin.json` ＋スクリプト等）。docs/plugins.md。VM で、コンテキストメニューへの表示、script の実行（ZIP の作成）、無効にするとメニューから消えること、有効なプラグインのショートカットが重複として拒否されること、「プラグインフォルダを開く」を確認。壊れた plugin.json の表示はホストの設定画面で確認。shortcut / shareService 種別のプラグインは画面から未実行 |
+| 設定 ▸ プラグイン | ✅ | 組み込み（ターミナルで開く・Dropbox Transfer・actions.json）とプラグインの一覧、有効・無効の切り替え（`disabledPlugins`）、Finder で表示、再読み込み、アプリに戻ったときの再読み込み。切り替えと一覧は実アプリで確認 |
 | Dropbox のその他の固有メニュー（共有リンク、バージョン履歴 等） | ⬜（不可） | Finder 専用の Finder Sync 拡張で、公開APIなし。feasibility.md §2 |
 
 ## Finder との差異（既知）

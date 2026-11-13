@@ -123,7 +123,7 @@ final class KeyboardShortcuts {
     }
 
     /// Registers a menu's commands with the keys they were built with, then applies the user's. Submenus are left
-    /// out: tags, sorting and grouping share one selector per submenu, and actions set their keys in actions.json.
+    /// out: tags, sorting and grouping share one selector per submenu, and actions set their keys in actions.json and plugins.
     func adopt(_ menu: NSMenu) {
         for item in menu.items {
             guard let id = Self.commandID(of: item) else { continue }
@@ -222,11 +222,11 @@ final class KeyboardShortcuts {
         NotificationCenter.default.post(name: .keyboardShortcutsChanged, object: self)
     }
 
-    /// ⌘↓ is handled by the browsers' keyDown, and actions set their keys in actions.json.
+    /// ⌘↓ is handled by the browsers' keyDown, and actions set their keys in actions.json and plugins.
     static func fixedShortcuts() -> [FixedShortcut] {
         let open = KeyShortcut(key: String(Character(UnicodeScalar(NSDownArrowFunctionKey)!)), modifiers: .command)
-        return [FixedShortcut(title: loc("Open"), shortcut: open)] + CustomActionsProvider.shared.shortcuts().map { title, combo in
-            FixedShortcut(title: loc("%@ (actions.json)", title), shortcut: KeyShortcut(key: combo.character, modifiers: combo.modifiers))
+        return [FixedShortcut(title: loc("Open"), shortcut: open)] + FileActionRegistry.shared.shortcuts().map { title, combo in
+            FixedShortcut(title: title, shortcut: KeyShortcut(key: combo.character, modifiers: combo.modifiers))
         }
     }
 }

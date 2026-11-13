@@ -258,6 +258,13 @@ final class FileActionsMenuController: NSObject, NSMenuDelegate {
         let edit = NSMenuItem(title: loc("Edit Actions…"), action: #selector(editActions(_:)), keyEquivalent: "")
         edit.target = self
         menu.addItem(edit)
+        let plugins = NSMenuItem(title: loc("Open Plugins Folder"), action: #selector(openPluginsFolder(_:)), keyEquivalent: "")
+        plugins.target = self
+        menu.addItem(plugins)
+    }
+
+    @objc func openPluginsFolder(_ sender: Any?) {
+        PluginManager.shared.revealFolder()
     }
 
     @objc func editActions(_ sender: Any?) {

@@ -75,6 +75,12 @@ Dropbox「コピーを転送」のような外部連携は、ブラウザやメ�
 - ユーザー定義: `CustomActionsProvider` が `~/Library/Application Support/Ommateum/actions.json` を読み、
   アプリを再ビルドせずにアクションを追加できる（スクリプト / ショートカット / 共有サービス）。書式は [actions.md](actions.md)。
   ファイルの更新日時が変わったときだけ読み直すので、編集は次にメニューを開いたときに反映される。
+- プラグイン: `PluginManager`（`Ommateum/Actions/Plugins.swift`）が `<サポート>/plugins/` の各フォルダの `plugin.json` を読む。
+  中身は actions.json と同じアクション定義で、相対パスの `command` をプラグインのフォルダから探す点だけが違う（`CustomActionRunner.resolve`）。
+  フォルダの一覧はメニューを開くたびに取り直し、`plugin.json` は更新日時が変わったときだけ読み直す。書式は [plugins.md](plugins.md)。
+- 有効・無効: 組み込み（`FileActionRegistry.builtIns`、actions.json を含む）とプラグインを、設定 ▸ プラグインで切り替える。
+  保存は UserDefaults の `disabledPlugins`（無効にした ID の一覧）。ID は組み込みが `builtin:…`、プラグインが `plugin:<フォルダ名>`。
+  無効の一覧で持つので、新しく置いたプラグインや後から増えた組み込みは有効で始まる。無効にしたものはメニューにもショートカット一覧にも出ない。
 - **採用しなかった方式: 実行時に読み込むプラグイン（.bundle / dylib）**。Hardened Runtime のライブラリ検証により、
   同じ Team ID で署名されていないコードは読み込めない。読み込むには `disable-library-validation` で検証を外す必要があり、
   任意のコードがアプリ内で動くことになるため採用しない。外部の処理は別プロセス（スクリプト・ショートカット）か、

@@ -34,6 +34,17 @@
         }
       }
     },
+    "%@ (%@)": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@（%2$@）"
+          }
+        }
+      }
+    },
     "%@ (%ld)": {
       "extractionState": "manual",
       "localizations": {
@@ -287,6 +298,17 @@
         }
       }
     },
+    "Actions: %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アクション: %@"
+          }
+        }
+      }
+    },
     "Add Server": {
       "extractionState": "manual",
       "localizations": {
@@ -463,6 +485,17 @@
         }
       }
     },
+    "Built In": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "内蔵"
+          }
+        }
+      }
+    },
     "Calculating size…": {
       "extractionState": "manual",
       "localizations": {
@@ -496,6 +529,17 @@
         }
       }
     },
+    "Can’t Read Plugin “%@”…": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プラグイン「%@」を読み込めません…"
+          }
+        }
+      }
+    },
     "Can’t Read actions.json…": {
       "extractionState": "manual",
       "localizations": {
@@ -514,6 +558,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "actions.json を読み込めません: %@"
+          }
+        }
+      }
+    },
+    "Can’t read the plugin “%@”: %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プラグイン「%1$@」を読み込めません: %2$@"
+          }
+        }
+      }
+    },
+    "Can’t read: %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "読み込めません: %@"
           }
         }
       }
@@ -1057,6 +1123,17 @@
         }
       }
     },
+    "Dropbox Transfer": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dropbox Transfer"
+          }
+        }
+      }
+    },
     "Duplicate": {
       "extractionState": "manual",
       "localizations": {
@@ -1097,6 +1174,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "アクションを編集…"
+          }
+        }
+      }
+    },
+    "Edit…": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "編集…"
           }
         }
       }
@@ -1251,6 +1339,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "検索"
+          }
+        }
+      }
+    },
+    "Folder: %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "フォルダ: %@"
           }
         }
       }
@@ -1416,6 +1515,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "ホーム"
+          }
+        }
+      }
+    },
+    "How to Write Plugins": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プラグインの書き方"
           }
         }
       }
@@ -1959,6 +2069,17 @@
         }
       }
     },
+    "No plugins. Put a plugin folder into the plugins folder.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プラグインはありません。plugins フォルダにプラグインのフォルダを入れてください。"
+          }
+        }
+      }
+    },
     "No saved workspaces.\nYou can save one from the Workspace menu.": {
       "extractionState": "manual",
       "localizations": {
@@ -2021,6 +2142,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "開く"
+          }
+        }
+      }
+    },
+    "Open Plugins Folder": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プラグインフォルダを開く"
           }
         }
       }
@@ -2113,6 +2245,17 @@
         }
       }
     },
+    "Opens the selected folders in Terminal.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "選択したフォルダをターミナルで開きます。"
+          }
+        }
+      }
+    },
     "Other": {
       "extractionState": "manual",
       "localizations": {
@@ -2186,6 +2329,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "再生"
+          }
+        }
+      }
+    },
+    "Plugins": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プラグイン"
           }
         }
       }
@@ -2307,6 +2461,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "やり直す"
+          }
+        }
+      }
+    },
+    "Reload": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "再読み込み"
           }
         }
       }
@@ -2626,6 +2791,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "コピーを転送（Dropbox Transfer）…"
+          }
+        }
+      }
+    },
+    "Sends a copy with Dropbox Transfer. Shown only when Dropbox is installed.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dropbox Transfer でコピーを送ります。Dropbox がインストールされているときだけ表示します。"
           }
         }
       }
@@ -3070,6 +3246,17 @@
         }
       }
     },
+    "The folder has no %@.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "フォルダに %@ がありません。"
+          }
+        }
+      }
+    },
     "The folder “%@” can’t be found.": {
       "extractionState": "manual",
       "localizations": {
@@ -3400,6 +3587,17 @@
         }
       }
     },
+    "Your own actions written in actions.json.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "actions.json に書いた自分用のアクション。"
+          }
+        }
+      }
+    },
     "Zoom": {
       "extractionState": "manual",
       "localizations": {
@@ -3594,6 +3792,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "「%@」はサーバーのアドレスとして使えません。smb://, afp://, nfs://, http://, https:// に対応しています。"
+          }
+        }
+      }
+    },
+    "“%@” isn’t executable. Run chmod +x on it.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "「%@」に実行権限がありません。chmod +x で実行権限を付けてください。"
           }
         }
       }

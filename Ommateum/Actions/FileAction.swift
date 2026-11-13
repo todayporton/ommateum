@@ -15,27 +15,48 @@ struct FileAction {
     let perform: (FileActionContext) -> Void
 }
 
-/// Adds actions for the current selection. Built-in integrations (Dropbox Transfer) and user-defined actions
-/// (actions.json) are both providers, so new ones are added without touching the browser or menu code.
+/// Adds actions for the current selection. Built-in integrations (Dropbox Transfer), user-defined actions
+/// (actions.json) and plugins are all providers, so new ones are added without touching the browser or menu code.
 protocol FileActionProvider {
     func actions(for context: FileActionContext) -> [FileAction]
 }
 
+/// A provider that comes with the app, listed in 設定 ▸ プラグイン so it can be turned off.
+struct BuiltInActionSource: Identifiable {
+    let id: String
+    let title: String
+    let detail: String
+    let provider: any FileActionProvider
+}
+
 final class FileActionRegistry {
-    static let shared = FileActionRegistry(providers: [OpenInTerminalActionProvider(), DropboxTransferActionProvider(), CustomActionsProvider.shared])
+    static let shared = FileActionRegistry(builtIns: [
+        BuiltInActionSource(id: "builtin:terminal", title: loc("Open in Terminal"),
+                            detail: loc("Opens the selected folders in Terminal."), provider: OpenInTerminalActionProvider()),
+        BuiltInActionSource(id: "builtin:dropbox", title: loc("Dropbox Transfer"),
+                            detail: loc("Sends a copy with Dropbox Transfer. Shown only when Dropbox is installed."), provider: DropboxTransferActionProvider()),
+        BuiltInActionSource(id: "builtin:actions.json", title: "actions.json",
+                            detail: loc("Your own actions written in actions.json."), provider: CustomActionsProvider.shared),
+    ], plugins: PluginManager.shared)
 
-    private(set) var providers: [any FileActionProvider]
+    let builtIns: [BuiltInActionSource]
+    let plugins: PluginManager
 
-    init(providers: [any FileActionProvider]) {
-        self.providers = providers
-    }
-
-    func register(_ provider: any FileActionProvider) {
-        providers.append(provider)
+    init(builtIns: [BuiltInActionSource], plugins: PluginManager) {
+        self.builtIns = builtIns
+        self.plugins = plugins
     }
 
     func actions(for context: FileActionContext) -> [FileAction] {
-        providers.flatMap { $0.actions(for: context) }
+        builtIns.filter { PluginSettings.isEnabled($0.id) }.flatMap { $0.provider.actions(for: context) }
+            + plugins.actions(for: context)
+    }
+
+    /// Shortcuts set in actions.json and plugins, which the shortcut settings can't reassign.
+    func shortcuts() -> [(title: String, combo: KeyCombo)] {
+        let custom = builtIns.contains { $0.provider is CustomActionsProvider && PluginSettings.isEnabled($0.id) }
+            ? CustomActionsProvider.shared.shortcuts().map { (loc("%@ (actions.json)", $0.title), $0.combo) } : []
+        return custom + plugins.shortcuts()
     }
 
     func menuItems(for context: FileActionContext) -> [NSMenuItem] {

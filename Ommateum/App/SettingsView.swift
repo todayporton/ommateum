@@ -2,7 +2,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 private enum SettingsSection: String, CaseIterable, Identifiable {
-    case general, sidebar, sounds, shortcuts
+    case general, sidebar, sounds, shortcuts, plugins
 
     var id: Self { self }
 
@@ -12,6 +12,7 @@ private enum SettingsSection: String, CaseIterable, Identifiable {
         case .sidebar: return loc("Sidebar")
         case .sounds: return loc("Sounds")
         case .shortcuts: return loc("Shortcuts")
+        case .plugins: return loc("Plugins")
         }
     }
 
@@ -21,6 +22,7 @@ private enum SettingsSection: String, CaseIterable, Identifiable {
         case .sidebar: return "sidebar.left"
         case .sounds: return "speaker.wave.2"
         case .shortcuts: return "command"
+        case .plugins: return "puzzlepiece.extension"
         }
     }
 }
@@ -49,6 +51,7 @@ struct SettingsView: View {
                 case .sidebar: SidebarSettingsView()
                 case .sounds: SoundSettingsView()
                 case .shortcuts: ShortcutSettingsView()
+                case .plugins: PluginSettingsView()
                 }
                 Spacer(minLength: 0)
             }
@@ -284,6 +287,100 @@ private struct SidebarSettingsView: View {
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
         .onReceive(NotificationCenter.default.publisher(for: .sidebarChanged)) { _ in revision += 1 }
+    }
+}
+
+/// Built-in actions and the plugins found in the plugins folder, each with an on/off switch. Applies immediately.
+private struct PluginSettingsView: View {
+    private let registry = FileActionRegistry.shared
+    @State private var plugins: [Plugin] = []
+    @State private var revision = 0
+
+    var body: some View {
+        let _ = revision
+        VStack(alignment: .leading, spacing: 8) {
+            Form {
+                Section(loc("Built In")) {
+                    ForEach(registry.builtIns) { source in
+                        row(id: source.id, title: source.title, detail: source.detail) {
+                            if source.provider is CustomActionsProvider {
+                                Button(loc("Edit…")) { CustomActionsProvider.shared.openForEditing() }
+                            }
+                        }
+                    }
+                }
+                Section(loc("Plugins")) {
+                    if plugins.isEmpty {
+                        Text(loc("No plugins. Put a plugin folder into the plugins folder."))
+                            .foregroundStyle(.secondary)
+                    }
+                    ForEach(plugins) { plugin in
+                        row(id: plugin.settingsID, title: plugin.name, detail: detail(of: plugin), isError: isBroken(plugin)) {
+                            Button { NSWorkspace.shared.activateFileViewerSelecting([plugin.directory]) } label: {
+                                Image(systemName: "magnifyingglass")
+                            }
+                            .buttonStyle(.borderless)
+                            .help(loc("Show in Finder"))
+                            .accessibilityLabel(loc("Show in Finder"))
+                        }
+                    }
+                }
+            }
+            .formStyle(.grouped)
+            HStack {
+                Button(loc("Open Plugins Folder")) { registry.plugins.revealFolder() }
+                Button(loc("Reload")) { reload() }
+                Spacer()
+                Link(loc("How to Write Plugins"), destination: Self.helpURL)
+            }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 16)
+        }
+        .onAppear(perform: reload)
+        // Plugins are usually added in the Finder; pick them up when the user comes back.
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in reload() }
+        .onReceive(NotificationCenter.default.publisher(for: .pluginsChanged)) { _ in revision += 1 }
+    }
+
+    static let helpURL = URL(string: "https://github.com/todayporton/ommateum/blob/main/docs/plugins.md")!
+
+    private func reload() {
+        plugins = registry.plugins.plugins()
+    }
+
+    private func isBroken(_ plugin: Plugin) -> Bool {
+        if case .failure = plugin.manifest { return true }
+        return false
+    }
+
+    /// The description and what the plugin adds, or why it can't be read.
+    private func detail(of plugin: Plugin) -> String {
+        switch plugin.manifest {
+        case .failure(let error):
+            return loc("Can’t read: %@", error.localizedDescription)
+        case .success(let manifest):
+            let actions = manifest.actions.map(\.title).joined(separator: loc(", "))
+            return [manifest.description, loc("Folder: %@", plugin.id), actions.isEmpty ? nil : loc("Actions: %@", actions)]
+                .compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: "\n")
+        }
+    }
+
+    private func row<Accessory: View>(id: String, title: String, detail: String, isError: Bool = false,
+                                      @ViewBuilder accessory: () -> Accessory) -> some View {
+        HStack(alignment: .top) {
+            Toggle(isOn: Binding(get: { PluginSettings.isEnabled(id) }, set: { PluginSettings.setEnabled($0, for: id) })) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                    Text(detail)
+                        .font(.caption)
+                        .foregroundStyle(isError ? AnyShapeStyle(.red) : AnyShapeStyle(.secondary))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .toggleStyle(.checkbox)
+            Spacer()
+            accessory()
+        }
     }
 }
 
