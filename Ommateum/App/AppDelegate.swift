@@ -31,17 +31,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        guard !isRunningTests else { return }
-        saveSession()
-        if !isTerminating, let front = keyWindowController { WorkspaceStore.shared.saveLastWindow(front.snapshot()) }
-        isTerminating = true
+        guard !isRunningTests, !isTerminating else { return }
+        recordStateForQuit()
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        // Recorded here, before AppKit may close the windows one by one.
-        if !isRunningTests, let front = keyWindowController { WorkspaceStore.shared.saveLastWindow(front.snapshot()) }
-        isTerminating = true
+        // Recorded here, before AppKit closes the windows one by one: each close would drop that window from the session.
+        if !isRunningTests { recordStateForQuit() }
         return .terminateNow
+    }
+
+    /// Saves the windows open at quit; from here on, windows closing must not change what was saved.
+    private func recordStateForQuit() {
+        saveSession()
+        if let front = keyWindowController { WorkspaceStore.shared.saveLastWindow(front.snapshot()) }
+        isTerminating = true
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
@@ -117,8 +121,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         controller.onClose = { [weak self] closed in
             guard let self else { return }
             // Remember the last window's state even if the user closes it before quitting.
-            if self.windowControllers.count == 1 { self.saveSession() }
-            if !self.isRunningTests, !self.isTerminating { WorkspaceStore.shared.saveLastWindow(closed.snapshot()) }
+            if !self.isRunningTests, !self.isTerminating {
+                if self.windowControllers.count == 1 { self.saveSession() }
+                WorkspaceStore.shared.saveLastWindow(closed.snapshot())
+            }
             self.windowControllers.removeAll { $0 === closed }
         }
     }
