@@ -59,8 +59,17 @@ final class FileOperations {
             showError(message: (mode == .copy ? loc("You can’t copy “%@” into itself.", invalid.lastPathComponent) : loc("You can’t move “%@” into itself.", invalid.lastPathComponent)), window: window)
             return
         }
-        guard let plan = plan(sources, into: directory, mode: mode, window: window), !plan.isEmpty else { return }
-        run(plan, mode: mode, actionName: mode == .copy ? loc("Copy") : loc("Move"), window: window, undoManager: undoManager, completion: completion)
+        guard let plan = plan(sources, into: directory, mode: mode, window: window), !plan.transfers.isEmpty else { return }
+        // Items moved into a merged folder are reported as that folder, which is what the browser shows.
+        let shown = completion.map { completion in { (urls: [URL]) in
+            var seen = Set<String>()
+            completion(urls.compactMap { url in
+                guard url.path.hasPrefix(directory.path + "/") else { return url }
+                let name = url.path.dropFirst(directory.path.count + 1).split(separator: "/").first.map(String.init) ?? url.lastPathComponent
+                return seen.insert(name).inserted ? directory.appendingPathComponent(name) : nil
+            })
+        } }
+        run(plan.transfers, mode: mode, emptiedFolders: plan.emptiedFolders, actionName: mode == .copy ? loc("Copy") : loc("Move"), window: window, undoManager: undoManager, completion: shown)
     }
 
     /// Duplicates items in place ("名前 のコピー"), like Finder's ⌘D.
@@ -70,17 +79,18 @@ final class FileOperations {
     }
 
     /// Performs `plan` in the background. Undo reverts what completed; redo runs the same plan again.
-    private func run(_ plan: [Transfer], mode: Mode, actionName: String, window: NSWindow?, undoManager: UndoManager?, completion: (([URL]) -> Void)? = nil) {
+    /// `emptiedFolders` are merged source folders of a move, removed once the move left them empty.
+    private func run(_ plan: [Transfer], mode: Mode, emptiedFolders: [URL] = [], actionName: String, window: NSWindow?, undoManager: UndoManager?, completion: (([URL]) -> Void)? = nil) {
         let outcome = Outcome<[Done]>([])
         undoManager?.registerUndo(withTarget: self) { ops in
-            ops.revert(outcome.value, mode: mode, actionName: actionName, window: window, undoManager: undoManager)
+            ops.revert(outcome.value, mode: mode, emptiedFolders: emptiedFolders, actionName: actionName, window: window, undoManager: undoManager)
         }
         undoManager?.setActionName(actionName)
         let progress = TransferProgress()
         let destination = plan.first?.destination.deletingLastPathComponent()
         TransferCenter.shared.track(progress, title: actionName, destination: destination)
         Task {
-            let result = await Self.perform(plan, mode: mode, progress: progress)
+            let result = await Self.perform(plan, mode: mode, progress: progress, emptiedFolders: emptiedFolders)
             TransferCenter.shared.finish(progress)
             outcome.value = result.completed
             if result.error == nil, !progress.isCancelled, !result.completed.isEmpty { Self.playSound(.transferDone) }
@@ -90,10 +100,10 @@ final class FileOperations {
     }
 
     /// Undoes completed transfers: removes copies (to the Trash) or moves items back, then restores replaced items.
-    private func revert(_ done: [Done], mode: Mode, actionName: String, window: NSWindow?, undoManager: UndoManager?) {
+    private func revert(_ done: [Done], mode: Mode, emptiedFolders: [URL], actionName: String, window: NSWindow?, undoManager: UndoManager?) {
         let redoPlan = done.map { Transfer(source: $0.transfer.source, destination: $0.transfer.destination, replacing: $0.trashedReplacement == nil ? nil : $0.transfer.destination) }
         undoManager?.registerUndo(withTarget: self) { ops in
-            ops.run(redoPlan, mode: mode, actionName: actionName, window: window, undoManager: undoManager) { [weak ops] created in
+            ops.run(redoPlan, mode: mode, emptiedFolders: emptiedFolders, actionName: actionName, window: window, undoManager: undoManager) { [weak ops] created in
                 ops?.postRestored(created)
             }
         }
@@ -112,7 +122,10 @@ final class FileOperations {
                                 noTrash.append(item.transfer.destination)
                                 continue // nothing was trashed in its place on such a volume
                             }
-                        case .move: try fm.moveItem(at: item.transfer.destination, to: item.transfer.source)
+                        case .move:
+                            // A merged source folder was removed after the move; recreate it to put its items back.
+                            try fm.createDirectory(at: item.transfer.source.deletingLastPathComponent(), withIntermediateDirectories: true)
+                            try fm.moveItem(at: item.transfer.destination, to: item.transfer.source)
                         }
                         if let trashed = item.trashedReplacement {
                             try fm.moveItem(at: trashed, to: item.transfer.destination)
@@ -133,62 +146,141 @@ final class FileOperations {
         }
     }
 
-    /// Asks the user about name conflicts. Returns `nil` if the user stopped the operation.
-    private func plan(_ sources: [URL], into directory: URL, mode: Mode, window: NSWindow?) -> [Transfer]? {
-        var result: [Transfer] = []
-        var applyToAll: NSApplication.ModalResponse?
-        let noTrash = Self.isWithoutTrash(directory)
+    /// Transfers to carry out, decided with the user before any I/O.
+    struct Plan {
+        var transfers: [Transfer] = []
+        /// Source folders merged by a move, deepest first: removed afterwards if nothing was left in them.
+        var emptiedFolders: [URL] = []
+    }
+
+    enum ConflictChoice { case keepBoth, merge, replace, skip, cancel }
+
+    /// Choices made with "Apply to All". Merge is only possible for two folders, so it has its own slot:
+    /// after "merge all", items inside are still asked about.
+    private struct ConflictDefaults {
+        var items: ConflictChoice?
+        var folders: ConflictChoice?
+    }
+
+    /// Asks the user about name conflicts. Returns `nil` if the user cancelled the operation.
+    private func plan(_ sources: [URL], into directory: URL, mode: Mode, window: NSWindow?) -> Plan? {
+        var plan = Plan()
+        var defaults = ConflictDefaults()
+        var rest: [URL] = []
         for source in sources {
-            let target = directory.appendingPathComponent(source.lastPathComponent)
             if source.deletingLastPathComponent().standardizedFileURL.path == directory.path {
                 // Same folder: moving is a no-op, copying creates "のコピー" like Finder.
                 if mode == .copy {
-                    result.append(Transfer(source: source, destination: Self.availableURL(for: source.lastPathComponent, in: directory, copySuffix: true), replacing: nil))
+                    plan.transfers.append(Transfer(source: source, destination: Self.availableURL(for: source.lastPathComponent, in: directory, copySuffix: true), replacing: nil))
                 }
-                continue
-            }
-            guard FileManager.default.fileExists(atPath: target.path) || Self.isBrokenSymlink(target) else {
-                result.append(Transfer(source: source, destination: target, replacing: nil))
-                continue
-            }
-            let response = applyToAll ?? askConflict(name: source.lastPathComponent, window: window, multiple: sources.count > 1, deletes: noTrash, applyToAll: &applyToAll)
-            switch response {
-            case .alertFirstButtonReturn: // 両方とも残す
-                result.append(Transfer(source: source, destination: Self.availableURL(for: source.lastPathComponent, in: directory, copySuffix: false), replacing: nil))
-            case .alertSecondButtonReturn: // 置き換える
-                result.append(Transfer(source: source, destination: target, replacing: target, deletesReplacement: noTrash))
-            case .alertThirdButtonReturn: // スキップ
-                continue
-            default: // 停止
-                return nil
+            } else {
+                rest.append(source)
             }
         }
-        return result
+        do {
+            let noTrash = Self.isWithoutTrash(directory)
+            guard try resolve(rest, into: directory, isInner: false, laterConflicts: 0, mode: mode, noTrash: noTrash, window: window, defaults: &defaults, plan: &plan) else { return nil }
+        } catch {
+            showError(error, window: window)
+            return nil
+        }
+        return plan
     }
 
-    private func askConflict(name: String, window: NSWindow?, multiple: Bool, deletes: Bool, applyToAll: inout NSApplication.ModalResponse?) -> NSApplication.ModalResponse {
+    /// Plans `sources` into `directory`, asking about each conflict; merging two folders recurses into them.
+    /// `laterConflicts` counts conflicts known to follow outside this folder. Returns false if cancelled.
+    private func resolve(_ sources: [URL], into directory: URL, isInner: Bool, laterConflicts: Int, mode: Mode, noTrash: Bool, window: NSWindow?, defaults: inout ConflictDefaults, plan: inout Plan) throws -> Bool {
+        let conflicting = sources.filter { Self.exists(directory.appendingPathComponent($0.lastPathComponent)) }
+        var remaining = conflicting.count
+        for source in sources {
+            let target = directory.appendingPathComponent(source.lastPathComponent)
+            guard Self.exists(target) else {
+                plan.transfers.append(Transfer(source: source, destination: target, replacing: nil))
+                continue
+            }
+            remaining -= 1
+            // Finder's folder settings: keep the destination's rather than asking.
+            if isInner, source.lastPathComponent == ".DS_Store" { continue }
+            let folders = Self.isMergeableFolder(source) && Self.isMergeableFolder(target)
+            let choice: ConflictChoice
+            if let preset = folders ? defaults.folders : defaults.items {
+                choice = preset
+            } else {
+                let more = remaining + laterConflicts > 0 || folders && Self.hasConflict(merging: source, into: target)
+                let answer = askConflict(name: source.lastPathComponent, in: isInner ? directory.lastPathComponent : nil, canMerge: folders, deletes: noTrash, offersApplyToAll: more, window: window)
+                choice = answer.choice
+                if answer.applyToAll, choice != .cancel {
+                    if choice == .merge {
+                        defaults.folders = .merge
+                    } else {
+                        defaults.items = choice
+                        if defaults.folders == nil { defaults.folders = choice }
+                    }
+                }
+            }
+            switch choice {
+            case .keepBoth:
+                plan.transfers.append(Transfer(source: source, destination: Self.availableURL(for: source.lastPathComponent, in: directory, copySuffix: false), replacing: nil))
+            case .replace:
+                plan.transfers.append(Transfer(source: source, destination: target, replacing: target, deletesReplacement: noTrash))
+            case .skip:
+                continue
+            case .cancel:
+                return false
+            case .merge:
+                let children = try FileManager.default.contentsOfDirectory(at: source, includingPropertiesForKeys: nil)
+                    .sorted { $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedAscending }
+                guard try resolve(children, into: target, isInner: true, laterConflicts: remaining + laterConflicts, mode: mode, noTrash: noTrash, window: window, defaults: &defaults, plan: &plan) else { return false }
+                if mode == .move { plan.emptiedFolders.append(source) }
+            }
+        }
+        return true
+    }
+
+    private func askConflict(name: String, in folder: String?, canMerge: Bool, deletes: Bool, offersApplyToAll: Bool, window: NSWindow?) -> (choice: ConflictChoice, applyToAll: Bool) {
         let alert = NSAlert()
-        alert.messageText = loc("An item named “%@” already exists in this location.", name)
-        alert.informativeText = deletes
+        alert.messageText = folder.map { loc("An item named “%@” already exists in “%@”.", name, $0) } ?? loc("An item named “%@” already exists in this location.", name)
+        var info = deletes
             ? loc("If you replace it, the existing item is deleted immediately. You can’t undo this.")
             : loc("If you replace it, the existing item is moved to the Trash.")
+        if canMerge { info += " " + loc("If you merge them, the contents of both folders are combined, and you’re asked about each item with the same name.") }
+        alert.informativeText = info
+        var choices: [ConflictChoice] = [.keepBoth]
         alert.addButton(withTitle: loc("Keep Both"))
+        if canMerge {
+            choices.append(.merge)
+            alert.addButton(withTitle: loc("Merge"))
+        }
+        choices += [.replace, .skip, .cancel]
         alert.addButton(withTitle: loc("Replace"))
         alert.addButton(withTitle: loc("Skip"))
-        alert.addButton(withTitle: loc("Stop"))
-        if multiple {
+        alert.addButton(withTitle: loc("Cancel")).keyEquivalent = "\u{1b}"
+        if offersApplyToAll {
             alert.showsSuppressionButton = true
             alert.suppressionButton?.title = loc("Apply to All")
         }
-        let response = alert.runModal()
-        let stop = NSApplication.ModalResponse(rawValue: NSApplication.ModalResponse.alertThirdButtonReturn.rawValue + 1)
-        if alert.suppressionButton?.state == .on, response != stop {
-            applyToAll = response
-        }
-        return response
+        let index = alert.runModal().rawValue - NSApplication.ModalResponse.alertFirstButtonReturn.rawValue
+        let choice = choices.indices.contains(index) ? choices[index] : .cancel
+        return (choice, alert.suppressionButton?.state == .on)
     }
 
-    nonisolated static func perform(_ plan: [Transfer], mode: Mode, progress: TransferProgress) async -> (completed: [Done], error: Error?) {
+    private nonisolated static func exists(_ url: URL) -> Bool {
+        FileManager.default.fileExists(atPath: url.path) || isBrokenSymlink(url)
+    }
+
+    /// A real folder, not a package or a link to one.
+    nonisolated static func isMergeableFolder(_ url: URL) -> Bool {
+        guard let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .isPackageKey, .isSymbolicLinkKey]) else { return false }
+        return values.isDirectory == true && values.isPackage != true && values.isSymbolicLink != true
+    }
+
+    /// Whether merging `source` into `target` meets a name conflict at the first level.
+    private nonisolated static func hasConflict(merging source: URL, into target: URL) -> Bool {
+        let names = (try? FileManager.default.contentsOfDirectory(atPath: source.path)) ?? []
+        return names.contains { $0 != ".DS_Store" && exists(target.appendingPathComponent($0)) }
+    }
+
+    nonisolated static func perform(_ plan: [Transfer], mode: Mode, progress: TransferProgress, emptiedFolders: [URL] = []) async -> (completed: [Done], error: Error?) {
         await Task.detached(priority: .userInitiated) {
             var done: [Done] = []
             let fm = FileManager.default
@@ -229,6 +321,11 @@ final class FileOperations {
                     if let setAside { try? fm.moveItem(at: setAside, to: transfer.destination) }
                     return (done, error is CancellationError ? nil : error)
                 }
+            }
+            // Deepest first, as listed. A folder still holding a skipped item stays.
+            for folder in emptiedFolders {
+                let contents = (try? fm.contentsOfDirectory(atPath: folder.path)) ?? ["?"]
+                if contents.allSatisfy({ $0 == ".DS_Store" }) { try? fm.removeItem(at: folder) }
             }
             return (done, nil)
         }.value

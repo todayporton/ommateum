@@ -375,6 +375,17 @@
         }
       }
     },
+    "An item named “%@” already exists in “%@”.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "「%2$@」に「%1$@」という名前の項目がすでにあります。"
+          }
+        }
+      }
+    },
     "Applications": {
       "extractionState": "manual",
       "localizations": {
@@ -1420,6 +1431,17 @@
         }
       }
     },
+    "If you merge them, the contents of both folders are combined, and you’re asked about each item with the same name.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "統合すると両方のフォルダの中身をまとめ、同じ名前の項目があれば項目ごとに確認します。"
+          }
+        }
+      }
+    },
     "If you replace it, the existing item is deleted immediately. You can’t undo this.": {
       "extractionState": "manual",
       "localizations": {
@@ -1636,6 +1658,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "ワークスペースを管理…"
+          }
+        }
+      }
+    },
+    "Merge": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "統合"
           }
         }
       }
@@ -2879,17 +2912,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "標準"
-          }
-        }
-      }
-    },
-    "Stop": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "停止"
           }
         }
       }

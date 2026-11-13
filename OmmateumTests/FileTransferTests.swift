@@ -147,6 +147,31 @@ struct FileTransferTests {
         #expect(try FileManager.default.contentsOfDirectory(atPath: target.deletingLastPathComponent().path) == ["new.txt"])
     }
 
+    /// Merging by a move: the items go into the existing folder, and the source folder is removed only if emptied.
+    @Test func mergedMoveRemovesOnlyEmptiedFolders() async throws {
+        let dir = try makeTempDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let fm = FileManager.default
+        let emptied = dir.appendingPathComponent("a/x"), kept = dir.appendingPathComponent("b/x")
+        let target = dir.appendingPathComponent("dst/x")
+        for folder in [emptied, kept, target] { try fm.createDirectory(at: folder, withIntermediateDirectories: true) }
+        try Data("1".utf8).write(to: emptied.appendingPathComponent("one.txt"))
+        try Data().write(to: emptied.appendingPathComponent(".DS_Store"))
+        try Data("2".utf8).write(to: kept.appendingPathComponent("two.txt"))
+        try Data("skipped".utf8).write(to: kept.appendingPathComponent("skipped.txt"))
+        #expect(FileOperations.isMergeableFolder(emptied))
+
+        let plan = [
+            FileOperations.Transfer(source: emptied.appendingPathComponent("one.txt"), destination: target.appendingPathComponent("one.txt"), replacing: nil),
+            FileOperations.Transfer(source: kept.appendingPathComponent("two.txt"), destination: target.appendingPathComponent("two.txt"), replacing: nil),
+        ]
+        let result = await FileOperations.perform(plan, mode: .move, progress: TransferProgress(), emptiedFolders: [emptied, kept])
+        #expect(result.error == nil)
+        #expect(try fm.contentsOfDirectory(atPath: target.path).sorted() == ["one.txt", "two.txt"])
+        #expect(!fm.fileExists(atPath: emptied.path))
+        #expect(try fm.contentsOfDirectory(atPath: kept.path) == ["skipped.txt"])
+    }
+
     @Test func localFoldersAreNotTreatedAsWithoutTrash() throws {
         let dir = try makeTempDir()
         defer { try? FileManager.default.removeItem(at: dir) }
