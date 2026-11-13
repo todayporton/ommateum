@@ -281,12 +281,25 @@ final class ListViewController: NSViewController, BrowserContent {
     /// Selects what is listed so far; items still missing are retried when their folder has loaded.
     private func applyPendingSelection() {
         var indexes = IndexSet()
+        var found: Set<String> = []
+        var loadedFolders: Set<String> = directory.map { [$0.path] } ?? []
         for row in 0..<outlineView.numberOfRows {
-            if let node = outlineView.item(atRow: row) as? ListNode, pendingSelectionPaths.contains(node.item.url.path) { indexes.insert(row) }
+            guard let node = outlineView.item(atRow: row) as? ListNode else { continue }
+            if node.children != nil { loadedFolders.insert(node.item.url.path) }
+            if pendingSelectionPaths.contains(node.item.url.path) {
+                indexes.insert(row)
+                found.insert(node.item.url.path)
+            }
         }
         outlineView.selectRowIndexes(indexes, byExtendingSelection: false)
         if let first = indexes.first { outlineView.scrollRowToVisible(first) }
-        if indexes.count == pendingSelectionPaths.count { pendingSelectionPaths = [] }
+        // Only items in folders still loading are worth waiting for. One missing from a folder that is listed is
+        // gone (say, dragged away to another app), and waiting for it would clear the selection whenever any
+        // folder is opened later. The ones found stay while others wait, so selecting again keeps them.
+        let waiting = pendingSelectionPaths.subtracting(found).filter {
+            !loadedFolders.contains(URL(fileURLWithPath: $0).deletingLastPathComponent().path)
+        }
+        pendingSelectionPaths = waiting.isEmpty ? [] : found.union(waiting)
     }
 
     private func restoreExpansion(among nodes: [ListNode]) {
