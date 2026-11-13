@@ -59,6 +59,8 @@ enum MainMenu {
         let menu = NSMenu(title: loc("File"))
         add(menu, loc("New Window"), #selector(AppDelegate.newWindow(_:)), "n")
         add(menu, loc("New Folder"), #selector(FileBrowserViewController.newFolder(_:)), "n", [.command, .shift])
+        add(menu, loc("New Folder with Selection"), #selector(FileBrowserViewController.newFolderWithSelection(_:)), "n", [.command, .control])
+        add(menu, loc("Expand Folder Contents"), #selector(FileBrowserViewController.expandFolderContents(_:)))
         add(menu, loc("New Tab"), #selector(MainWindowController.newTab(_:)), "t")
         add(menu, loc("Open"), #selector(FileBrowserViewController.openSelection(_:)), "o")
         add(menu, loc("Open in New Tab"), #selector(FileBrowserViewController.openSelectionInNewTab(_:)))

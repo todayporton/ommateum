@@ -134,7 +134,7 @@ enum BrowserMenus {
             add(loc("Open in Split Down"), #selector(FileBrowserViewController.openSelectionInSplitDown(_:)))
         }
         menu.addItem(.separator())
-        add(loc("New Folder with Selection"), #selector(FileBrowserViewController.newFolderWithSelection(_:)))
+        add(loc("New Folder with Selection"), #selector(FileBrowserViewController.newFolderWithSelection(_:)), key: "n", modifiers: [.command, .control])
         if items.allSatisfy({ FileOperations.isMergeableFolder($0.url) }) {
             add(loc("Expand Folder Contents"), #selector(FileBrowserViewController.expandFolderContents(_:)))
         }
