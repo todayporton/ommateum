@@ -61,6 +61,10 @@ plugins/
 /usr/bin/zip -r -q "アーカイブ.zip" "${@:t}"
 ```
 
+## 例
+
+- [examples/plugins/organize-music](../examples/plugins/organize-music) — 音楽ファイルをタグから「アルバムアーティスト/アルバム」のフォルダへ整理する。Swift のソースを初回にコンパイルして使う例
+
 ## 読み込みと安全性
 
 プラグインのコードをアプリの中に読み込むことはしません。スクリプトは別のプロセスとして、ショートカットは `shortcuts` コマンドで、共有サービスは macOS の共有拡張として実行します（理由は [architecture.md](architecture.md) の「拡張」）。

@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "name": "音楽ファイルを整理",
+  "description": "選択した音楽ファイルを、タグをもとに「アルバムアーティスト/アルバム」のフォルダへ移動します（表示中のフォルダの中に作成）",
+  "actions": [
+    {
+      "title": "音楽ファイルを整理",
+      "type": "script",
+      "command": "organize.sh",
+      "arguments": ["{dir}", "{files}"],
+      "appliesTo": "files",
+      "extensions": ["mp3", "m4a", "m4b", "aac", "flac", "alac", "wav", "aif", "aiff", "aifc", "caf"]
+    }
+  ]
+}
