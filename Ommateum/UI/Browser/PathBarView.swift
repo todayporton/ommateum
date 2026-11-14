@@ -6,9 +6,12 @@ final class PathBarView: NSView {
     var onSelect: ((URL) -> Void)?
     /// Files dropped on a folder of the bar, with the operation `DropPolicy` chose.
     var onDrop: ((_ urls: [URL], _ directory: URL, _ operation: NSDragOperation) -> Bool)?
+    /// A file drag rested on a folder of the bar: go there, as a click would.
+    var onSpring: ((URL) -> Void)?
 
     private let pathControl = DropPathControl()
     private let dropHighlight = NSView()
+    private lazy var springLoader = SpringLoader(view: pathControl) { [weak self] folder in self?.onSpring?(folder) }
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -76,8 +79,18 @@ final class PathBarView: NSView {
         dropHighlight.isHidden = false
     }
 
+    /// Any folder of the bar, whether or not it takes the files, except one being dragged.
+    fileprivate func spring(_ info: NSDraggingInfo?, at point: NSPoint) {
+        guard let info else { return springLoader.cancel() }
+        let urls = DropPolicy.fileURLs(from: info.draggingPasteboard)
+        let folder = urls.isEmpty ? nil : dropTarget(at: point)?.url
+        springLoader.hover(folder.flatMap { folder in urls.contains { $0.path == folder.path } ? nil : folder },
+                           drag: info.draggingSequenceNumber)
+    }
+
     fileprivate func drop(_ urls: [URL], into directory: URL, operation: NSDragOperation) -> Bool {
-        onDrop?(urls, directory, operation) ?? false
+        springLoader.cancel()
+        return onDrop?(urls, directory, operation) ?? false
     }
 
     @objc private func clicked() {
@@ -102,10 +115,14 @@ private final class DropPathControl: NSPathControl {
     override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
         let drop = drop(for: sender)
         bar?.showDropHighlight(drop?.frame)
+        bar?.spring(sender, at: convert(sender.draggingLocation, from: nil))
         return drop?.operation ?? []
     }
 
-    override func draggingExited(_ sender: NSDraggingInfo?) { bar?.showDropHighlight(nil) }
+    override func draggingExited(_ sender: NSDraggingInfo?) {
+        bar?.showDropHighlight(nil)
+        bar?.spring(nil, at: .zero)
+    }
 
     override func prepareForDragOperation(_ sender: NSDraggingInfo) -> Bool { drop(for: sender) != nil }
 

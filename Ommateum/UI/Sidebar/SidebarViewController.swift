@@ -168,6 +168,10 @@ final class SidebarViewController: NSViewController {
             }
         }
     }
+    /// Resting a file drag on a folder row opens it in the active browser.
+    private lazy var springLoader = SpringLoader(view: outlineView) { [weak self] folder in
+        self?.host?.sidebarOpen(folder, inNewTab: false)
+    }
     private var contentTrailing: NSLayoutConstraint?
     private var contentWidth: NSLayoutConstraint?
     private var isCompact = false
@@ -1216,6 +1220,8 @@ extension SidebarViewController: NSOutlineViewDataSource, NSOutlineViewDelegate 
     func outlineView(_ outlineView: NSOutlineView, validateDrop info: NSDraggingInfo, proposedItem item: Any?, proposedChildIndex index: Int) -> NSDragOperation {
         let operation = dropOperation(info, proposedItem: item, proposedChildIndex: index)
         if operation.isEmpty { dropTarget = nil }
+        let folder = dropTarget.flatMap { $0.isTrash || !FileSystem.isDirectory($0.url) ? nil : $0.url }
+        springLoader.hover(folder, drag: info.draggingSequenceNumber)
         return operation
     }
 
@@ -1262,6 +1268,7 @@ extension SidebarViewController: NSOutlineViewDataSource, NSOutlineViewDelegate 
 
     func outlineView(_ outlineView: NSOutlineView, acceptDrop info: NSDraggingInfo, item: Any?, childIndex index: Int) -> Bool {
         dropTarget = nil
+        springLoader.cancel()
         let pasteboard = info.draggingPasteboard
         let position = index == NSOutlineViewDropOnItemIndex ? nil : index
         if let drag = pasteboard.string(forType: Self.itemDragType) {

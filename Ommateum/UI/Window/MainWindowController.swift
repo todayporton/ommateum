@@ -188,7 +188,11 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
     }
 
     @objc func toolbarNavigate(_ sender: NSSegmentedControl) {
-        switch sender.selectedSegment {
+        navigate(segment: sender.selectedSegment, sender: sender)
+    }
+
+    private func navigate(segment: Int, sender: Any?) {
+        switch segment {
         case 0: activeBrowser?.goBack(sender)
         case 1: activeBrowser?.goForward(sender)
         default: activeBrowser?.goToEnclosingFolder(sender)
@@ -270,11 +274,16 @@ extension MainWindowController: NSToolbarDelegate {
     func toolbar(_ toolbar: NSToolbar, itemForItemIdentifier itemIdentifier: NSToolbarItem.Identifier, willBeInsertedIntoToolbar flag: Bool) -> NSToolbarItem? {
         switch itemIdentifier {
         case ToolbarID.navigation:
-            let control = NSSegmentedControl(images: [
+            let control = NavigationSegmentedControl(images: [
                 NSImage(systemSymbolName: "chevron.left", accessibilityDescription: loc("Back"))!,
                 NSImage(systemSymbolName: "chevron.right", accessibilityDescription: loc("Forward"))!,
                 NSImage(systemSymbolName: "chevron.up", accessibilityDescription: loc("Enclosing Folder"))!,
             ], trackingMode: .momentary, target: self, action: #selector(toolbarNavigate(_:)))
+            control.registerForDraggedTypes([.fileURL])
+            control.onSpring = { [weak self] segment in
+                self?.navigate(segment: segment, sender: nil)
+                self?.updateForActiveBrowser()
+            }
             control.segmentStyle = .separated
             control.setToolTip(loc("Back"), forSegment: 0)
             control.setToolTip(loc("Forward"), forSegment: 1)
@@ -324,4 +333,34 @@ extension MainWindowController: NSToolbarDelegate {
             return nil
         }
     }
+}
+
+/// Back, Forward and Enclosing Folder. Resting a file drag on one of them goes there, again and again while the
+/// drag stays, as in Finder; nothing can be dropped on them.
+private final class NavigationSegmentedControl: NSSegmentedControl {
+    var onSpring: ((Int) -> Void)?
+    private lazy var springLoader = SpringLoader(view: self)
+
+    /// The segments are images of the same size, so each takes an equal share of the width.
+    private func segment(at point: NSPoint) -> Int? {
+        guard segmentCount > 0, bounds.contains(point) else { return nil }
+        let segment = min(Int(point.x / (bounds.width / CGFloat(segmentCount))), segmentCount - 1)
+        return isEnabled(forSegment: segment) ? segment : nil
+    }
+
+    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation { draggingUpdated(sender) }
+
+    override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
+        let isFileDrag = !DropPolicy.fileURLs(from: sender.draggingPasteboard).isEmpty
+        let segment = isFileDrag ? segment(at: convert(sender.draggingLocation, from: nil)) : nil
+        springLoader.hover(segment.map(String.init), drag: sender.draggingSequenceNumber, repeats: true) { [weak self] in
+            // The segment may have been disabled by the last move (no more history).
+            guard let self, let segment, self.isEnabled(forSegment: segment) else { return }
+            self.onSpring?(segment)
+        }
+        return []
+    }
+
+    override func draggingExited(_ sender: NSDraggingInfo?) { springLoader.cancel() }
+    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool { springLoader.cancel(); return false }
 }

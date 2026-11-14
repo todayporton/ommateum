@@ -76,6 +76,9 @@ final class TabBarView: NSView {
         }
     }
 
+    /// Resting a file drag on a tab switches to it.
+    private lazy var springLoader = SpringLoader(view: self)
+
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         wantsLayer = true
@@ -217,16 +220,34 @@ final class TabBarView: NSView {
         }
         let drop = fileDrop(for: sender)
         fileDropIndex = drop?.index
+        springToTab(for: sender)
         return drop?.operation ?? []
+    }
+
+    /// Any tab but the selected one, whether or not its folder takes the files.
+    private func springToTab(for sender: NSDraggingInfo) {
+        let point = convert(sender.draggingLocation, from: nil)
+        let index = DropPolicy.fileURLs(from: sender.draggingPasteboard).isEmpty
+            ? nil : buttons.firstIndex(where: { $0.frame.contains(point) })
+        guard let index, index != selectedIndex else {
+            return springLoader.hover(nil, drag: sender.draggingSequenceNumber) {}
+        }
+        let id = buttons[index].tab.id
+        springLoader.hover(id.uuidString, drag: sender.draggingSequenceNumber) { [weak self] in
+            guard let self, let index = self.buttons.firstIndex(where: { $0.tab.id == id }) else { return }
+            self.select(index)
+        }
     }
 
     override func draggingExited(_ sender: NSDraggingInfo?) {
         setDropTarget(nil)
         fileDropIndex = nil
+        springLoader.cancel()
     }
 
     override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
         fileDropIndex = nil
+        springLoader.cancel()
         let target = dropTarget(for: sender)
         setDropTarget(nil)
         guard let target else {

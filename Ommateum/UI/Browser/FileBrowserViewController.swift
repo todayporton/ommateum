@@ -110,6 +110,11 @@ final class FileBrowserViewController: NSViewController, NSMenuItemValidation {
         searchBar.onClose = { [weak self] in self?.endSearch(nil) }
         pathBar.translatesAutoresizingMaskIntoConstraints = false
         pathBar.onSelect = { [weak self] url in self?.pathBarSelected(url) }
+        pathBar.onSpring = { [weak self] url in
+            // The shown folder is already open.
+            guard let self, url.standardizedFileURL.path != self.currentURL.standardizedFileURL.path else { return }
+            self.pathBarSelected(url)
+        }
         pathBar.onDrop = { [weak self] urls, directory, operation in
             self?.contentAcceptDrop(urls, into: directory, operation: operation) ?? false
         }

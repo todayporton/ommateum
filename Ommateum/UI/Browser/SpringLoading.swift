@@ -2,9 +2,10 @@ import AppKit
 import CoreGraphics
 
 /// Opens the folder a drag rests on, like Finder's spring-loaded folders: after holding still on it for a moment,
-/// or at once when Space is pressed.
+/// or at once when Space is pressed. The same goes for other places a drag can rest on, such as a sidebar item,
+/// a tab or the back button: they act as if clicked.
 ///
-/// The view's drop validation reports the folder under the cursor through `hover(_:)`. A timer does the rest,
+/// The view's drop validation reports what is under the cursor through `hover`. A timer does the rest,
 /// because AppKit asks for validation only while the cursor moves. Space is read from the keyboard state rather
 /// than from key events: during a drag that started in this app the drag loop takes the events, and during one
 /// from another app the keys go to that app.
@@ -15,16 +16,18 @@ final class SpringLoader {
 
     private weak var view: NSView?
     private let open: (URL) -> Void
-    private var target: URL?
+    private var target: String?
+    private var action: (() -> Void)?
+    private var repeats = false
     private var since = Date()
     private var spaceWasDown = false
     private var timer: Timer?
-    /// The folder just opened. Column view keeps the cursor on the same row after opening it, which must not
-    /// open it again and again.
-    private var opened: URL?
+    /// What was just opened. Column view keeps the cursor on the same row after opening it, and the path bar on
+    /// the same folder, which must not open it again and again.
+    private var opened: String?
     private var dragNumber = 0
 
-    init(view: NSView, open: @escaping (URL) -> Void) {
+    init(view: NSView, open: @escaping (URL) -> Void = { _ in }) {
         self.view = view
         self.open = open
     }
@@ -32,11 +35,19 @@ final class SpringLoader {
     /// The folder under the cursor, or nil when the cursor is not on a folder that can be opened.
     /// `drag` is the drag's sequence number: a new drag may open the folder the last one opened.
     func hover(_ folder: URL?, drag: Int) {
-        if drag != dragNumber || folder?.path != opened?.path { opened = nil }
+        hover(folder?.path, drag: drag) { [open] in if let folder { open(folder) } }
+    }
+
+    /// `target` names what is under the cursor (nil: nothing to open). `repeats`: keep acting while the drag stays
+    /// on it, as the back button goes back one folder after another.
+    func hover(_ target: String?, drag: Int, repeats: Bool = false, action: @escaping () -> Void) {
+        if drag != dragNumber || target != opened { opened = nil }
         dragNumber = drag
-        guard let folder, folder.path != opened?.path else { return cancel() }
-        guard folder.path != target?.path else { return }
-        target = folder
+        guard let target, target != opened else { return cancel() }
+        self.action = action
+        self.repeats = repeats
+        guard target != self.target else { return }
+        self.target = target
         since = Date()
         spaceWasDown = Self.isSpaceDown
         guard timer == nil else { return }
@@ -52,17 +63,22 @@ final class SpringLoader {
         timer?.invalidate()
         timer = nil
         target = nil
+        action = nil
     }
 
     private func tick() {
-        guard let target, isDragStillOverView else { return cancel() }
+        guard target != nil, let action, isDragStillOverView else { return cancel() }
         let spaceDown = Self.isSpaceDown
         let pressed = spaceDown && !spaceWasDown
         spaceWasDown = spaceDown
         guard pressed || Date().timeIntervalSince(since) >= Self.delay else { return }
-        cancel()
-        opened = target
-        open(target)
+        if repeats {
+            since = Date()
+        } else {
+            opened = target
+            cancel()
+        }
+        action()
     }
 
     /// AppKit does not always tell the destination that a drag left or ended (e.g. when it ends in another app),
