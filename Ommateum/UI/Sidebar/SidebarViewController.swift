@@ -1221,7 +1221,8 @@ extension SidebarViewController: NSOutlineViewDataSource, NSOutlineViewDelegate 
         let operation = dropOperation(info, proposedItem: item, proposedChildIndex: index)
         if operation.isEmpty { dropTarget = nil }
         let folder = dropTarget.flatMap { $0.isTrash || !FileSystem.isDirectory($0.url) ? nil : $0.url }
-        springLoader.hover(folder, drag: info.draggingSequenceNumber)
+        let row = dropTarget.map { outlineView.row(forItem: $0) } ?? -1
+        springLoader.hover(folder, frame: row >= 0 ? outlineView.rect(ofRow: row) : .null, drag: info.draggingSequenceNumber)
         return operation
     }
 

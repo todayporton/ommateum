@@ -83,9 +83,9 @@ final class PathBarView: NSView {
     fileprivate func spring(_ info: NSDraggingInfo?, at point: NSPoint) {
         guard let info else { return springLoader.cancel() }
         let urls = DropPolicy.fileURLs(from: info.draggingPasteboard)
-        let folder = urls.isEmpty ? nil : dropTarget(at: point)?.url
-        springLoader.hover(folder.flatMap { folder in urls.contains { $0.path == folder.path } ? nil : folder },
-                           drag: info.draggingSequenceNumber)
+        let target = urls.isEmpty ? nil : dropTarget(at: point)
+        springLoader.hover(target.flatMap { target in urls.contains { $0.path == target.url.path } ? nil : target.url },
+                           frame: target?.frame.insetBy(dx: -2, dy: 0) ?? .null, drag: info.draggingSequenceNumber)
     }
 
     fileprivate func drop(_ urls: [URL], into directory: URL, operation: NSDragOperation) -> Bool {

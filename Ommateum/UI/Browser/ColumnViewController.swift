@@ -396,12 +396,14 @@ extension ColumnViewController: NSBrowserDelegate {
         let urls = DropPolicy.fileURLs(from: info.draggingPasteboard)
         let onFolder = dropOperation.pointee == .on
         guard !urls.isEmpty, let destination = dropDestination(row: &row.pointee, column: column.pointee, operation: &dropOperation.pointee) else {
-            springLoader.hover(nil, drag: info.draggingSequenceNumber)
+            springLoader.hover(nil, frame: .null, drag: info.draggingSequenceNumber)
             return []
         }
         // Resting on a folder opens it as the next column, unless the folder is one of the items being dragged.
         let isFolderRow = onFolder && dropOperation.pointee == .on
-        springLoader.hover(isFolderRow && !urls.contains(where: { $0.path == destination.path }) ? destination : nil, drag: info.draggingSequenceNumber)
+        springLoader.hover(isFolderRow && !urls.contains(where: { $0.path == destination.path }) ? destination : nil,
+                           frame: isFolderRow ? browser.frame(ofRow: row.pointee, inColumn: column.pointee) : .null,
+                           drag: info.draggingSequenceNumber)
         return DropPolicy.operation(for: info, urls: urls, destination: destination)
     }
 

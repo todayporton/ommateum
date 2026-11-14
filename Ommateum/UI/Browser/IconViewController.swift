@@ -295,7 +295,8 @@ extension IconViewController: NSCollectionViewDataSource, NSCollectionViewDelega
         let index = proposedIndexPath.pointee.item
         let onFolder = dropOperation.pointee == .on && items.indices.contains(index) && items[index].isNavigable
         // Resting on a folder opens it, unless the folder is one of the items being dragged.
-        springLoader.hover(onFolder && !urls.contains(where: { $0.path == items[index].url.path }) ? items[index].url : nil, drag: draggingInfo.draggingSequenceNumber)
+        springLoader.hover(onFolder && !urls.contains(where: { $0.path == items[index].url.path }) ? items[index].url : nil,
+                           frame: onFolder ? collectionView.frameForItem(at: index) : .null, drag: draggingInfo.draggingSequenceNumber)
         if onFolder {
             return DropPolicy.operation(for: draggingInfo, urls: urls, destination: items[index].url)
         }

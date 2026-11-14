@@ -233,7 +233,7 @@ final class TabBarView: NSView {
             return springLoader.hover(nil, drag: sender.draggingSequenceNumber) {}
         }
         let id = buttons[index].tab.id
-        springLoader.hover(id.uuidString, drag: sender.draggingSequenceNumber) { [weak self] in
+        springLoader.hover(id.uuidString, frame: buttons[index].frame, drag: sender.draggingSequenceNumber) { [weak self] in
             guard let self, let index = self.buttons.firstIndex(where: { $0.tab.id == id }) else { return }
             self.select(index)
         }

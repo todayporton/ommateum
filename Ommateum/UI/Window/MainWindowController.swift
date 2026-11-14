@@ -342,9 +342,11 @@ private final class NavigationSegmentedControl: NSSegmentedControl {
     private lazy var springLoader = SpringLoader(view: self)
 
     /// The segments are images of the same size, so each takes an equal share of the width.
+    private var segmentWidth: CGFloat { bounds.width / CGFloat(max(segmentCount, 1)) }
+
     private func segment(at point: NSPoint) -> Int? {
         guard segmentCount > 0, bounds.contains(point) else { return nil }
-        let segment = min(Int(point.x / (bounds.width / CGFloat(segmentCount))), segmentCount - 1)
+        let segment = min(Int(point.x / segmentWidth), segmentCount - 1)
         return isEnabled(forSegment: segment) ? segment : nil
     }
 
@@ -353,7 +355,8 @@ private final class NavigationSegmentedControl: NSSegmentedControl {
     override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
         let isFileDrag = !DropPolicy.fileURLs(from: sender.draggingPasteboard).isEmpty
         let segment = isFileDrag ? segment(at: convert(sender.draggingLocation, from: nil)) : nil
-        springLoader.hover(segment.map(String.init), drag: sender.draggingSequenceNumber, repeats: true) { [weak self] in
+        let frame = segment.map { NSRect(x: CGFloat($0) * segmentWidth, y: 0, width: segmentWidth, height: bounds.height).insetBy(dx: 2, dy: 0) } ?? .null
+        springLoader.hover(segment.map(String.init), frame: frame, drag: sender.draggingSequenceNumber, repeats: true) { [weak self] in
             // The segment may have been disabled by the last move (no more history).
             guard let self, let segment, self.isEnabled(forSegment: segment) else { return }
             self.onSpring?(segment)

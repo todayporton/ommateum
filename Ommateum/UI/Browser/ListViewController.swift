@@ -649,11 +649,13 @@ extension ListViewController: NSOutlineViewDataSource, NSOutlineViewDelegate, NS
         let (node, destination) = dropTarget(for: info)
         // Resting on a folder opens it, unless the folder is one of the items being dragged.
         // A file row hands the drop to its folder, which is not under the cursor and so is not opened.
-        let underCursor = outlineView.item(atRow: outlineView.row(at: outlineView.convert(info.draggingLocation, from: nil)))
+        let rowUnderCursor = outlineView.row(at: outlineView.convert(info.draggingLocation, from: nil))
+        let underCursor = outlineView.item(atRow: rowUnderCursor)
         let springFolder = node.flatMap { folder in
             (underCursor as? ListNode) === folder && !urls.contains(where: { $0.path == folder.item.url.path }) ? folder.item.url : nil
         }
-        springLoader.hover(springFolder, drag: info.draggingSequenceNumber)
+        springLoader.hover(springFolder, frame: rowUnderCursor >= 0 ? outlineView.rect(ofRow: rowUnderCursor) : .null,
+                           drag: info.draggingSequenceNumber)
         guard let destination else { return [] }
         outlineView.setDropItem(node, dropChildIndex: NSOutlineViewDropOnItemIndex)
         return DropPolicy.operation(for: info, urls: urls, destination: destination)
