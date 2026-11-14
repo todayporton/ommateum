@@ -190,6 +190,8 @@ final class SidebarViewController: NSViewController {
     /// Sections and servers the user folded; kept across reloads, which rebuild every row object.
     /// A folded row simply has no children: NSOutlineView refuses to collapse rows without its own disclosure triangle.
     private var collapsedKeys: Set<String> = []
+    /// Rows whose children are shrinking away before the fold takes effect.
+    private var foldingItems: [NSObject] = []
     private var highlightedURL: URL?
     private var capacities: [String: Int64] = [:]
     private static let itemDragType = NSPasteboard.PasteboardType("com.ommateum.sidebar-item")
@@ -422,13 +424,68 @@ final class SidebarViewController: NSViewController {
     }
 
     private func toggleFolding(_ item: NSObject) {
+        guard !foldingItems.contains(where: { $0 === item }) else { return }
         let key = Self.collapseKey(item)
-        if collapsedKeys.remove(key) == nil { collapsedKeys.insert(key) }
+        if collapsedKeys.remove(key) == nil {
+            animateFolding(item, key: key)
+            return
+        }
         outlineView.reloadItem(item, reloadChildren: true)
+        refreshAfterFolding()
+    }
+
+    /// Shrinks the children to nothing while fading them, then folds for real, so closing animates as opening does.
+    /// Removing the rows with an animation instead loses their names halfway: the table slides a copy of the rows
+    /// whose text is not drawn.
+    private func animateFolding(_ item: NSObject, key: String) {
+        let row = outlineView.row(forItem: item)
+        let level = outlineView.level(forRow: row)
+        var end = row + 1
+        while end < outlineView.numberOfRows, outlineView.level(forRow: end) > level { end += 1 }
+        let children = IndexSet(row + 1 ..< end)
+        let cell = row >= 0 ? outlineView.view(atColumn: 0, row: row, makeIfNecessary: false) : nil
+        (cell as? SidebarHeaderCell)?.setDisclosure(isOpen: false)
+        (cell as? SidebarCell)?.setDisclosure(isOpen: false)
+        let finish = { [weak self] in
+            guard let self else { return }
+            self.foldingItems.removeAll { $0 === item }
+            self.collapsedKeys.insert(key)
+            self.outlineView.reloadItem(item, reloadChildren: true)
+            self.refreshAfterFolding()
+        }
+        guard !children.isEmpty, row >= 0 else { return finish() }
+        foldingItems.append(item)
+        nonisolated(unsafe) let finishOnMain = finish
+        NSAnimationContext.runAnimationGroup({ context in
+            context.duration = WindowRootViewController.animationDuration
+            context.allowsImplicitAnimation = true
+            outlineView.noteHeightOfRows(withIndexesChanged: children)
+            for child in children {
+                guard let cell = outlineView.view(atColumn: 0, row: child, makeIfNecessary: false) else { continue }
+                cell.clipsToBounds = true // so the shrinking rows do not draw over each other
+                cell.animator().alphaValue = 0
+            }
+        }, completionHandler: {
+            MainActor.assumeIsolated { finishOnMain() }
+        })
+    }
+
+    private func refreshAfterFolding() {
         expandAll()
         highlight(highlightedURL)
         // Reloading an item keeps its row view, so didAdd does not run and the header would lose its style.
         updateAllColors()
+    }
+
+    /// True for rows inside one that is being folded.
+    private func isShrinking(_ item: Any) -> Bool {
+        guard !foldingItems.isEmpty else { return false }
+        var parent = outlineView.parent(forItem: item)
+        while let current = parent {
+            if foldingItems.contains(where: { $0 === current as AnyObject }) { return true }
+            parent = outlineView.parent(forItem: current)
+        }
+        return false
     }
 
     private func isFolded(_ item: NSObject) -> Bool { collapsedKeys.contains(Self.collapseKey(item)) }
@@ -1045,6 +1102,8 @@ private final class SidebarHeaderCell: NSTableCellView {
     override func mouseEntered(with event: NSEvent) { disclosureButton.isHidden = false }
     override func mouseExited(with event: NSEvent) { disclosureButton.isHidden = true }
 
+    func setDisclosure(isOpen: Bool) { disclosureButton.setDisclosure(isOpen: isOpen) }
+
     @objc private func disclosurePressed(_ sender: Any?) { onDisclosure?() }
 }
 
@@ -1132,6 +1191,9 @@ private final class SidebarCell: NSTableCellView {
     }
 
     @objc private func ejectPressed(_ sender: Any?) { onEject?() }
+
+    func setDisclosure(isOpen: Bool) { disclosureButton.setDisclosure(isOpen: isOpen) }
+
     @objc private func disclosurePressed(_ sender: Any?) { onDisclosure?() }
 }
 
@@ -1165,7 +1227,10 @@ extension SidebarViewController: NSOutlineViewDataSource, NSOutlineViewDelegate 
     func outlineView(_ outlineView: NSOutlineView, rowViewForItem item: Any) -> NSTableRowView? { SidebarRowView() }
 
     /// Measured from Finder on macOS 26: 32pt rows and 19pt group names (the table adds the space above a group).
-    func outlineView(_ outlineView: NSOutlineView, heightOfRowByItem item: Any) -> CGFloat { item is SidebarSection ? 19 : 32 }
+    func outlineView(_ outlineView: NSOutlineView, heightOfRowByItem item: Any) -> CGFloat {
+        if isShrinking(item) { return 0.01 } // folding (the table wants a positive height)
+        return item is SidebarSection ? 19 : 32
+    }
 
     func outlineView(_ outlineView: NSOutlineView, didAdd rowView: NSTableRowView, forRow row: Int) { updateColors(ofRow: row) }
 
@@ -1181,6 +1246,8 @@ extension SidebarViewController: NSOutlineViewDataSource, NSOutlineViewDelegate 
             }()
             cell.configure(title: section.title, isOpen: !isFolded(section)) { [weak self] in self?.toggleFolding(section) }
             cell.textField?.alphaValue = headersVisible ? 1 : 0
+            cell.alphaValue = 1 // faded out and clipped by a fold
+            cell.clipsToBounds = false
             return cell
         }
         let id = NSUserInterfaceItemIdentifier("entry")
@@ -1205,6 +1272,8 @@ extension SidebarViewController: NSOutlineViewDataSource, NSOutlineViewDelegate 
             return nil
         }
         cell.setCompact(!headersVisible)
+        cell.alphaValue = 1 // faded out and clipped by a fold
+        cell.clipsToBounds = false
         return cell
     }
 
