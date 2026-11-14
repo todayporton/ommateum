@@ -213,6 +213,8 @@ enum BrowserMenus {
             let icon = NSWorkspace.shared.icon(forFile: app.path)
             icon.size = NSSize(width: 16, height: 16)
             item.image = icon
+            // macOS 27 hides menu item images by default; app icons are what tell these apart.
+            if #available(macOS 27.0, *) { item.preferredImageVisibility = .visible }
             submenu.addItem(item)
         }
         if apps.isEmpty { submenu.addItem(withTitle: loc("None"), action: nil, keyEquivalent: "") }
